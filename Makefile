@@ -4,7 +4,7 @@
 ##
 
 PROGRAM= bestguess
-OBJECTS= args.o table.o
+OBJECTS= utils.o args.o table.o
 
 default: debug
 

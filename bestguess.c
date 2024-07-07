@@ -75,6 +75,7 @@
    
 */
 		       
+#include "utils.h"
 #include "bestguess.h"
 
 static void print_usage(struct rusage *usage) {
@@ -119,12 +120,12 @@ static void print_usage(struct rusage *usage) {
 
 }
 
-
 static void run(const char *cmd) {
 
   struct rusage usage;
   int status;
   pid_t pid;
+  FILE *f;
 
   char **args = split(cmd);
 
@@ -133,13 +134,18 @@ static void run(const char *cmd) {
 
   if (pid == 0) {
 
+    f = freopen("/dev/null", "r", stdin);
+    if (!f) bail("freopen failed on stdin");
+    f = freopen("/dev/null", "w", stderr);
+    if (!f) bail("freopen failed on stderr");
+    f = freopen("/dev/null", "w", stdout);
+    if (!f) bail("freopen failed on stdout");
+
     execvp(args[0], args);
 
   } else {
 
-    puts("********************** Waiting for child\n");
     wait4(pid, &status, 0, &usage);
-    puts("********************** Child finished\n");
 
     print_usage(&usage);
 
@@ -152,9 +158,11 @@ static void run(const char *cmd) {
 
 int main(int argc, char *argv[]) {
 
+  if (argc) progname = argv[0];
+  
   if (argc < 2) {
-    printf("Usage: %s cmd1 ... cmdN\n", argv[0]);
-    printf("  where each cmd is '<command> [args...]'\n");
+    printf("Usage: %s [options] <cmd> ...\n\n", progname);
+    printf("For more information, try %s --help\n", progname);
     exit(-1);
   }
   

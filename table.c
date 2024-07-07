@@ -11,8 +11,8 @@
 */
 
 #include <string.h>
+#include "utils.h"
 #include "table.h"
-#include "logging.h"
 
 // Supply zero as the 'max_capacity' to have no limit.
 //

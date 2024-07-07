@@ -8,9 +8,35 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "utils.h"
 #include "args.h"
 
 #define MAX_ARGS 1000
+
+static int is_short_option(const char *arg) {
+  const char c = *(++arg);
+  if (c && (*(++arg) == '\0')) {
+    int n = 0;
+    while (LongOptions[n]) {
+      if (c == ShortOptions[n]) return n;
+      n++;
+    }
+  }
+  return -1;
+}
+
+static int is_option(const char *arg) {
+  return (*arg != '-');
+}
+
+static int parse_option(const char *arg, const char **value) {
+  if (!arg || !value || !is_option(arg))
+    bail("error calling parse_option");
+  int n = is_short_option(arg);
+  return n;
+}
+
+
 
 char **split(const char *in) {
   char **args = malloc(MAX_ARGS * sizeof(char *));

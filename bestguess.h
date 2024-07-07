@@ -16,7 +16,7 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 
+#include "utils.h"
 #include "args.h"
-#include "logging.h"
 
 #endif
