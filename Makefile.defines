@@ -1,0 +1,161 @@
+## -*- Mode: Makefile; -*-                                              
+##
+## The 'bestguess' project for performance benchmarking
+##
+
+ifeq ($(RELEASE_MODE),)
+  $(error RELEASE_MODE is not set)
+endif
+
+# -----------------------------------------------------------------------------
+# ESTABLISH THE PLATFORM: CPU ARCH and OS
+# -----------------------------------------------------------------------------
+
+ARCH_DETECTED=$(shell uname -m)
+
+ifneq (,$(findstring arm64,$(ARCH_DETECTED)))
+  ARCH=arm64
+else ifneq (,$(findstring aarch64,$(ARCH_DETECTED)))
+  ARCH=arm64
+else ifneq (,$(findstring x86_64,$(ARCH_DETECTED)))
+  ARCH=x86_64
+else
+  $(info NOTE: Unknown CPU architecture: $(ARCH_DETECTED))
+  ARCH=
+endif
+
+OS_DETECTED=$(shell (uname -o || uname -s) 2> /dev/null)
+ifeq ($(OS_DETECTED), Darwin)
+  OS=macos
+else ifeq ($(OS_DETECTED), Linux)
+  OS=linux
+else ifeq ($(OS_DETECTED), GNU/Linux)
+  OS=linux
+else
+  $(info NOTE: Unknown OS: $(OS_DETECTED))
+  OS=
+endif
+
+#$(info NOTE: Platform detected: $(OS)/$(ARCH))
+
+# -----------------------------------------------------------------------------
+# ESTABLISH THE COMPILER TO USE
+# -----------------------------------------------------------------------------
+
+# Having CC set to cc is not useful because the executable cc is
+# inconsistent across platforms.  We treat cc as if CC were not set.
+ifeq ($(CC),cc)
+ CC=
+endif
+
+ifeq ($(OS),macos)
+  ifeq ($(CC),) 
+    CC=clang
+  endif
+else ifeq ($(OS),linux)
+  ifeq ($(CC),) 
+    CC=gcc
+  endif
+else
+  $(error Unsupported OS: $(OS))
+endif
+
+# gcc is often installed with its version number, e.g. gcc-14.
+#
+# We adapt below for things like
+#
+#    'make CC=gcc-9' or 'CC=gcc-14 make build'
+#
+# We set COMPILER to be gcc/clang while CC holds the executable name.
+#
+ifneq (,$(findstring gcc,$(CC)))
+  #$(info NOTE: Invoking gcc using: $(CC))
+  COMPILER=gcc
+  ifneq (,$(findstring -,$(CC)))
+    AR=$(subst gcc,gcc-ar,$(CC))
+    RANLIB=$(subst gcc,gcc-ranlib,$(CC))
+    COV=$(subst gcc,gcov,$(CC))
+  else
+    AR=ar
+    RANLIB=ranlib
+    COV=gcov
+  endif
+else ifeq ($(findstring clang,$(CC)),clang)
+  #$(info NOTE: Using clang as: $(CC))
+  COMPILER=clang
+  AR=ar
+  RANLIB=ranlib
+  COV=gcov
+else
+  $(error Compiler "$(CC)" not recognized as gcc or clang in Makefile.defines)
+endif
+
+# -----------------------------------------------------------------------------
+# SET OS-DEPENDENT COMPILE/LINK FLAGS
+# -----------------------------------------------------------------------------
+
+ifeq ($(OS),macos)
+  ifeq ($(CC),) 
+    CC=clang
+  endif
+  DESTDIR?=/usr/local
+else ifeq ($(OS),linux)
+  ifeq ($(CC),) 
+    CC=gcc
+  endif
+  DESTDIR?=/usr/local
+else
+  $(error Unsupported OS: $(OS))
+endif
+
+# -----------------------------------------------------------------------------
+# SET RELEASE-MODE OPTIONS
+# -----------------------------------------------------------------------------
+
+ifeq ($(RELEASE_MODE),true)
+  # Release mode is true (production build)
+  ASAN_FLAGS=
+  ifeq ($(COMPILER),clang)
+    # Alternative: LTOFLAGS=-flto=thin
+    LTOFLAGS=-flto=full
+  else
+    LTOFLAGS=-flto=auto
+  endif
+else
+  # Release mode is false (debugging)
+  ASAN_FLAGS=-fsanitize=address,undefined -fno-sanitize-recover=all 
+  ifeq ($(COMPILER),gcc) 
+    ifeq ($(OS),macos)
+      ifeq ($(ARCH),arm64)
+        # As of June 2024, gcc does not support -fsanitize=address on macos/arm.  
+        ASAN_FLAGS=
+      endif
+    endif
+  endif
+endif
+
+# -----------------------------------------------------------------------------
+# Dump the important configuration values, for debugging
+# -----------------------------------------------------------------------------
+
+.PHONY:
+config:
+	@echo "OS=$(OS)"
+	@echo "ARCH=$(ARCH)"
+	@echo "COMPILER=$(COMPILER)"
+	@echo "LD=$(LD)"
+	@echo "AR=$(AR)"
+	@echo "RANLIB=$(RANLIB)"
+	@echo "COV=$(COV)"
+	@echo "ASAN_FLAGS=$(ASAN_FLAGS)"
+	@echo "CFLAGS=$(CFLAGS)"
+	@echo "SYSCFLAGS=$(SYSCFLAGS)"
+	@echo "LTOFLAGS=$(LTOFLAGS)"
+	@echo "LDFLAGS=$(LDFLAGS)"
+	@echo "DYLDFLAGS=$(DYLDFLAGS)"
+	@echo "DTRACE_FLAG=$(DTRACE_FLAG)"
+	@echo "SRCDIR=$(SRCDIR)"
+	@echo "OBJDIR=$(OBJDIR)"
+	@echo "DESTDIR=$(DESTDIR)"
+	@echo "ALL_O=$(ALL_O:%=$(OBJDIR)/%)"
+
