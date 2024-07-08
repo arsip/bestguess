@@ -50,7 +50,9 @@ static const char *const OptionDefaults[] = { OptionList(X) };
 
 int is_option(const char *arg);
 int parse_option(const char *arg, const char **value);
-
+int iter_argv(int argc, char *argv[],
+	      int *n, const char **value,
+	      int i);
 
 char **split(const char *in);
 

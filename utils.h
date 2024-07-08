@@ -12,7 +12,7 @@
 #include "logging.h"
 
 #define bail(msg) do {				\
-    warn(progname, msg);			\
+    confess(progname, msg);			\
     exit(-1);					\
   } while (0)
 

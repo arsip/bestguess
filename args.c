@@ -90,20 +90,69 @@ int is_option(const char *arg) {
 //
 int parse_option(const char *arg, const char **value) {
   if (!arg || !value) bail("error calling parse_option");
-  *value = NULL;
   arg = skip_whitespace(arg);
   int n = match_short_option(arg, value);
   if (n < 0)
     n = match_long_option(arg, value);
   if (n < 0)
     return -1;
-  if (!*value) bail("error in option name matching");
-  if (**value == '\0') {
-    *value = OptionDefaults[n];
-  } else if (**value == '=') {
+  if (!*value)
+    bail("error in option name matching");
+  if (**value == '=')
     (*value)++;
-  } else bail("error in default option detection");
+  else
+    *value = NULL;
   return n;
+}
+
+
+/*
+
+  Start by passing in 0 for i.  The return value is the iterator
+  state: pass it back in for i, until the return value is zero.
+
+  Example:
+      const char *val;
+      int n, i = 0;
+      printf("Arg  Option  Value\n");
+      while ((i = iter_argv(argc, argv, &n, &val, i))) {
+	printf("[%2d] %3d     %-20s\n", i, n, val); 
+      }
+
+  The returned 'n' will be:
+    -1   -> 'value' (non-null) is ordinary, not an option/switch
+            if 'value' is null, argv[i] is an invalid option/switch
+    0..N -> 'value' is for option n
+            it may have been given as "-w=7" or "-w 7"
+	    or the default option if "-w" is followed by another 
+	    option/switch
+
+*/   
+int iter_argv(int argc, char *argv[],
+	      int *n, const char **value,
+	      int i) {
+  i++;
+  if ((argc < 1) || !argv || !n || !value)
+    bail("invalid args passed to iter_argv");
+  if ((i < 1) || (i >= argc)) return 0;
+  if (is_option(argv[i])) {
+    *n = parse_option(argv[i], value);
+    if (*n < 0) {
+      *value = NULL;
+      return i;
+    }
+    if (!*value && OptionNumVals[*n]) {
+      if (is_option(argv[i+1]))
+	*value = OptionDefaults[*n];
+      else
+	*value = argv[++i];
+    }
+    return i;
+  } 
+  // Else we have a value that is not the value of an option
+  *n = -1;
+  *value = argv[i];
+  return i;
 }
 
 char **split(const char *in) {
