@@ -6,8 +6,4 @@
 
 #include "utils.h"
 
-void bail(const char *msg) {
-  warn(progname, msg);
-  exit(-1);
-}
 

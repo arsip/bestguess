@@ -78,7 +78,7 @@
 #include "utils.h"
 #include "bestguess.h"
 
-static void print_usage(struct rusage *usage) {
+static void print_rusage(struct rusage *usage) {
 
   printf("User   %ld.%06d\n", usage->ru_utime.tv_sec, usage->ru_utime.tv_usec);
   printf("System %ld.%06d\n", usage->ru_stime.tv_sec, usage->ru_stime.tv_usec);
@@ -147,7 +147,7 @@ static void run(const char *cmd) {
 
     wait4(pid, &status, 0, &usage);
 
-    print_usage(&usage);
+    print_rusage(&usage);
 
     if (WEXITSTATUS(status))
       printf("Child exited with non-zero status: %d\n", WEXITSTATUS(status));

@@ -11,8 +11,11 @@
 #include <stdlib.h>
 #include "logging.h"
 
-static const char *progname = "null";
+#define bail(msg) do {				\
+    warn(progname, msg);			\
+    exit(-1);					\
+  } while (0)
 
-void bail(const char *msg);
+static const char *progname = "null";
 
 #endif

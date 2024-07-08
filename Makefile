@@ -60,6 +60,9 @@ CFLAGS= $(CWARNS) $(COPT) -std=c99 -fPIC $(SYSCFLAGS) $(ASAN_FLAGS)
 $(PROGRAM): TAGS $(OBJECTS)
 	$(CC) $(CFLAGS) -o $(PROGRAM) $(PROGRAM).c $(OBJECTS) 
 
+optiontest: TAGS $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $@.c $(OBJECTS) 
+
 # ------------------------------------------------------------------
 
 install: $(PROGRAM)
