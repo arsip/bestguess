@@ -5,7 +5,7 @@
 //  COPYRIGHT (c) Jamie A. Jennings, 2024
 
 #include "utils.h"
-#include "args.h"
+#include "optable.h"
 
 int main(int argc, char *argv[]) {
 
@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
   int n, i = 0;
   printf("Arg  Option  Value\n");
   printf("---  ------  -----\n");
-  while ((i = iter_argv(argc, argv, &n, &val, i))) {
+  while ((i = optable_iter(argc, argv, &n, &val, i))) {
     if (n < 0) {
       if (val)
 	printf("[%2d]         %-20s\n", i, argv[i]); 
@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
   printf("Option           Value\n");
   printf("---------------  -------------\n");
   i = 0;
-  while ((i = iter_argv(argc, argv, &n, &val, i))) {
+  while ((i = optable_iter(argc, argv, &n, &val, i))) {
     if (n == -1) {
       if (val) continue;	// ordinary argument
       printf("Error: invalid option/switch %s\n", argv[i]);
@@ -68,7 +68,12 @@ int main(int argc, char *argv[]) {
       default:
 	printf("Error: Invalid option index %d\n", n);
     }
-    if (val && !*val) printf("Error: required value not provided\n");
+    if (val) {
+      if (!*val) printf("Warning: option value is empty\n");
+      if (!OptionNumVals[n]) printf("Error: option does not take a value\n");
+    } else {
+      if (OptionNumVals[n]) printf("Error: option requires a value\n");
+    }
   }
   return 0;
 }

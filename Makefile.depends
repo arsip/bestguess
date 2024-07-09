@@ -2,4 +2,5 @@
 utils.o: utils.c utils.h logging.h
 args.o: args.c utils.h logging.h args.h
 table.o: table.c utils.h logging.h table.h
+optable.o: optable.c optable.h
 bestguess.o: bestguess.c utils.h logging.h bestguess.h args.h
