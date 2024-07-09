@@ -31,47 +31,30 @@ static const char *skip_whitespace(const char *str) {
   return str;
 }
 
-// If return value is non-negative, *value points to \0 or =
-static int match_short_option(const char *arg, const char **value) {
-  const char c = *(++arg);
-  arg++;
-  if (c && ((*arg == '\0') || (*arg == '='))) {
-    int n = 0;
-    while (LongOptions[n]) {
-      if (c == ShortOptions[n]) {
-	*value = arg;
-	return n;
-      }
-      n++;
-    }
-  }
-  return -1;
-}
-
 // Cleaner and safer to have a custom char-by-char comparison function
 // than to use system calls like 'strlen' and 'strcmp'.
 //
 // Match ==> Return pointer within str to \0 or =
 // No match ==> return NULL
 //
-static const char *compare_long_option(const char *str, const char *option) {
-  if (!str || !option) return NULL;
-  while (*option) {
+static const char *compare_option(const char *str, const char *name) {
+  if (!str || !name || !*name) return NULL;
+  while (*name) {
     // Elided unnecessary check for end of str below
-    if (*str != *option) return NULL;
-    str++; option++;
+    if (*str != *name) return NULL;
+    str++; name++;
   }
   if ((*str == '\0') || (*str == '=')) return str;
   return NULL;
 }
 
 // If return value is non-negative, *value points to \0 or =
-static int match_long_option(const char *arg, const char **value) {
-  arg++;
-  if (*(arg++) != '-') return -1;
+static int match_option(const char *arg,
+			const char *const names[],
+			const char **value) {
   int n = 0;
-  while (LongOptions[n]) {
-    *value = compare_long_option(arg, LongOptions[n]);
+  while (names[n]) {
+    *value = compare_option(arg, names[n]);
     if (*value) return n;
     n++;
   }
@@ -86,14 +69,15 @@ int is_option(const char *arg) {
 //  -1    -> 'arg' does not match any option/switch
 //   0..N -> 'arg' matches this option number
 //
-// Caller must check 'is_option()' before using 'parse_option()'
+// Caller MUST check 'is_option()' before using 'parse_option()'
+// because it assumes that 'arg' begins with '-'
 //
 int parse_option(const char *arg, const char **value) {
   if (!arg || !value) bail("error calling parse_option");
   arg = skip_whitespace(arg);
-  int n = match_short_option(arg, value);
+  int n = match_option(++arg, ShortOptions, value);
   if (n < 0)
-    n = match_long_option(arg, value);
+    n = match_option(++arg, LongOptions, value);
   if (n < 0)
     return -1;
   if (!*value)
@@ -104,7 +88,6 @@ int parse_option(const char *arg, const char **value) {
     *value = NULL;
   return n;
 }
-
 
 /*
 

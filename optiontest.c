@@ -35,7 +35,11 @@ int main(int argc, char *argv[]) {
   printf("---------------  -------------\n");
   i = 0;
   while ((i = iter_argv(argc, argv, &n, &val, i))) {
-    if (n == -1) continue;
+    if (n == -1) {
+      if (val) continue;	// ordinary argument
+      printf("Error: invalid option/switch %s\n", argv[i]);
+      continue;
+    }
     switch (n) {
       case OPT_WARMUP:
 	printf("%15s  %s\n", "warmup", val);
@@ -62,9 +66,9 @@ int main(int argc, char *argv[]) {
 	printf("%15s  %s\n", "help", val);
 	break;
       default:
-	printf("ERROR: Invalid option index %d\n", n);
+	printf("Error: Invalid option index %d\n", n);
     }
-    if (val && !*val) puts("Error: required value not provided");
+    if (val && !*val) printf("Error: required value not provided\n");
   }
   return 0;
 }
