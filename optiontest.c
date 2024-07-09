@@ -64,6 +64,7 @@ int main(int argc, char *argv[]) {
       default:
 	printf("ERROR: Invalid option index %d\n", n);
     }
+    if (val && !*val) puts("Error: required value not provided");
   }
   return 0;
 }

@@ -120,12 +120,10 @@ int parse_option(const char *arg, const char **value) {
       }
 
   The returned 'n' will be:
-    -1   -> 'value' (non-null) is ordinary, not an option/switch
+    -1   -> if 'value' is non-null, the arg is ordinary, not an option/switch
             if 'value' is null, argv[i] is an invalid option/switch
-    0..N -> 'value' is for option n
-            it may have been given as "-w=7" or "-w 7"
-	    or the default option if "-w" is followed by another 
-	    option/switch
+    0..N -> 'value' is for option n, given as either "-w=7" or "-w 7"
+
 
 */   
 int iter_argv(int argc, char *argv[],
@@ -141,12 +139,8 @@ int iter_argv(int argc, char *argv[],
       *value = NULL;
       return i;
     }
-    if (!*value && OptionNumVals[*n]) {
-      if (is_option(argv[i+1]))
-	*value = OptionDefaults[*n];
-      else
-	*value = argv[++i];
-    }
+    if (!*value && OptionNumVals[*n] && !is_option(argv[i+1]))
+      *value = argv[++i];
     return i;
   } 
   // Else we have a value that is not the value of an option
