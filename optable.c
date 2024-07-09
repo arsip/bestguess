@@ -10,6 +10,108 @@
 
 #include "optable.h"
 
+static int whitespacep(const char c) {
+  return ((c == ' ') || (c == '\t') ||
+	  (c == '\n') || (c == '\r'));
+}
+
+static const char *skip_whitespace(const char *str) {
+  if (!str) return NULL;
+  while ((*str != '\0') && whitespacep(*str)) str++;
+  return str;
+}
+
+static const char *until_whitespace(const char *str) {
+  if (!str) return NULL;
+  while ((*str != '\0') && !whitespacep(*str)) str++;
+  return str;
+}
+
+static char *dup(const char *str, size_t len) {
+  char *name = calloc(1, len + 1);
+  if (!name) return NULL;
+  memcpy(name, str, len);
+  return name;
+}
+
+// "w warmup 1, r runs 1, show-output 1, v version 0"
+
+// A field that is a single dash, '-', means "no name"
+static char *maybe_dup(const char *start, const char *end) {
+  if ((*start == '-') && (end == start + 1))
+    return NULL;
+  else
+    return dup(start, end - start);
+}
+
+static const char *parse_config(const char *p, optable_option *opt) {
+  if (!p) {
+    fprintf(stderr, "%s: invalid args to parse_config\n", __FILE__);
+    return NULL;
+  }
+  if (!*p) return NULL;
+  const char *start;
+  start = skip_whitespace(p);
+  p = until_whitespace(start);
+  if (opt) opt->shortname = maybe_dup(start, p);
+  start = skip_whitespace(p);
+  p = until_whitespace(start);
+  if (opt) opt->longname = maybe_dup(start, p);
+  p = skip_whitespace(p);
+  switch (*p) {
+    case '0': 
+      if (opt) opt->numvals = 0;
+      break;
+    case '1':
+      if (opt) opt->numvals = 1;
+      break;
+    default:
+      fprintf(stderr, "%s: expected 0/1 in config at '%.40s'\n", __FILE__, p);
+      return NULL;
+  }
+  p++;				// Skip the digit 0/1
+  p = skip_whitespace(p);
+  if (*p) {
+    // Not at end of string, which means there must be a comma
+    if (*p == ',') return p + 1;
+    fprintf(stderr, "%s: expected ',' in config at '%.40s'\n", __FILE__, p);
+    return NULL;
+  }
+  return p;
+}
+
+static int count_options(const char *str) {
+  int count = 0;
+  while ((str = parse_config(str, NULL))) count++;
+  return count;
+}
+
+optable_options *optable_init(const char *config) {
+  int count;
+  optable_option opt;
+  optable_options *tbl;
+
+  count = count_options(config);
+  if (count <= 0) return NULL;
+
+  tbl = malloc(sizeof(optable_options) +
+	       (count * sizeof(optable_option)));
+
+  if (!tbl) return NULL;
+  tbl->count = count;
+  
+  for (int i = 0; i < count; i++) {
+    config = parse_config(config, &opt);
+    if (!config) {
+      free(tbl);
+      return NULL;
+    }
+  tbl->options[i] = opt;
+  }
+
+  return tbl;
+}
+
 // It's cleaner and safer to have a custom comparison function than to
 // use libc functions like 'strlen' and 'strcmp'.
 //
@@ -58,7 +160,7 @@ int optable_is_option(const char *arg) {
 //
 int optable_parse_option(const char *arg, const char **value) {
   if (!arg || !value) {
-    fprintf(stderr, "%s:%d: invalid args to parse", __FILE__, __LINE__);
+    fprintf(stderr, "%s:%d: invalid args to parse\n", __FILE__, __LINE__);
     return -1;
   }
   int n = match_option(++arg, ShortOptions, value);
@@ -94,7 +196,7 @@ int optable_iter(int argc, char *argv[],
 		 int i) {
   i++;
   if ((argc < 1) || !argv || !n || !value) {
-    fprintf(stderr, "%s:%d: invalid args to iterator", __FILE__, __LINE__);
+    fprintf(stderr, "%s: invalid args to iterator\n", __FILE__);
     return -1;
   }
   if ((i < 1) || (i >= argc)) return 0;

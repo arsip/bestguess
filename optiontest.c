@@ -10,7 +10,27 @@
 int main(int argc, char *argv[]) {
 
   if (argc) progname = argv[0];
-  printf("%s: Printing command-line arguments\n\n", progname);
+
+  printf("%s: Printing option configuration\n\n", progname);
+
+  const char *config =
+    "w warmup 1,"
+    "r runs 1,"
+    "- show-output 1,"
+    "u - 1,"
+    "v version 0";
+  printf("Config is:\n%s\n\n", config);
+
+  optable_option *opt;
+  optable_options *opts = optable_init(config);
+
+  for (int i = 0; i < opts->count; i++) {
+    opt = &(opts->options[i]);
+    printf("[%2d] %6s  %20s  %1d\n",
+	   i, opt->shortname, opt->longname, opt->numvals);
+  }
+
+  printf("\n%s: Printing command-line arguments\n\n", progname);
 
   const char *val;
   int n, i = 0;

@@ -44,6 +44,20 @@
 
 */
 
+typedef struct optable_option {
+  char *shortname;
+  char *longname;
+  int numvals;
+} optable_option;
+
+typedef struct optable_options {
+  int count;
+  optable_option options[1];
+} optable_options;
+
+optable_options *optable_init(const char *const config);
+
+
 #define OptionList(X)				\
   X(OPT_WARMUP,     "w",  "warmup",      1)	\
   X(OPT_RUNS,       "r",  "runs",        1)	\
