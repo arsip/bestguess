@@ -24,27 +24,30 @@
 // the value
 
 #define NUL '\0'
-#define OptionList(X)			\
-  X('w',  "warmup",      1,  "0")	\
-  X('r',  "runs",        1,  "1")	\
-  X('o',  "output",      1,  NULL)	\
-  X('i',  "input",       1,  NULL)	\
-  X(NUL,  "show-output", 1,  "no")	\
-  X('S',  "shell",       1,  "none")	\
-  X('v',  "version",     0,  NULL)	\
-  X('h',  "help",        0,  NULL)	\
-  X(NUL,  NULL,          0,  NULL)
+#define OptionList(X)					\
+  X(OPT_WARMUP,     'w',  "warmup",      1,  "0")	\
+  X(OPT_RUNS,       'r',  "runs",        1,  "1")	\
+  X(OPT_OUTPUT,     'o',  "output",      1,  NULL)	\
+  X(OPT_INPUT,      'i',  "input",       1,  NULL)	\
+  X(OPT_SHOWOUTPUT, NUL,  "show-output", 1,  "no")	\
+  X(OPT_SHELL,      'S',  "shell",       1,  "none")	\
+  X(OPT_VERSION,    'v',  "version",     0,  NULL)	\
+  X(OPT_HELP,       'h',  "help",        0,  NULL)	\
+  X(OPT_N,          NUL,  NULL,          0,  NULL)
 
-#define X(a, b, c, d) a,
+#define X(a, b, c, d, e) a,
+typedef enum Options { OptionList(X) };
+#undef X
+#define X(a, b, c, d, e) b,
 static const char ShortOptions[] = { OptionList(X) };
 #undef X
-#define X(a, b, c, d) b,
+#define X(a, b, c, d, e) c,
 static const char *const LongOptions[] = { OptionList(X) };
 #undef X
-#define X(a, b, c, d) c,
+#define X(a, b, c, d, e) d,
 static const int OptionNumVals[] = { OptionList(X) };
 #undef X
-#define X(a, b, c, d) d,
+#define X(a, b, c, d, e) e,
 static const char *const OptionDefaults[] = { OptionList(X) };
 #undef X
 
