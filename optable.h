@@ -55,36 +55,21 @@ typedef struct optable_options {
   optable_option options[1];
 } optable_options;
 
+const char *optable_shortname(optable_options *tbl, int n);
+const char *optable_longname(optable_options *tbl, int n);
+int         optable_numvals(optable_options *tbl, int n);
+
 optable_options *optable_init(const char *const config);
-
-
-#define OptionList(X)				\
-  X(OPT_WARMUP,     "w",  "warmup",      1)	\
-  X(OPT_RUNS,       "r",  "runs",        1)	\
-  X(OPT_OUTPUT,     "o",  "output",      1)	\
-  X(OPT_INPUT,      "i",  "input",       1)	\
-  X(OPT_SHOWOUTPUT, "",   "show-output", 1)	\
-  X(OPT_SHELL,      "S",  "shell",       1)	\
-  X(OPT_VERSION,    "v",  "version",     0)	\
-  X(OPT_HELP,       "h",  "help",        0)	\
-  X(OPT_N,          NULL, NULL,          0)
-
-#define X(a, b, c, d) a,
-typedef enum Options { OptionList(X) };
-#undef X
-#define X(a, b, c, d) b,
-static const char *const ShortOptions[] = { OptionList(X) };
-#undef X
-#define X(a, b, c, d) c,
-static const char *const LongOptions[] = { OptionList(X) };
-#undef X
-#define X(a, b, c, d) d,
-static const int OptionNumVals[] = { OptionList(X) };
-#undef X
+void             optable_free(optable_options *opts);
 
 int optable_is_option(const char *arg);
-int optable_parse_option(const char *arg, const char **value);
-int optable_iter(int argc, char *argv[],
+
+int optable_parse_option(optable_options *tbl,
+			 const char *arg,
+			 const char **value);
+
+int optable_iter(optable_options *tbl,
+		 int argc, char *argv[],
 		 int *n, const char **value,
 		 int i);
 
