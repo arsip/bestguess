@@ -10,7 +10,21 @@
 
 #include "optable.h"
 
+typedef struct optable_option {
+  char *shortname;
+  char *longname;
+  int numvals;
+} optable_option;
+
+typedef struct optable_options {
+  int count;
+  optable_option options[1];
+} optable_options;
+
 static char delimiter = '|';
+static int Argc = 0;
+static char **Argv = NULL;
+static optable_options *Tbl = NULL;
 
 #define MAKE_SKIP_TO(name, predicate)			\
   static const char *skip_##name(const char *str) {	\
@@ -25,6 +39,10 @@ static char delimiter = '|';
     while ((*str != '\0') && !(predicate)(*str)) str++;	\
     return str;						\
   }
+
+static int digitp(const char c) {
+  return ((c >= '0') && (c <= '9'));
+}
 
 static int delimiterp(const char c) {
   return (c == delimiter);
@@ -66,21 +84,25 @@ static const char *parse_config(const char *p, optable_option *opt) {
   }
   if (!*p) return NULL;
   ssize_t len;
-  const char *record_start = p;
+  const char *record_start;
   const char *record_end;
   const char *field_start;
+  const char *msg = "missing field";
   p = skip_whitespace(p);
   p = skip_delimiters(p);
+  record_start = p;
   record_end = until_delimiter(p);
   field_start = skip_whitespace(p);
+  if (digitp(*field_start)) goto error;
   p = until_whitespace(field_start);
   if (!*p) return NULL;
-  if (p > record_end) goto missing_field;
+  if (p > record_end) goto error;
   if (opt) opt->shortname = maybe_dup(field_start, p);
   field_start = skip_whitespace(p);
+  if (digitp(*field_start)) goto error;
   p = until_whitespace(field_start);
   if (!*p) return NULL;
-  if (p > record_end) goto missing_field;
+  if (p > record_end) goto error;
   if (opt) opt->longname = maybe_dup(field_start, p);
   p = skip_whitespace(p);
   switch (*p) {
@@ -91,24 +113,23 @@ static const char *parse_config(const char *p, optable_option *opt) {
       if (opt) opt->numvals = 1;
       break;
     default:
-      fprintf(stderr, "%s: expected 0/1 in config at '%.40s'\n", __FILE__, p);
-      return NULL;
+      msg = "expected 0 or 1 as last field";
+      goto error;
   }
   p++;				// Skip the digit 0/1
-  if (p > record_end) goto missing_field;
+  if (p > record_end) goto error;
   p = skip_whitespace(p);
   if (*p) {
     // Not at end of string, which means there must be a delimiter
     if (delimiterp(*p)) return p + 1;
-    fprintf(stderr, "%s: expected '%c' in config at '%.40s'\n",
-	    __FILE__, delimiter, p);
-    return NULL;
+    msg = "expected delimiter";
+    goto error;
   }
   return p;
 
- missing_field:
+ error:
   len = record_end - record_start;
-  fprintf(stderr, "%s: missing field in '%.*s'\n", __FILE__, (int) len, record_start);
+  fprintf(stderr, "%s: %s in the config segment '%.*s'\n", __FILE__, msg, (int) len, record_start);
   return NULL;
 
 }
@@ -119,39 +140,54 @@ static int count_options(const char *str) {
   return count;
 }
 
-void optable_free(optable_options *opts) {
-  if (!opts) return;
-  for (int i = 0; i < opts->count; i++) {
-    free(opts->options[i].shortname);
-    free(opts->options[i].longname);
-  }
-  free(opts);
+int optable_count(void) {
+  return Tbl ? Tbl->count : 0;
 }
 
-optable_options *optable_init(const char *config) {
+void optable_free(void) {
+  if (!Tbl) return;
+  for (int i = 0; i < Tbl->count; i++) {
+    free(Tbl->options[i].shortname);
+    free(Tbl->options[i].longname);
+  }
+  free(Tbl);
+  Tbl = NULL;
+}
+
+// Return error indicator: 0 (false) on success, 1 otherwise
+int optable_init(const char *config, int argc, char **argv) {
   int count;
   optable_option opt;
-  optable_options *tbl;
+
+  if (!config || (argc < 1) || !argv) {
+    fprintf(stderr, "%s: invalid args to init\n", __FILE__);
+    return 1;
+  }
+
+  Argc = argc;
+  Argv = argv;
 
   count = count_options(config);
-  if (count <= 0) return NULL;
+  if (count <= 0) return 0;
 
-  tbl = malloc(sizeof(optable_options) +
+  if (Tbl) optable_free();
+
+  Tbl = malloc(sizeof(optable_options) +
 	       (count * sizeof(optable_option)));
 
-  if (!tbl) return NULL;
-  tbl->count = count;
+  if (!Tbl) return 0;
+  Tbl->count = count;
   
   for (int i = 0; i < count; i++) {
     config = parse_config(config, &opt);
     if (!config) {
-      optable_free(tbl);
-      return NULL;
+      optable_free();
+      return 1;
     }
-  tbl->options[i] = opt;
+  Tbl->options[i] = opt;
   }
 
-  return tbl;
+  return 0;
 }
 
 // It's cleaner and safer to have a custom comparison function than to
@@ -173,36 +209,33 @@ static const char *compare_option(const char *str, const char *name) {
 
 // Convenience getters
 
-const char *optable_shortname(optable_options *tbl, int n) {
-  if (tbl && (n >= 0) && (n < tbl->count))
-    return tbl->options[n].shortname;
+const char *optable_shortname(int n) {
+  if (Tbl && (n >= 0) && (n < Tbl->count))
+    return Tbl->options[n].shortname;
   return NULL;
 }
 
-const char *optable_longname(optable_options *tbl, int n) {
-  if (tbl && (n >= 0) && (n < tbl->count))
-    return tbl->options[n].longname;
+const char *optable_longname(int n) {
+  if (Tbl && (n >= 0) && (n < Tbl->count))
+    return Tbl->options[n].longname;
   return NULL;
 }
 
-int optable_numvals(optable_options *tbl, int n) {
-  if (tbl && (n >= 0) && (n < tbl->count))
-    return tbl->options[n].numvals;
+int optable_numvals(int n) {
+  if (Tbl && (n >= 0) && (n < Tbl->count))
+    return Tbl->options[n].numvals;
   return -1;
 }
-
-typedef const char *(name_getter)(optable_options *tbl, int n);
 
 // When return value is non-negative, we found a match.  If '*value'
 // is non-null, it points to the value part, e.g. "5" in "-r=5"
 static int match_option(const char *arg,
-			name_getter get_name,
-			optable_options *tbl,
+			const char *get_name(int n),
 			const char **value) {
   int n;
-  int count = tbl->count;
+  int count = Tbl->count;
   for (n = 0; n < count; n++) {
-    *value = compare_option(arg, get_name(tbl, n));
+    *value = compare_option(arg, get_name(n));
     if (*value) {
       if (**value == '=') (*value)++;
       else *value = NULL;
@@ -223,16 +256,14 @@ int optable_is_option(const char *arg) {
 // Caller MUST check 'is_option()' before using 'parse_option()'
 // because we assume here that 'arg' begins with '-'.
 //
-int optable_parse_option(optable_options *tbl,
-			 const char *arg,
-			 const char **value) {
-  if (!tbl || !arg || !value) {
+int optable_parse_option(const char *arg, const char **value) {
+  if (!Tbl || !arg || !value) {
     fprintf(stderr, "%s:%d: invalid args to parse\n", __FILE__, __LINE__);
     return -1;
   }
-  int n = match_option(++arg, optable_shortname, tbl, value);
+  int n = match_option(++arg, optable_shortname, value);
   if (n < 0)
-    n = match_option(++arg, optable_longname, tbl, value);
+    n = match_option(++arg, optable_longname, value);
   if (n < 0)
     return -1;
   return n;
@@ -243,6 +274,7 @@ int optable_parse_option(optable_options *tbl,
   Start by passing in 0 for i.  The return value is the iterator
   state: pass it back in for i, until the return value is zero.
 
+  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!
   Example:
       const char *val;
       int n, i = 0;
@@ -258,27 +290,26 @@ int optable_parse_option(optable_options *tbl,
 
 
 */   
-int optable_iter(optable_options *tbl,
-		 int argc, char *argv[],
-		 int *n, const char **value,
-		 int i) {
+int optable_iter(int *n, const char **value, int i) {
   i++;
-  if (!tbl || (argc < 1) || !argv || !n || !value) {
-    fprintf(stderr, "%s:%d: invalid args to iterator\n", __FILE__, __LINE__);
+  if (!Tbl || !n || !value) {
+    fprintf(stderr, "%s: invalid args to iterator\n", __FILE__);
     return -1;
   }
-  if ((i < 1) || (i >= argc)) return 0;
-  if (optable_is_option(argv[i])) {
-    *n = optable_parse_option(tbl, argv[i], value);
+  if ((i < 1) || (i >= Argc)) return 0;
+  if (optable_is_option(Argv[i])) {
+    *n = optable_parse_option(Argv[i], value);
     if (*n < 0)
       return i;
-    if (!*value && tbl->options[*n].numvals && !optable_is_option(argv[i+1]))
-      *value = argv[++i];
+    if (!*value &&
+	Tbl->options[*n].numvals &&
+	!optable_is_option(Argv[i+1]))
+      *value = Argv[++i];
     return i;
   }
   // Else we have a value that is not the value of an option
   *n = -1;
-  *value = argv[i];
+  *value = Argv[i];
   return i;
 }
 

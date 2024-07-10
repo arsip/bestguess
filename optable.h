@@ -47,33 +47,19 @@
 
 */
 
-typedef struct optable_option {
-  char *shortname;
-  char *longname;
-  int numvals;
-} optable_option;
+int         optable_count(void);
+const char *optable_shortname(int n);
+const char *optable_longname(int n);
+int         optable_numvals(int n);
 
-typedef struct optable_options {
-  int count;
-  optable_option options[1];
-} optable_options;
+int optable_init(const char *config, int argc, char **argv);
 
-const char *optable_shortname(optable_options *tbl, int n);
-const char *optable_longname(optable_options *tbl, int n);
-int         optable_numvals(optable_options *tbl, int n);
-
-optable_options *optable_init(const char *const config);
-void             optable_free(optable_options *opts);
+void optable_free(void);
 
 int optable_is_option(const char *arg);
 
-int optable_parse_option(optable_options *tbl,
-			 const char *arg,
-			 const char **value);
+int optable_parse_option(const char *arg, const char **value);
 
-int optable_iter(optable_options *tbl,
-		 int argc, char *argv[],
-		 int *n, const char **value,
-		 int i);
+int optable_iter(int *n, const char **value, int i);
 
 #endif
