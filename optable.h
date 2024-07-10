@@ -18,6 +18,9 @@
   - Every option/switch MUST have a LongOption name.
   - A NULL Option name indicates the end of the list.
   - The number of values an option can take may be 0 or 1.  See notes.
+  - Short options can be combined, though only the last one can take
+    a value. E.g. "-pq" where p and q take 0 values, or "-pr 4" where
+    r takes a value.
 
   NOTE ON MULTIPLE VALUES:
 

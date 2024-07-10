@@ -8,15 +8,17 @@
 #include "optable.h"
 
 static const char *example1 =
-  "o output      1,"
-  "i input       1,"
-  "- show-output 1,"
-  "v -           0,"
-  "h help        0,";
+  "|o output      1|"
+  "|i input       1|"
+  "|- show-output 1|"
+  "|v -           0|"
+  "|h help        0|";
 
 static const char *example2 =
-  "o output      0,"
-  "i input       1";
+  "o output      0 | i input       1";
+
+static const char *example3 =
+  "  ||  o output      0 || i input       1 ||		";
 
 #define ConfigList(X)			\
   X(OPT_WARMUP,     "w warmup      1")	\
@@ -26,12 +28,13 @@ static const char *example2 =
   X(OPT_SHOWOUTPUT, "- show-output 1")	\
   X(OPT_SHELL,      "S shell       1")	\
   X(OPT_VERSION,    "v version     0")	\
-  X(OPT_HELP,       "h help        0")
+  X(OPT_HELP,       "h help        0")  \
+  X(OPT_SNOWMAN,    "⛄ snowman    0")
 
 #define X(a, b) a,
 typedef enum XOptions { ConfigList(X) };
 #undef X
-#define X(a, b) b ","
+#define X(a, b) b "|"
 static const char *option_config = ConfigList(X);
 #undef X
 
@@ -67,8 +70,15 @@ int main(int argc, char *argv[]) {
   print_options(opts);
   optable_free(opts);
 
+  printf("\nExample config 3 is:\n'%s'\n\n", example3);
+  opts = optable_init(example3);
+  print_options(opts);
+  optable_free(opts);
+
   printf("\n%s: Parsing command-line arguments\n\n", progname);
   opts = optable_init(option_config);
+  print_options(opts);
+  printf("\n");
 
   const char *val;
   int n, i = 0;
@@ -123,6 +133,9 @@ int main(int argc, char *argv[]) {
       case OPT_HELP:
 	printf("%15s  %s\n", "help", val);
 	break;
+      case OPT_SNOWMAN:
+	printf("%15s  %s\n", "snowman", val);
+	break;
       default:
 	printf("Error: Invalid option index %d\n", n);
     }
@@ -136,6 +149,7 @@ int main(int argc, char *argv[]) {
 	printf("Error: option requires a value\n");
     }
   }
+  optable_free(opts);
   return 0;
 }
 

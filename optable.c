@@ -10,28 +10,36 @@
 
 #include "optable.h"
 
+static char delimiter = '|';
+
+#define MAKE_SKIP_TO(name, predicate)			\
+  static const char *skip_##name(const char *str) {	\
+    if (!str) return NULL;				\
+    while ((*str != '\0') && (predicate)(*str)) str++;	\
+    return str;						\
+  }
+
+#define MAKE_SKIP_UNTIL(name, predicate)		\
+  static const char *until_##name(const char *str) {	\
+    if (!str) return NULL;				\
+    while ((*str != '\0') && !(predicate)(*str)) str++;	\
+    return str;						\
+  }
+
+static int delimiterp(const char c) {
+  return (c == delimiter);
+}
+
+MAKE_SKIP_TO(delimiters, delimiterp);
+MAKE_SKIP_UNTIL(delimiter, delimiterp);
+
 static int whitespacep(const char c) {
   return ((c == ' ') || (c == '\t') ||
 	  (c == '\n') || (c == '\r'));
 }
 
-static const char *skip_whitespace(const char *str) {
-  if (!str) return NULL;
-  while ((*str != '\0') && whitespacep(*str)) str++;
-  return str;
-}
-
-static const char *until_whitespace(const char *str) {
-  if (!str) return NULL;
-  while ((*str != '\0') && !whitespacep(*str)) str++;
-  return str;
-}
-
-static const char *until_comma(const char *str) {
-  if (!str) return NULL;
-  while ((*str != '\0') && (*str != ',')) str++;
-  return str;
-}
+MAKE_SKIP_TO(whitespace, whitespacep);
+MAKE_SKIP_UNTIL(whitespace, whitespacep);
 
 static char *dup(const char *str, size_t len) {
   char *name = calloc(1, len + 1);
@@ -58,17 +66,22 @@ static const char *parse_config(const char *p, optable_option *opt) {
   }
   if (!*p) return NULL;
   ssize_t len;
-  const char *start = p;
-  const char *end = until_comma(p);
-  const char *field;
-  field = skip_whitespace(p);
-  p = until_whitespace(field);
-  if (p > end) goto missing_field;
-  if (opt) opt->shortname = maybe_dup(field, p);
-  field = skip_whitespace(p);
-  p = until_whitespace(field);
-  if (p > end) goto missing_field;
-  if (opt) opt->longname = maybe_dup(field, p);
+  const char *record_start = p;
+  const char *record_end;
+  const char *field_start;
+  p = skip_whitespace(p);
+  p = skip_delimiters(p);
+  record_end = until_delimiter(p);
+  field_start = skip_whitespace(p);
+  p = until_whitespace(field_start);
+  if (!*p) return NULL;
+  if (p > record_end) goto missing_field;
+  if (opt) opt->shortname = maybe_dup(field_start, p);
+  field_start = skip_whitespace(p);
+  p = until_whitespace(field_start);
+  if (!*p) return NULL;
+  if (p > record_end) goto missing_field;
+  if (opt) opt->longname = maybe_dup(field_start, p);
   p = skip_whitespace(p);
   switch (*p) {
     case '0': 
@@ -82,19 +95,20 @@ static const char *parse_config(const char *p, optable_option *opt) {
       return NULL;
   }
   p++;				// Skip the digit 0/1
-  if (p > end) goto missing_field;
+  if (p > record_end) goto missing_field;
   p = skip_whitespace(p);
   if (*p) {
-    // Not at end of string, which means there must be a comma
-    if (*p == ',') return p + 1;
-    fprintf(stderr, "%s: expected ',' in config at '%.40s'\n", __FILE__, p);
+    // Not at end of string, which means there must be a delimiter
+    if (delimiterp(*p)) return p + 1;
+    fprintf(stderr, "%s: expected '%c' in config at '%.40s'\n",
+	    __FILE__, delimiter, p);
     return NULL;
   }
   return p;
 
  missing_field:
-  len = end - start;
-  fprintf(stderr, "%s: missing field in '%.*s'\n", __FILE__, (int) len, start);
+  len = record_end - record_start;
+  fprintf(stderr, "%s: missing field in '%.*s'\n", __FILE__, (int) len, record_start);
   return NULL;
 
 }
