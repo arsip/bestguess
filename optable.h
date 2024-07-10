@@ -60,6 +60,6 @@ int optable_is_option(const char *arg);
 
 int optable_parse_option(const char *arg, const char **value);
 
-int optable_iter(int *n, const char **value, int i);
+int optable_next(int *n, const char **value, int i);
 
 #endif

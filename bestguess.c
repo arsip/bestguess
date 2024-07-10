@@ -5,6 +5,9 @@
 //  MIT LICENSE 
 //  COPYRIGHT (C) Jamie A. Jennings, 2024
 
+//hyperfine --export-csv slee.csv --show-output --warmup 10 --runs $reps -N ${commands[@]}
+
+
 // Usage: bestguess [options] prog arg1 arg2 .. argN
 //
 // Options:

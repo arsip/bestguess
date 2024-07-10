@@ -26,6 +26,36 @@ static int Argc = 0;
 static char **Argv = NULL;
 static optable_options *Tbl = NULL;
 
+// -------------------------------------------------------
+// Convenience getters
+// -------------------------------------------------------
+
+int optable_count(void) {
+  return Tbl ? Tbl->count : 0;
+}
+
+const char *optable_shortname(int n) {
+  if (Tbl && (n >= 0) && (n < Tbl->count))
+    return Tbl->options[n].shortname;
+  return NULL;
+}
+
+const char *optable_longname(int n) {
+  if (Tbl && (n >= 0) && (n < Tbl->count))
+    return Tbl->options[n].longname;
+  return NULL;
+}
+
+int optable_numvals(int n) {
+  if (Tbl && (n >= 0) && (n < Tbl->count))
+    return Tbl->options[n].numvals;
+  return -1;
+}
+
+// -------------------------------------------------------
+// Dinky parsing utilities
+// -------------------------------------------------------
+
 #define MAKE_SKIP_TO(name, predicate)			\
   static const char *skip_##name(const char *str) {	\
     if (!str) return NULL;				\
@@ -59,6 +89,10 @@ static int whitespacep(const char c) {
 MAKE_SKIP_TO(whitespace, whitespacep);
 MAKE_SKIP_UNTIL(whitespace, whitespacep);
 
+// -------------------------------------------------------
+// String duplication
+// -------------------------------------------------------
+
 static char *dup(const char *str, size_t len) {
   char *name = calloc(1, len + 1);
   if (!name) return NULL;
@@ -74,15 +108,24 @@ static char *maybe_dup(const char *start, const char *end) {
     return dup(start, end - start);
 }
 
-// E.g.
-// "w warmup 1, r runs 1, show-output 1, v version 0"
+// -------------------------------------------------------
+// Parsing one "segment" of a configuration string
+// -------------------------------------------------------
+
+// E.g. input is "| show-output 1 | v version 0 |"
 //
-static const char *parse_config(const char *p, optable_option *opt) {
+// Tries to parse one segment (between the delimiters).  Returns a
+// pointer to the position where parsing should continue.  When '*err'
+// is non-zero, there was an error in the format of the segment.
+//
+// Note: '*err' is sticky.  If it comes in as 1, it stays 1.
+//
+static const char *parse_config(const char *p, int *err, optable_option *opt) {
   if (!p) {
-    fprintf(stderr, "%s: invalid args to parse_config\n", __FILE__);
+    fprintf(stderr, "%s: invalid args to parse_config()\n", __FILE__);
     return NULL;
   }
-  if (!*p) return NULL;
+  if (!*p) return NULL;		// Done!
   ssize_t len;
   const char *record_start;
   const char *record_end;
@@ -106,12 +149,8 @@ static const char *parse_config(const char *p, optable_option *opt) {
   if (opt) opt->longname = maybe_dup(field_start, p);
   p = skip_whitespace(p);
   switch (*p) {
-    case '0': 
-      if (opt) opt->numvals = 0;
-      break;
-    case '1':
-      if (opt) opt->numvals = 1;
-      break;
+    case '0': if (opt) opt->numvals = 0; break;
+    case '1': if (opt) opt->numvals = 1; break;
     default:
       msg = "expected 0 or 1 as last field";
       goto error;
@@ -128,20 +167,18 @@ static const char *parse_config(const char *p, optable_option *opt) {
   return p;
 
  error:
+  if (err) *err = 1;
   len = record_end - record_start;
-  fprintf(stderr, "%s: %s in the config segment '%.*s'\n", __FILE__, msg, (int) len, record_start);
-  return NULL;
-
+  fprintf(stderr, "%s: %s in the config segment '%.*s'\n",
+	  __FILE__, msg, (int) len, record_start);
+  return record_end;
 }
 
+// Count config segments, even if some have errors
 static int count_options(const char *str) {
-  int count = 0;
-  while ((str = parse_config(str, NULL))) count++;
-  return count;
-}
-
-int optable_count(void) {
-  return Tbl ? Tbl->count : 0;
+  int err = 0, count = 0;
+  while ((str = parse_config(str, &err, NULL))) count++;
+  return err ? 0 : count;
 }
 
 void optable_free(void) {
@@ -160,7 +197,7 @@ int optable_init(const char *config, int argc, char **argv) {
   optable_option opt;
 
   if (!config || (argc < 1) || !argv) {
-    fprintf(stderr, "%s: invalid args to init\n", __FILE__);
+    fprintf(stderr, "%s: invalid args to init()\n", __FILE__);
     return 1;
   }
 
@@ -168,23 +205,20 @@ int optable_init(const char *config, int argc, char **argv) {
   Argv = argv;
 
   count = count_options(config);
-  if (count <= 0) return 0;
+  if (count <= 0) return 1;
 
   if (Tbl) optable_free();
-
   Tbl = malloc(sizeof(optable_options) +
 	       (count * sizeof(optable_option)));
+  if (!Tbl) return 1;
 
-  if (!Tbl) return 0;
   Tbl->count = count;
   
   for (int i = 0; i < count; i++) {
-    config = parse_config(config, &opt);
-    if (!config) {
-      optable_free();
-      return 1;
-    }
-  Tbl->options[i] = opt;
+    config = parse_config(config, NULL, &opt);
+    // We don't test config or err here because count_options() will
+    // have flagged parse errors and prevented us from getting here
+    Tbl->options[i] = opt;
   }
 
   return 0;
@@ -205,26 +239,6 @@ static const char *compare_option(const char *str, const char *name) {
   }
   if ((*str == '\0') || (*str == '=')) return str;
   return NULL;
-}
-
-// Convenience getters
-
-const char *optable_shortname(int n) {
-  if (Tbl && (n >= 0) && (n < Tbl->count))
-    return Tbl->options[n].shortname;
-  return NULL;
-}
-
-const char *optable_longname(int n) {
-  if (Tbl && (n >= 0) && (n < Tbl->count))
-    return Tbl->options[n].longname;
-  return NULL;
-}
-
-int optable_numvals(int n) {
-  if (Tbl && (n >= 0) && (n < Tbl->count))
-    return Tbl->options[n].numvals;
-  return -1;
 }
 
 // When return value is non-negative, we found a match.  If '*value'
@@ -256,9 +270,10 @@ int optable_is_option(const char *arg) {
 // Caller MUST check 'is_option()' before using 'parse_option()'
 // because we assume here that 'arg' begins with '-'.
 //
+
 int optable_parse_option(const char *arg, const char **value) {
   if (!Tbl || !arg || !value) {
-    fprintf(stderr, "%s:%d: invalid args to parse\n", __FILE__, __LINE__);
+    fprintf(stderr, "%s:%d: invalid args to parse()\n", __FILE__, __LINE__);
     return -1;
   }
   int n = match_option(++arg, optable_shortname, value);
@@ -271,10 +286,15 @@ int optable_parse_option(const char *arg, const char **value) {
 
 /*
 
+  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!
+
+  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!
+
+  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!
+
   Start by passing in 0 for i.  The return value is the iterator
   state: pass it back in for i, until the return value is zero.
 
-  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!
   Example:
       const char *val;
       int n, i = 0;
@@ -290,10 +310,10 @@ int optable_parse_option(const char *arg, const char **value) {
 
 
 */   
-int optable_iter(int *n, const char **value, int i) {
+int optable_next(int *n, const char **value, int i) {
   i++;
   if (!Tbl || !n || !value) {
-    fprintf(stderr, "%s: invalid args to iterator\n", __FILE__);
+    fprintf(stderr, "%s: invalid args to next()\n", __FILE__);
     return -1;
   }
   if ((i < 1) || (i >= Argc)) return 0;

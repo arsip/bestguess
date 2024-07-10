@@ -86,4 +86,4 @@ tags TAGS: *.[ch]
 	  etags -o TAGS *.[ch]; \
 	fi
 
-.PHONY: default debug release clean deps install help
+.PHONY: default debug release clean deps install help tests

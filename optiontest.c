@@ -61,10 +61,17 @@ static void print_options(void) {
 #define RUNTEST(config) do {					\
     printf("\nExample '" #config "' is:\n'%s'\n\n", (config));	\
     err = optable_init((config), argc, argv);			\
-    if (err) printf("ERROR returned by init\n");		\
-    print_options();						\
-    optable_free();						\
+    if (err) \
+      printf("ERROR in configuration\n");			\
+    else {							\
+      print_options();						\
+      optable_free();						\
+    }								\
   } while (0)
+
+#define ASSERT(val) do {			\
+    if (!val) bail("assertion failed");		\
+  } while(0)
 
 int main(int argc, char *argv[]) {
 
@@ -73,11 +80,11 @@ int main(int argc, char *argv[]) {
 
   printf("%s: Printing option configuration\n", progname);
 
-  RUNTEST(example1);
-  RUNTEST(example2);
-  RUNTEST(example3);
-  RUNTEST(example4);
-  RUNTEST(example5);
+  RUNTEST(example1); ASSERT(!err);
+  RUNTEST(example2); ASSERT(!err);
+  RUNTEST(example3); ASSERT(!err);
+  RUNTEST(example4); ASSERT(err);
+  RUNTEST(example5); ASSERT(err);
 
   printf("\n%s: Parsing command-line arguments\n\n", progname);
   err = optable_init(option_config, argc, argv);
@@ -89,7 +96,7 @@ int main(int argc, char *argv[]) {
   int n, i = 0;
   printf("Arg  Option  Value\n");
   printf("---  ------  -----\n");
-  while ((i = optable_iter(&n, &val, i))) {
+  while ((i = optable_next(&n, &val, i))) {
     if (n < 0) {
       if (val)
 	printf("[%2d]         %-20s\n", i, argv[i]); 
@@ -107,7 +114,7 @@ int main(int argc, char *argv[]) {
   printf("Option           Value\n");
   printf("---------------  -------------\n");
   i = 0;
-  while ((i = optable_iter(&n, &val, i))) {
+  while ((i = optable_next(&n, &val, i))) {
     if (n == -1) {
       if (val) continue;	// ordinary argument
       printf("Error: invalid option/switch %s\n", argv[i]);
