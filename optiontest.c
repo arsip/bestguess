@@ -28,6 +28,10 @@ static const char *example4 =
 static const char *example5 =
   "o  output     0 || i input       2";
 
+// Error: last record is incomplete
+static const char *example6 =
+  "o  output     0 || i";
+
 
 #define ConfigList(X)			\
   X(OPT_WARMUP,     "w warmup      1")	\
@@ -85,6 +89,7 @@ int main(int argc, char *argv[]) {
   RUNTEST(example3); ASSERT(!err);
   RUNTEST(example4); ASSERT(err);
   RUNTEST(example5); ASSERT(err);
+  RUNTEST(example6); ASSERT(err);
 
   printf("\n%s: Parsing command-line arguments\n\n", progname);
   err = optable_init(option_config, argc, argv);
@@ -115,7 +120,7 @@ int main(int argc, char *argv[]) {
   printf("---------------  -------------\n");
   i = 0;
   while ((i = optable_next(&n, &val, i))) {
-    if (n == -1) {
+    if (n < 0) {
       if (val) continue;	// ordinary argument
       printf("Error: invalid option/switch %s\n", argv[i]);
       continue;

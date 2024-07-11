@@ -1,6 +1,6 @@
 //  -*- Mode: C; -*-                                                       
 // 
-//  optable.c  A minimal CLI arg parsing system
+//  optable.c  A minimal (UTF-8 compatible) CLI arg parsing system
 // 
 //  COPYRIGHT (C) Jamie A. Jennings, 2024
 
@@ -21,10 +21,13 @@ typedef struct optable_options {
   optable_option options[1];
 } optable_options;
 
-static char delimiter = '|';
-static int Argc = 0;
-static char **Argv = NULL;
-static optable_options *Tbl = NULL;
+static const char delimiter = '|';
+
+// Saved parsing state:
+static const char *ShortnamePtr = NULL;
+static optable_options     *Tbl = NULL;
+static int                 Argc = 0;
+static char              **Argv = NULL;
 
 // -------------------------------------------------------
 // Convenience getters
@@ -118,14 +121,14 @@ static char *maybe_dup(const char *start, const char *end) {
 // pointer to the position where parsing should continue.  When '*err'
 // is non-zero, there was an error in the format of the segment.
 //
-// Note: '*err' is sticky.  If it comes in as 1, it stays 1.
+// Note: '*err' is purposely sticky.  If it comes in as 1, it stays 1.
 //
 static const char *parse_config(const char *p, int *err, optable_option *opt) {
   if (!p) {
     fprintf(stderr, "%s: invalid args to parse_config()\n", __FILE__);
     return NULL;
   }
-  if (!*p) return NULL;		// Done!
+  if (!*p) return NULL; // Nothing to process
   ssize_t len;
   const char *record_start;
   const char *record_end;
@@ -135,18 +138,23 @@ static const char *parse_config(const char *p, int *err, optable_option *opt) {
   p = skip_delimiters(p);
   record_start = p;
   record_end = until_delimiter(p);
+  // Read shortname
   field_start = skip_whitespace(p);
   if (digitp(*field_start)) goto error;
   p = until_whitespace(field_start);
-  if (!*p) return NULL;
+  // Check for no shortname at all
+  if (field_start == p) return NULL;
   if (p > record_end) goto error;
   if (opt) opt->shortname = maybe_dup(field_start, p);
+  // Read longname
   field_start = skip_whitespace(p);
   if (digitp(*field_start)) goto error;
   p = until_whitespace(field_start);
-  if (!*p) return NULL;
+  // Check for no longname at all
+  if (!*p) goto error;
   if (p > record_end) goto error;
   if (opt) opt->longname = maybe_dup(field_start, p);
+  // Read number of values
   p = skip_whitespace(p);
   switch (*p) {
     case '0': if (opt) opt->numvals = 0; break;
@@ -155,11 +163,11 @@ static const char *parse_config(const char *p, int *err, optable_option *opt) {
       msg = "expected 0 or 1 as last field";
       goto error;
   }
-  p++;				// Skip the digit 0/1
+  p++; // Skip the digit 0 or 1
   if (p > record_end) goto error;
   p = skip_whitespace(p);
   if (*p) {
-    // Not at end of string, which means there must be a delimiter
+    // End of record but not end of string
     if (delimiterp(*p)) return p + 1;
     msg = "expected delimiter";
     goto error;
@@ -203,6 +211,7 @@ int optable_init(const char *config, int argc, char **argv) {
 
   Argc = argc;
   Argv = argv;
+  ShortnamePtr = NULL;
 
   count = count_options(config);
   if (count <= 0) return 1;
@@ -227,35 +236,64 @@ int optable_init(const char *config, int argc, char **argv) {
 // It's cleaner and safer to have a custom comparison function than to
 // use libc functions like 'strlen' and 'strcmp'.
 //
-// Match ==> Returns a pointer within str to \0 or =
+// Match ==> Returns a pointer within str to next byte after match
 // No match ==> Returns NULL
 //
-static const char *compare_option(const char *str, const char *name) {
-  if (!str || !name || !*name) return NULL;
+static const char *compare(const char *str, const char *name) {
+  if (!str || !*str || !name || !*name) return NULL;
   while (*name) {
     // Unnecessary check for end of str is elided below
     if (*str != *name) return NULL;
     str++; name++;
   }
-  if ((*str == '\0') || (*str == '=')) return str;
-  return NULL;
+  return str;
 }
 
-// When return value is non-negative, we found a match.  If '*value'
-// is non-null, it points to the value part, e.g. "5" in "-r=5"
-static int match_option(const char *arg,
-			const char *get_name(int n),
-			const char **value) {
+// On success, return value is the option index (>= 0), and '*value'
+// points to the value part e.g. "5" in "-r=5".  If there is no '=',
+// then '*value' will be NULL.
+static int match_long_option(const char *arg, const char **value) {
+  int count = Tbl->count;
+  for (int n = 0; n < count; n++) {
+    *value = compare(arg, optable_longname(n));
+    if (*value) {
+      if (**value == '\0') {
+	*value = NULL;
+	return n;
+      }
+      if (**value == '=') {
+	(*value)++;
+	return n;
+      }
+      return -1;
+    }
+  } // for each possible option name
+  return -1;
+}
+
+static int match_short_option(const char *arg, const char **value) {
   int n;
   int count = Tbl->count;
   for (n = 0; n < count; n++) {
-    *value = compare_option(arg, get_name(n));
+    *value = compare(arg, optable_shortname(n));
     if (*value) {
-      if (**value == '=') (*value)++;
-      else *value = NULL;
+      if (**value == '\0') {
+	ShortnamePtr = NULL;
+	*value = NULL;
+	return n;
+      }
+      if (**value == '=') {
+	ShortnamePtr = NULL;
+	(*value)++;
+	return n;
+      }
+      // Might have multiple short names, e.g. -plt
+      // Will get the next one on the next iteration.
+      ShortnamePtr = *value;
+      *value = NULL;
       return n;
     }
-  }
+  } // for each possible option name
   return -1;
 }
 
@@ -263,71 +301,49 @@ int optable_is_option(const char *arg) {
   return (arg && (*arg == '-'));
 }
 
-// Return values:
-//  -1    -> 'arg' does not match any option/switch
-//   0..N -> 'arg' matches this option number
-//
-// Caller MUST check 'is_option()' before using 'parse_option()'
-// because we assume here that 'arg' begins with '-'.
-//
+// TODO: Put an example here of how to use optable_next()
 
-int optable_parse_option(const char *arg, const char **value) {
-  if (!Tbl || !arg || !value) {
-    fprintf(stderr, "%s:%d: invalid args to parse()\n", __FILE__, __LINE__);
-    return -1;
-  }
-  int n = match_option(++arg, optable_shortname, value);
-  if (n < 0)
-    n = match_option(++arg, optable_longname, value);
-  if (n < 0)
-    return -1;
-  return n;
+static int argv_next_is_value(const char *value, int n, int i) {
+  return (!value &&
+	  !ShortnamePtr &&
+	  Tbl->options[n].numvals &&
+	  (i + 1 < Argc) &&
+	  !optable_is_option(Argv[i+1]));
 }
 
-/*
-
-  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!
-
-  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!
-
-  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!  XXXXXXXX RE-DO THIS!!
-
-  Start by passing in 0 for i.  The return value is the iterator
-  state: pass it back in for i, until the return value is zero.
-
-  Example:
-      const char *val;
-      int n, i = 0;
-      printf("Arg  Option  Value\n");
-      while ((i = iter_argv(argc, argv, &n, &val, i))) {
-	printf("[%2d] %3d     %-20s\n", i, n, val); 
-      }
-
-  The returned 'n' will be:
-    -1   -> if 'value' is non-null, the arg is ordinary, not an option/switch
-            if 'value' is null, argv[i] is an invalid option/switch
-    0..N -> 'value' is for option n, given as either "-w=7" or "-w 7"
-
-
-*/   
 int optable_next(int *n, const char **value, int i) {
-  i++;
   if (!Tbl || !n || !value) {
     fprintf(stderr, "%s: invalid args to next()\n", __FILE__);
-    return -1;
+    return 0;
   }
+  if (ShortnamePtr) {
+    // Already parsing multiple shortname options like "-plt" or "-plr=5"
+    if ((i < 1) || (i >= Argc)) return 0;
+    *n = match_short_option(ShortnamePtr, value);
+    if (*n < 0) {
+      // Error.  Return '*value' that points to the bad part of Argv[i]
+      ShortnamePtr = NULL;
+      return i;
+    }
+    if (argv_next_is_value(*value, *n, i))
+      *value = Argv[++i];
+    return i;
+  } 
+  // Not already parsing multiple shortname options
+  i++;
   if ((i < 1) || (i >= Argc)) return 0;
   if (optable_is_option(Argv[i])) {
-    *n = optable_parse_option(Argv[i], value);
-    if (*n < 0)
-      return i;
-    if (!*value &&
-	Tbl->options[*n].numvals &&
-	!optable_is_option(Argv[i+1]))
+    *n = match_short_option(Argv[i]+1, value);
+    if (*n < 0) {
+      if (optable_is_option(Argv[i]+1)) 
+	*n = match_long_option(Argv[i]+2, value);
+    } 
+    if (*n < 0) return i;
+    if (argv_next_is_value(*value, *n, i))
       *value = Argv[++i];
     return i;
   }
-  // Else we have a value that is not the value of an option
+  // Else this arg is not an option/switch, so return it
   *n = -1;
   *value = Argv[i];
   return i;
