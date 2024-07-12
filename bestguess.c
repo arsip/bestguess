@@ -80,7 +80,17 @@
 		       
 #include "utils.h"
 #include "bestguess.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h> 
 #include <inttypes.h>
+
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/wait.h>
+#include <sys/resource.h>
 
 static void print_rusage(struct rusage *usage) {
 
@@ -210,8 +220,8 @@ static void run(const char *cmd) {
 
   } else {
 
-    wait4(pid, &status, 0, &usage);
-
+    waitpid(pid, &status, 0);
+    getrusage(RUSAGE_CHILDREN, &usage);
     print_rusage(&usage);
 
     if (WEXITSTATUS(status))
