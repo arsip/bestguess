@@ -129,7 +129,7 @@ static const char *parse_config(const char *p, int *err, optable_option *opt) {
     return NULL;
   }
   if (!*p) return NULL; // Nothing to process
-  ssize_t len;
+  size_t len;
   const char *record_start;
   const char *record_end;
   const char *field_start;

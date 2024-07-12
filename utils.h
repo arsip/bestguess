@@ -16,6 +16,7 @@
     exit(-1);					\
   } while (0)
 
+__attribute__((unused))
 static const char *progname = "null";
 
 #endif
