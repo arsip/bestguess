@@ -80,6 +80,7 @@
 		       
 #include "utils.h"
 #include "bestguess.h"
+#include <inttypes.h>
 
 static void print_rusage(struct rusage *usage) {
 
@@ -106,8 +107,8 @@ static void print_rusage(struct rusage *usage) {
 
   puts("");
 
-//   printf("Input ops:     %6ld\n", usage->ru_inblock);
-//   printf("Output ops:    %6ld\n", usage->ru_oublock);
+  printf("Input ops:     %6ld\n", usage->ru_inblock);
+  printf("Output ops:    %6ld\n", usage->ru_oublock);
 
 //   printf("Messages (sent):          %6ld\n", usage->ru_msgsnd);
 //   printf("         (recvd):         %6ld\n", usage->ru_msgrcv);
@@ -119,7 +120,68 @@ static void print_rusage(struct rusage *usage) {
   printf("                 (invol): %6ld\n", usage->ru_nivcsw);
   printf("                 (TOTAL): %6ld\n", usage->ru_nvcsw + usage->ru_nivcsw);
 
+  //  printf("ri_diskio_bytesread: %" PRId64 "\n", usage->ri_diskio_bytesread);
   puts("");
+
+}
+
+static void write_header(void) {
+
+  printf("User, System, \"Max RSS\", "
+	 "\"Page Reclaims\", \"Page Faults\", "
+	 "\"Voluntary Context Switches\", \"Involuntary Context Switches\", "
+	 "\"Input\", \"Output\""
+	 "\n");
+}
+
+static void write_line(struct rusage *usage) {
+
+  int64_t time;
+  // User time in microseconds
+  time = usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
+  printf("%" PRId64 ", ", time);
+  // System time in microseconds
+  time = usage->ru_stime.tv_sec * 1000 * 1000 + usage->ru_stime.tv_usec;
+  printf("%" PRId64 ", ", time);
+  // Max RSS in kibibytes
+  // ru_maxrss (since Linux 2.6.32) This is the maximum resident set size used (in kilobytes).
+  // When the above was written, a kilobyte meant 1024 bytes.
+  printf("%ld, ", usage->ru_maxrss);
+  // Page reclaims (count):
+  // The number of page faults serviced without any I/O activity; here
+  // I/O activity is avoided by “reclaiming” a page frame from the
+  // list of pages awaiting reallocation.
+  printf("%ld, ", usage->ru_minflt);
+  // Page faults (count):
+  // The number of page faults serviced that required I/O activity.
+  printf("%ld, ", usage->ru_majflt);
+
+  // Voluntary context switches:
+  // The number of times a context switch resulted due to a process
+  // voluntarily giving up the processor before its time slice was
+  // completed (usually to await availability of a resource).
+  printf("%ld, ", usage->ru_nvcsw);
+
+  // Involuntary context switches:
+  // The number of times a context switch resulted due to a higher
+  // priority process becoming runnable or because the current process
+  // exceeded its time slice.
+  printf("%ld, ", usage->ru_nivcsw);
+
+  // TODO: Seems always zero on macos.  Linux?
+  printf("%ld, ", usage->ru_inblock);
+  printf("%ld", usage->ru_oublock);
+
+  // These fields are currently unused (unmaintained) on Linux: 
+  //   ru_ixrss 
+  //   ru_idrss
+  //   ru_isrss
+  //   ru_nswap
+  //   ru_msgsnd
+  //   ru_msgrcv
+  //   ru_nsignals
+
+  printf("\n");
 
 }
 
@@ -155,6 +217,10 @@ static void run(const char *cmd) {
     if (WEXITSTATUS(status))
       printf("Child exited with non-zero status: %d\n", WEXITSTATUS(status));
     
+    printf("\n\n");
+    write_header();
+    write_line(&usage);
+
     for (int i = 0; args[i]; i++) free(args[i]);
   }
 }
