@@ -5,7 +5,83 @@
 //  MIT LICENSE 
 //  COPYRIGHT (C) Jamie A. Jennings, 2024
 
+#include "utils.h"
+#include "optable.h"
+#include "bestguess.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h> 
+#include <inttypes.h>
+
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/wait.h>
+#include <sys/resource.h>
+
+#ifdef __linux__
+  #define FMTusec "ld"
+#else
+  #define FMTusec "d"
+#endif
+
+#define ConfigList(X)			\
+  X(OPT_WARMUP,     "w warmup      1")	\
+  X(OPT_RUNS,       "r runs        1")	\
+  X(OPT_OUTPUT,     "o output      1")	\
+  X(OPT_INPUT,      "i input       1")	\
+  X(OPT_SHOWOUTPUT, "- show-output 1")	\
+  X(OPT_SHELL,      "S shell       1")	\
+  X(OPT_VERSION,    "v version     0")	\
+  X(OPT_HELP,       "h help        0")  \
+  X(OPT_SNOWMAN,    "⛄ snowman    0")
+
+#define X(a, b) a,
+typedef enum XOptions { ConfigList(X) };
+#undef X
+#define X(a, b) b "|"
+static const char *option_config = ConfigList(X);
+#undef X
+
+static int runs = 1;
+static int first_command = 0;
+
+
 //hyperfine --export-csv slee.csv --show-output --warmup 10 --runs $reps -N ${commands[@]}
+
+
+// On Linux with systemd:
+//
+// To clear PageCache, dentries and inodes, use this command:
+// $ sudo sysctl vm.drop_caches=3
+// 
+// On Linux without systemd, run these commands as root:
+//
+// # sync; echo 1 > /proc/sys/vm/drop_caches # clear PageCache
+// # sync; echo 2 > /proc/sys/vm/drop_caches # clear dentries and inodes
+// # sync; echo 3 > /proc/sys/vm/drop_caches # clear all 3
+//
+// On macos:
+//
+// $ sync && sudo purge
+//
+
+// I/O operations
+// --------------
+
+// The macos kernel does not appear to populate the i/o block
+// operation counters in r_usage, at least not on a 2020 MacBook Air
+// (SSD) running macos 14.4.1.  The current linux kernels do report
+// block operation counts, but (1) only for actual disk reads, not for
+// files served from cache, and (2) it is not simple to determine the
+// block size.  E.g. One of my machines reports a block size of 4092
+// for its SSD (via 'blockdev'), but the effective size appears to be
+// 8192, probably due to the filesystem or mount options.
+//
+// Conclusion: We will not record values for "Input ops" (ru_inblock)
+// or "Output ops" (ru_oublock).
+
 
 
 // Usage: bestguess [options] prog arg1 arg2 .. argN
@@ -78,25 +154,6 @@
    
 */
 		       
-#include "utils.h"
-#include "bestguess.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h> 
-#include <inttypes.h>
-
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/wait.h>
-#include <sys/resource.h>
-
-#ifdef __linux__
-  #define FMTusec "ld"
-#else
-  #define FMTusec "d"
-#endif
 
 static void print_rusage(struct rusage *usage) {
 
@@ -111,10 +168,6 @@ static void print_rusage(struct rusage *usage) {
   printf("Max RSS:      %ld (approx. %0.2f MiB)\n",
 	 usage->ru_maxrss, (usage->ru_maxrss + 512) / (1024.0 * 1024.0));
   
-//   long ru_ixrss;           /* integral shared text memory size */
-//   long ru_idrss;           /* integral unshared data size */
-//   long ru_isrss;           /* integral unshared stack size */
-
   puts("");
 
   printf("Page reclaims: %6ld\n", usage->ru_minflt);
@@ -123,20 +176,9 @@ static void print_rusage(struct rusage *usage) {
 
   puts("");
 
-  printf("Input ops:     %6ld\n", usage->ru_inblock);
-  printf("Output ops:    %6ld\n", usage->ru_oublock);
-
-//   printf("Messages (sent):          %6ld\n", usage->ru_msgsnd);
-//   printf("         (recvd):         %6ld\n", usage->ru_msgrcv);
-//   printf("Signals  (recvd):         %6ld\n", usage->ru_nsignals);
-
-//   puts("");
-
   printf("Context switches (vol):   %6ld\n", usage->ru_nvcsw);
   printf("                 (invol): %6ld\n", usage->ru_nivcsw);
   printf("                 (TOTAL): %6ld\n", usage->ru_nvcsw + usage->ru_nivcsw);
-
-  //  printf("ri_diskio_bytesread: %" PRId64 "\n", usage->ri_diskio_bytesread);
   puts("");
 
 }
@@ -145,8 +187,7 @@ static void write_header(void) {
 
   printf("User, System, \"Max RSS\", "
 	 "\"Page Reclaims\", \"Page Faults\", "
-	 "\"Voluntary Context Switches\", \"Involuntary Context Switches\", "
-	 "\"Input\", \"Output\""
+	 "\"Voluntary Context Switches\", \"Involuntary Context Switches\" "
 	 "\n");
 }
 
@@ -182,11 +223,7 @@ static void write_line(struct rusage *usage) {
   // The number of times a context switch resulted due to a higher
   // priority process becoming runnable or because the current process
   // exceeded its time slice.
-  printf("%ld, ", usage->ru_nivcsw);
-
-  // TODO: Seems always zero on macos.  Linux?
-  printf("%ld, ", usage->ru_inblock);
-  printf("%ld", usage->ru_oublock);
+  printf("%ld ", usage->ru_nivcsw);
 
   // These fields are currently unused (unmaintained) on Linux: 
   //   ru_ixrss 
@@ -196,14 +233,17 @@ static void write_line(struct rusage *usage) {
   //   ru_msgsnd
   //   ru_msgrcv
   //   ru_nsignals
+  //
+  // These fields are always zero on macos, and not useful on Linux:
+  //   ru_inblock
+  //   ru_oublock
 
   printf("\n");
 
 }
 
-static void run(const char *cmd) {
+static void run(const char *cmd, struct rusage *usage) {
 
-  struct rusage usage;
   int status;
   pid_t pid;
   FILE *f;
@@ -227,23 +267,109 @@ static void run(const char *cmd) {
   } else {
 
     waitpid(pid, &status, 0);
-    getrusage(RUSAGE_CHILDREN, &usage);
-    print_rusage(&usage);
+    getrusage(RUSAGE_CHILDREN, usage);
 
     if (WEXITSTATUS(status))
       printf("Child exited with non-zero status: %d\n", WEXITSTATUS(status));
     
-    printf("\n\n");
-    write_header();
-    write_line(&usage);
+    //    printf("\n\n");
 
     for (int i = 0; args[i]; i++) free(args[i]);
     free(args);
   }
 }
 
+static int bad_option_value(const char *val, int n, const char *arg) {
+  if (val) {
+    if (!*val) {
+      printf("Error: option value is empty '%s'\n", arg);
+      return 1;
+    }
+    if (!optable_numvals(n)) {
+      printf("Error: option '%s' does not take a value\n",
+	     optable_longname(n));
+      return 1;
+    }
+  } else {
+    if (optable_numvals(n)) {
+      printf("Error: option '%s' requires a value\n",
+	     optable_longname(n));
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static void process_args(int argc, char **argv) {
+  int err, n, i = 0;
+  const char *val;
+
+  err = optable_init(option_config, argc, argv);
+  if (err) {
+    printf("ERROR returned by optable_init\n");
+    exit(-1);
+  }
+
+  while ((i = optable_next(&n, &val, i))) {
+    if (n < 0) {
+      if (val) {
+	// Command argument, not an option or switch
+	first_command = i;
+	continue;
+      }
+      printf("Error: invalid option/switch '%s'\n", argv[i]);
+      exit(-1);
+    }
+    if (first_command) {
+      printf("Error: options must come before commands '%s'\n", argv[i]);
+      exit(-1);
+    }
+    switch (n) {
+      case OPT_WARMUP:
+	printf("%15s  %s\n", "warmup", val);
+	if (bad_option_value(val, n, argv[i])) exit(-1);
+	break;
+      case OPT_RUNS:
+	// TODO: Check return value of sscanf
+	sscanf(val, "%d", &runs);
+	printf("%15s  %s ==> %d\n", "runs", val, runs);
+	if (bad_option_value(val, n, argv[i])) exit(-1);
+	break;
+      case OPT_OUTPUT:
+	printf("%15s  %s\n", "output", val);
+	if (bad_option_value(val, n, argv[i])) exit(-1);
+	break;
+      case OPT_INPUT:
+	printf("%15s  %s\n", "input", val);
+	if (bad_option_value(val, n, argv[i])) exit(-1);
+	break;
+      case OPT_SHOWOUTPUT:
+	printf("%15s  %s\n", "show-output", val);
+	if (bad_option_value(val, n, argv[i])) exit(-1);
+	break;
+      case OPT_SHELL:
+	printf("%15s  %s\n", "shell", val);
+	if (bad_option_value(val, n, argv[i])) exit(-1);
+	break;
+      case OPT_VERSION:
+	printf("%15s  %s\n", "version", val);
+	if (bad_option_value(val, n, argv[i])) exit(-1);
+	break;
+      case OPT_HELP:
+	printf("%15s  %s\n", "help", val);
+	if (bad_option_value(val, n, argv[i])) exit(-1);
+	break;
+      default:
+	printf("Error: Invalid option index %d\n", n);
+	exit(-1);
+    }
+  }
+  optable_free();
+}
+
 int main(int argc, char *argv[]) {
 
+  struct rusage usage;
   if (argc) progname = argv[0];
   
   if (argc < 2) {
@@ -251,9 +377,16 @@ int main(int argc, char *argv[]) {
     printf("For more information, try %s --help\n", progname);
     exit(-1);
   }
-  
-  for (int i = 1; i < argc; i++)
-    run(argv[i]);
 
+  process_args(argc, argv);
+  
+  write_header();
+
+  for (int i = 0; i < runs; i++) {
+    for (int cmd = first_command; cmd < argc; cmd++) {
+      run(argv[cmd], &usage);
+      write_line(&usage);
+    }
+  }
   return 0;
 }
