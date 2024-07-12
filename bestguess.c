@@ -92,11 +92,17 @@
 #include <sys/wait.h>
 #include <sys/resource.h>
 
+#ifdef __linux__
+  #define FMTusec "ld"
+#else
+  #define FMTusec "d"
+#endif
+
 static void print_rusage(struct rusage *usage) {
 
-  printf("User   %ld.%06d\n", usage->ru_utime.tv_sec, usage->ru_utime.tv_usec);
-  printf("System %ld.%06d\n", usage->ru_stime.tv_sec, usage->ru_stime.tv_usec);
-  printf("Total  %ld.%06d\n",
+  printf("User   %ld.%" FMTusec "\n", usage->ru_utime.tv_sec, usage->ru_utime.tv_usec);
+  printf("System %ld.%" FMTusec "\n", usage->ru_stime.tv_sec, usage->ru_stime.tv_usec);
+  printf("Total  %ld.%" FMTusec "\n",
 	 usage->ru_stime.tv_sec + usage->ru_utime.tv_sec,
 	 usage->ru_stime.tv_usec + usage->ru_utime.tv_usec);
 
@@ -232,6 +238,7 @@ static void run(const char *cmd) {
     write_line(&usage);
 
     for (int i = 0; args[i]; i++) free(args[i]);
+    free(args);
   }
 }
 
