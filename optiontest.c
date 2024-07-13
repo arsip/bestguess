@@ -7,53 +7,46 @@
 #include "utils.h"
 #include "optable.h"
 
-static const char *example1 =
-  "|o output      1|"
-  "|i input       1|"
-  "|- show-output 1|"
-  "|v -           0|"
-  "|h help        0|";
+#define ASSERT(val) do {			\
+    if (!val) bail("assertion failed");		\
+  } while(0)
 
-static const char *example2 =
-  "o output      0 | i input       1";
+typedef enum Options { 
+  OPT_UNUSED1,			// for testing
+  OPT_WARMUP,
+  OPT_RUNS,
+  OPT_OUTPUT,
+  OPT_INPUT,
+  OPT_UNUSED2,			// for testing
+  OPT_SHOWOUTPUT,
+  OPT_SHELL,
+  OPT_VERSION,
+  OPT_HELP,
+  OPT_UNUSED3,			// for testing
+  OPT_UNUSED4,			// for testing
+  OPT_UNUSED5,			// for testing
+  OPT_UNUSED6,			// for testing
+  OPT_UNUSED7,			// for testing
+  OPT_SNOWMAN,
+  OPT_ERR_TEST			// for testing
+};
 
-static const char *example3 =
-  "  ||  o output      0 || i input       1 ||		";
-
-// Error: missing field in first "record"
-static const char *example4 =
-  "  ||  o       0 || i input       1 ||		";
-
-// Error: numvals not 0 or 1
-static const char *example5 =
-  "o  output     0 || i input       2";
-
-// Error: last record is incomplete
-static const char *example6 =
-  "o  output     0 || i";
-
-
-#define ConfigList(X)			\
-  X(OPT_WARMUP,     "w warmup      1")	\
-  X(OPT_RUNS,       "r runs        1")	\
-  X(OPT_OUTPUT,     "o output      1")	\
-  X(OPT_INPUT,      "i input       1")	\
-  X(OPT_SHOWOUTPUT, "- show-output 1")	\
-  X(OPT_SHELL,      "S shell       1")	\
-  X(OPT_VERSION,    "v version     0")	\
-  X(OPT_HELP,       "h help        0")  \
-  X(OPT_SNOWMAN,    "⛄ snowman    0")
-
-#define X(a, b) a,
-typedef enum XOptions { ConfigList(X) };
-#undef X
-#define X(a, b) b "|"
-static const char *option_config = ConfigList(X);
-#undef X
+static void init_options(void) {
+  optable_add(OPT_WARMUP,     "w", "warmup",       1, "Number of warmup runs");
+  optable_add(OPT_RUNS,       "r", "runs",         1, "Number of timed runs");
+  optable_add(OPT_OUTPUT,     "o", "output",       1, "Filename for timing data (CSV)");
+  optable_add(OPT_INPUT,      "i", "input",        1, "Filename for input (commands)");
+  optable_add(OPT_SHOWOUTPUT, NULL, "show-output", 1, "When set, program output is shown");
+  optable_add(OPT_SHELL,      "S", "shell",        1, "Shell to use to run commands (default is none)");
+  optable_add(OPT_VERSION,    "v", "version",      0, "Show version");
+  optable_add(OPT_HELP,       "h", "help",         0, "Show help");
+  optable_add(OPT_SNOWMAN,    "⛄", "snowman",     0, "Enjoy a snowman, any time of year!");
+  ASSERT(!optable_error());
+}
 
 static void print_options(void) {
-  int count = optable_count();
-  for (int i = 0; i < count; i++) {
+  int i;
+  for (i = optable_iter_start(); i >= 0; i = optable_iter_next(i)) {
     printf("[%2d] %6s  %20s  %1d\n",
 	   i,
 	   optable_shortname(i),
@@ -73,34 +66,42 @@ static void print_options(void) {
     }								\
   } while (0)
 
-#define ASSERT(val) do {			\
-    if (!val) bail("assertion failed");		\
-  } while(0)
-
 int main(int argc, char *argv[]) {
 
-  int err;
   if (argc) progname = argv[0];
 
+  int err;
+  err = optable_add(OPT_ERR_TEST, NULL, NULL, 0, "Help! No option names!");
+  ASSERT(err);
+  err = optable_add(OPT_ERR_TEST, "", NULL, 0, "Help! Empty shortname!");
+  ASSERT(err);
+  err = optable_add(OPT_ERR_TEST, NULL, "", 0, "Help! Empty longname!");
+  ASSERT(err);
+  err = optable_add(OPT_ERR_TEST, "", "", 0, "Help! Both names empty!");
+  ASSERT(err);
+  err = optable_add(OPT_ERR_TEST, "h", "help", 2, "Help! Numvals out of range!");
+  ASSERT(err);
+  err = optable_add(OPT_ERR_TEST, "h", "help", -1, "Help! Numvals out of range!");
+  ASSERT(err);
+  err = optable_add(OPT_HELP, "h", "help", 0, "Show help");
+  ASSERT(!err);
+
+  ASSERT(optable_error());
+
+  // Reset everything after the tests above
+  optable_free();
+
   printf("%s: Printing option configuration\n", progname);
-
-  RUNTEST(example1); ASSERT(!err);
-  RUNTEST(example2); ASSERT(!err);
-  RUNTEST(example3); ASSERT(!err);
-  RUNTEST(example4); ASSERT(err);
-  RUNTEST(example5); ASSERT(err);
-  RUNTEST(example6); ASSERT(err);
-
-  printf("\n%s: Parsing command-line arguments\n\n", progname);
-  err = optable_init(option_config, argc, argv);
-  if (err) printf("ERROR returned by init\n");
+  init_options();
   print_options();
   printf("\n");
 
+  printf("\n%s: Parsing command-line arguments\n\n", progname);
   const char *val;
-  int n, i = 0;
+  int n, i;
   printf("Arg  Option  Value\n");
   printf("---  ------  -----\n");
+  i = optable_init(argc, argv);
   while ((i = optable_next(&n, &val, i))) {
     if (n < 0) {
       if (val)
@@ -118,7 +119,7 @@ int main(int argc, char *argv[]) {
   
   printf("Option           Value\n");
   printf("---------------  -------------\n");
-  i = 0;
+  optable_init(argc, argv);
   while ((i = optable_next(&n, &val, i))) {
     if (n < 0) {
       if (val) continue;	// ordinary argument
@@ -166,6 +167,7 @@ int main(int argc, char *argv[]) {
 	printf("Error: option requires a value\n");
     }
   }
+
   optable_free();
   return 0;
 }

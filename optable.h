@@ -8,18 +8,23 @@
 #define optable_h
 
 /*
-  Rules:
+  Rules for defining options:
 
   - All option names are:
       (1) NUL-terminated sequences of arbitrary non-0 bytes,
       (2) containing neither '=' nor ASCII whitespace (" \t\n\r").
-  - A name, short or long, can be omitted by supplying a dash '-'
+      (3) not starting with a dash '-'
+  - A name, short or long, can be omitted by supplying NULL.
   - The number of values an option can take may be 0 or 1.  See notes.
-  - Multiple short names can be combined, e.g. "-pq" where p and q
-    take no values.  The last one can take a value, e.g. if r takes a
-    value, then these are allowed: "-pr 4" or "-pr=4".
 
-  NOTE ON MULTIPLE VALUES:
+  A SINGLE CLI ARG CAN CONTAIN MULTIPLE SHORTNAME OPTIONS:
+  
+  The option parser accepts multiple short names that are combined,
+  e.g. "-pq" where p and q take no values.  The last one can take a
+  value, e.g. if r takes a value, then these are allowed: "-pr 4" or
+  "-pr=4".
+
+  NOTE ON MULTIPLE VALUES FOR ONE OPTION:
 
   You can accept zero or more (set OptionNumVals to 0) using the
   iterator, i.e. "i = optable_iter(...)".
@@ -49,9 +54,18 @@ const char *optable_shortname(int n);
 const char *optable_longname(int n);
 int         optable_numvals(int n);
 
-int  optable_init(const char *config, int argc, char **argv);
-int  optable_is_option(const char *arg);
+int  optable_iter_start(void);
+int  optable_iter_next(int i);
+
+int  optable_add(int n,
+		 const char *sname,
+		 const char *lname,
+		 int numvals,
+		 const char *help);
+int  optable_init(int argc, char **argv);
 int  optable_next(int *n, const char **value, int i);
+int  optable_is_option(const char *arg);
 void optable_free(void);
+int  optable_error(void);
 
 #endif
