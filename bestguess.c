@@ -175,7 +175,7 @@ static void print_rusage(struct rusage *usage) {
   puts("");
 
   printf("Max RSS:      %ld (approx. %0.2f MiB)\n",
-	 usage->ru_maxrss, (usage->ru_maxrss + 512) / (1024.0 * 1024.0));
+	 usage->ru_maxrss, (usage->ru_maxrss + 512) / 1024.0);
   
   puts("");
 
@@ -193,7 +193,9 @@ static void print_rusage(struct rusage *usage) {
 }
 
 static void write_header(FILE *f) {
-  fprintf(f, "Command, User, System, \"Max RSS\", "
+  fprintf(f, "Command, "
+	  "\"User time (us)\", \"System time (us)\", "
+	  "\"Max RSS (KiByte)\", "
 	  "\"Page Reclaims\", \"Page Faults\", "
 	  "\"Voluntary Context Switches\", \"Involuntary Context Switches\" "
 	  "\n");
