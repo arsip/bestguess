@@ -31,7 +31,7 @@
   X(OPT_RUNS,       "r runs        1")	\
   X(OPT_OUTPUT,     "o output      1")	\
   X(OPT_INPUT,      "i input       1")	\
-  X(OPT_SHOWOUTPUT, "- show-output 1")	\
+  X(OPT_SHOWOUTPUT, "- show-output 0")	\
   X(OPT_SHELL,      "S shell       1")	\
   X(OPT_VERSION,    "v version     0")	\
   X(OPT_HELP,       "h help        0")  \
@@ -45,8 +45,11 @@ static const char *option_config = ConfigList(X);
 #undef X
 
 static int runs = 1;
+static int warmups = 0;
 static int first_command = 0;
-
+static int show_output = 0;
+//static char *input_filename = NULL;
+static char *output_filename = NULL;
 
 //hyperfine --export-csv slee.csv --show-output --warmup 10 --runs $reps -N ${commands[@]}
 
@@ -155,6 +158,7 @@ static int first_command = 0;
 */
 		       
 
+#if 0
 static void print_rusage(struct rusage *usage) {
 
   printf("User   %ld.%" FMTusec "\n", usage->ru_utime.tv_sec, usage->ru_utime.tv_usec);
@@ -182,48 +186,53 @@ static void print_rusage(struct rusage *usage) {
   puts("");
 
 }
+#endif
 
-static void write_header(void) {
+static void write_header(FILE *f) {
 
-  printf("User, System, \"Max RSS\", "
-	 "\"Page Reclaims\", \"Page Faults\", "
-	 "\"Voluntary Context Switches\", \"Involuntary Context Switches\" "
-	 "\n");
+  fprintf(f, "Command, User, System, \"Max RSS\", "
+	  "\"Page Reclaims\", \"Page Faults\", "
+	  "\"Voluntary Context Switches\", \"Involuntary Context Switches\" "
+	  "\n");
 }
 
-static void write_line(struct rusage *usage) {
+static void write_line(FILE *f, const char *cmd, struct rusage *usage) {
 
   int64_t time;
+
+  // TODO: Escape chars like quotes in 'cmd'
+  fprintf(f, "\"%s\", ", cmd);
+
   // User time in microseconds
   time = usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
-  printf("%" PRId64 ", ", time);
+  fprintf(f, "%" PRId64 ", ", time);
   // System time in microseconds
   time = usage->ru_stime.tv_sec * 1000 * 1000 + usage->ru_stime.tv_usec;
-  printf("%" PRId64 ", ", time);
+  fprintf(f, "%" PRId64 ", ", time);
   // Max RSS in kibibytes
   // ru_maxrss (since Linux 2.6.32) This is the maximum resident set size used (in kilobytes).
   // When the above was written, a kilobyte meant 1024 bytes.
-  printf("%ld, ", usage->ru_maxrss);
+  fprintf(f, "%ld, ", usage->ru_maxrss);
   // Page reclaims (count):
   // The number of page faults serviced without any I/O activity; here
   // I/O activity is avoided by “reclaiming” a page frame from the
   // list of pages awaiting reallocation.
-  printf("%ld, ", usage->ru_minflt);
+  fprintf(f, "%ld, ", usage->ru_minflt);
   // Page faults (count):
   // The number of page faults serviced that required I/O activity.
-  printf("%ld, ", usage->ru_majflt);
+  fprintf(f, "%ld, ", usage->ru_majflt);
 
   // Voluntary context switches:
   // The number of times a context switch resulted due to a process
   // voluntarily giving up the processor before its time slice was
   // completed (usually to await availability of a resource).
-  printf("%ld, ", usage->ru_nvcsw);
+  fprintf(f, "%ld, ", usage->ru_nvcsw);
 
   // Involuntary context switches:
   // The number of times a context switch resulted due to a higher
   // priority process becoming runnable or because the current process
   // exceeded its time slice.
-  printf("%ld ", usage->ru_nivcsw);
+  fprintf(f, "%ld ", usage->ru_nivcsw);
 
   // These fields are currently unused (unmaintained) on Linux: 
   //   ru_ixrss 
@@ -238,7 +247,7 @@ static void write_line(struct rusage *usage) {
   //   ru_inblock
   //   ru_oublock
 
-  printf("\n");
+  fprintf(f, "\n");
 
 }
 
@@ -255,13 +264,15 @@ static void run(const char *cmd, struct rusage *usage) {
 
   if (pid == 0) {
 
-    f = freopen("/dev/null", "r", stdin);
-    if (!f) bail("freopen failed on stdin");
-    f = freopen("/dev/null", "w", stderr);
-    if (!f) bail("freopen failed on stderr");
-    f = freopen("/dev/null", "w", stdout);
-    if (!f) bail("freopen failed on stdout");
-
+    if (!show_output) {
+      f = freopen("/dev/null", "r", stdin);
+      if (!f) bail("freopen failed on stdin");
+      f = freopen("/dev/null", "w", stderr);
+      if (!f) bail("freopen failed on stderr");
+      f = freopen("/dev/null", "w", stdout);
+      if (!f) bail("freopen failed on stdout");
+    }
+    
     execvp(args[0], args);
 
   } else {
@@ -281,13 +292,12 @@ static void run(const char *cmd, struct rusage *usage) {
 
 static int bad_option_value(const char *val, int n, const char *arg) {
   if (val) {
-    if (!*val) {
-      printf("Error: option value is empty '%s'\n", arg);
-      return 1;
-    }
     if (!optable_numvals(n)) {
       printf("Error: option '%s' does not take a value\n",
 	     optable_longname(n));
+      return 1;
+    } else if (!*val) {
+      printf("Error: option value is empty '%s'\n", arg);
       return 1;
     }
   } else {
@@ -321,12 +331,14 @@ static void process_args(int argc, char **argv) {
       exit(-1);
     }
     if (first_command) {
-      printf("Error: options must come before commands '%s'\n", argv[i]);
+      printf("Error: options found after first command '%s'\n",
+	     argv[first_command]);
       exit(-1);
     }
     switch (n) {
       case OPT_WARMUP:
-	printf("%15s  %s\n", "warmup", val);
+	sscanf(val, "%d", &warmups);
+	printf("%15s  %s ==> %d\n", "warmups", val, warmups);
 	if (bad_option_value(val, n, argv[i])) exit(-1);
 	break;
       case OPT_RUNS:
@@ -338,6 +350,7 @@ static void process_args(int argc, char **argv) {
       case OPT_OUTPUT:
 	printf("%15s  %s\n", "output", val);
 	if (bad_option_value(val, n, argv[i])) exit(-1);
+	output_filename = strdup(val);
 	break;
       case OPT_INPUT:
 	printf("%15s  %s\n", "input", val);
@@ -346,6 +359,7 @@ static void process_args(int argc, char **argv) {
       case OPT_SHOWOUTPUT:
 	printf("%15s  %s\n", "show-output", val);
 	if (bad_option_value(val, n, argv[i])) exit(-1);
+	show_output = 1;
 	break;
       case OPT_SHELL:
 	printf("%15s  %s\n", "shell", val);
@@ -370,6 +384,7 @@ static void process_args(int argc, char **argv) {
 int main(int argc, char *argv[]) {
 
   struct rusage usage;
+  FILE *output = NULL;
   if (argc) progname = argv[0];
   
   if (argc < 2) {
@@ -380,13 +395,32 @@ int main(int argc, char *argv[]) {
 
   process_args(argc, argv);
   
-  write_header();
+  if (output_filename) {
+    output = fopen(output_filename, "w");
+    if (!output) {
+      perror(progname);
+      exit(-1);
+    }
+  } else output = stdout;
 
-  for (int i = 0; i < runs; i++) {
-    for (int cmd = first_command; cmd < argc; cmd++) {
+  write_header(output);
+
+  for (int cmd = first_command; cmd < argc; cmd++) {
+
+    printf("Warming up...\n");
+    for (int i = 0; i < warmups; i++) {
       run(argv[cmd], &usage);
-      write_line(&usage);
+      write_line(output, argv[cmd], &usage);
+    }
+
+    printf("Timed runs...\n");
+    for (int i = 0; i < runs; i++) {
+      run(argv[cmd], &usage);
+      write_line(output, argv[cmd], &usage);
     }
   }
+
+  if (output) fclose(output);
+  if (output_filename) free(output_filename);
   return 0;
 }
