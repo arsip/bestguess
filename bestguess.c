@@ -139,7 +139,7 @@ static char *output_filename = NULL;
    
 */
 		       
-typedef enum Options { 
+enum Options { 
   OPT_WARMUP,
   OPT_RUNS,
   OPT_OUTPUT,

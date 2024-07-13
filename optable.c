@@ -132,8 +132,6 @@ static int ensure_space(int n) {
   if (!Tbl && table_init()) return 1;
   while (Tbl_size <= n) {
     newsize = 2 * Tbl_size;
-    printf("*** DOUBLING TABLE SIZE FROM CURRENT SIZE OF %d ***\n", Tbl_size);
-    fflush(NULL);
     Tbl = realloc(Tbl, newsize * sizeof(optable_option));
     if (!Tbl) return 1;
     memset(&(Tbl[Tbl_size]), 0, Tbl_size * sizeof(optable_option));

@@ -53,7 +53,9 @@ CWARNS = -Wall -Wextra \
 
 # ------------------------------------------------------------------
 
-CFLAGS= $(CWARNS) $(COPT) -std=c99 -fPIC $(SYSCFLAGS) $(ASAN_FLAGS)
+CFLAGS= -D_DEFAULT_SOURCE -std=c99 -fPIC \
+	$(SYSCFLAGS) $(ASAN_FLAGS) \
+	$(CWARNS) $(COPT)
 
 # -----------------------------------------------------------------------------
 
