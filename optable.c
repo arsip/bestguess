@@ -28,6 +28,7 @@ static const char *ShortnamePtr = NULL;
 static int                 Argc = 0;
 static char              **Argv = NULL;
 
+__attribute__((unused))
 static void dump_table_info(void) {
   printf("Tbl      = %p\n", Tbl);
   printf("Tbl_size = %d\n", Tbl_size);
@@ -169,9 +170,6 @@ int optable_add(int n,
     return 1;
   }
   if (ensure_space(n)) return 1;
-
-  dump_table_info();
-  
   Tbl[n].shortname = sname;
   Tbl[n].longname = lname;
   Tbl[n].numvals = numvals;

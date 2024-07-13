@@ -26,24 +26,6 @@
   #define FMTusec "d"
 #endif
 
-#define ConfigList(X)			\
-  X(OPT_WARMUP,     "w warmup      1")	\
-  X(OPT_RUNS,       "r runs        1")	\
-  X(OPT_OUTPUT,     "o output      1")	\
-  X(OPT_INPUT,      "i input       1")	\
-  X(OPT_SHOWOUTPUT, "- show-output 0")	\
-  X(OPT_SHELL,      "S shell       1")	\
-  X(OPT_VERSION,    "v version     0")	\
-  X(OPT_HELP,       "h help        0")  \
-  X(OPT_SNOWMAN,    "⛄ snowman    0")
-
-#define X(a, b) a,
-typedef enum XOptions { ConfigList(X) };
-#undef X
-#define X(a, b) b "|"
-static const char *option_config = ConfigList(X);
-#undef X
-
 static int runs = 1;
 static int warmups = 0;
 static int first_command = 0;
@@ -157,8 +139,31 @@ static char *output_filename = NULL;
    
 */
 		       
+typedef enum Options { 
+  OPT_WARMUP,
+  OPT_RUNS,
+  OPT_OUTPUT,
+  OPT_INPUT,
+  OPT_SHOWOUTPUT,
+  OPT_SHELL,
+  OPT_VERSION,
+  OPT_HELP,
+};
 
-#if 0
+static void init_options(void) {
+  optable_add(OPT_WARMUP,     "w", "warmup",       1, "Number of warmup runs");
+  optable_add(OPT_RUNS,       "r", "runs",         1, "Number of timed runs");
+  optable_add(OPT_OUTPUT,     "o", "output",       1, "Filename for timing data (CSV)");
+  optable_add(OPT_INPUT,      "i", "input",        1, "Filename for input (commands)");
+  optable_add(OPT_SHOWOUTPUT, NULL, "show-output", 1, "When set, program output is shown");
+  optable_add(OPT_SHELL,      "S", "shell",        1, "Shell to use to run commands (default is none)");
+  optable_add(OPT_VERSION,    "v", "version",      0, "Show version");
+  optable_add(OPT_HELP,       "h", "help",         0, "Show help");
+  if (optable_error())
+    bail("\nError in command-line option parser configuration");
+}
+
+__attribute__((unused))
 static void print_rusage(struct rusage *usage) {
 
   printf("User   %ld.%" FMTusec "\n", usage->ru_utime.tv_sec, usage->ru_utime.tv_usec);
@@ -186,10 +191,8 @@ static void print_rusage(struct rusage *usage) {
   puts("");
 
 }
-#endif
 
 static void write_header(FILE *f) {
-
   fprintf(f, "Command, User, System, \"Max RSS\", "
 	  "\"Page Reclaims\", \"Page Faults\", "
 	  "\"Voluntary Context Switches\", \"Involuntary Context Switches\" "
@@ -197,7 +200,6 @@ static void write_header(FILE *f) {
 }
 
 static void write_line(FILE *f, const char *cmd, struct rusage *usage) {
-
   int64_t time;
 
   // TODO: Escape chars like quotes in 'cmd'
@@ -277,14 +279,16 @@ static void run(const char *cmd, struct rusage *usage) {
 
   } else {
 
-    waitpid(pid, &status, 0);
-    getrusage(RUSAGE_CHILDREN, usage);
+    //    waitpid(pid, &status, 0);
+    //    getrusage(RUSAGE_CHILDREN, usage);
+    wait4(pid, &status, 0, usage);
 
+    // TODO: Handle non-zero status
     if (WEXITSTATUS(status))
       printf("Child exited with non-zero status: %d\n", WEXITSTATUS(status));
-    
-    //    printf("\n\n");
 
+
+    
     for (int i = 0; args[i]; i++) free(args[i]);
     free(args);
   }
@@ -311,14 +315,11 @@ static int bad_option_value(const char *val, int n, const char *arg) {
 }
 
 static void process_args(int argc, char **argv) {
-  int err, n, i = 0;
+  int n, i;
   const char *val;
 
-  err = optable_init(option_config, argc, argv);
-  if (err) {
-    printf("ERROR returned by optable_init\n");
-    exit(-1);
-  }
+  i = optable_init(argc, argv);
+  if (i < 0) bail("Error initializing option parser");
 
   while ((i = optable_next(&n, &val, i))) {
     if (n < 0) {
@@ -393,6 +394,7 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
 
+  init_options();
   process_args(argc, argv);
   
   if (output_filename) {
