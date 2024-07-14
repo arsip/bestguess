@@ -16,7 +16,15 @@
     exit(-1);					\
   } while (0)
 
-__attribute__((unused))
-static const char *progname = "null";
+
+char  *unescape(const char *str);
+char  *escape(const char *str);
+
+char **split(const char *in);
+char **split_unescape(const char *in);
+
+// For debugging: 
+void print_args(char **args);
+
 
 #endif

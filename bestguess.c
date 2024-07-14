@@ -30,10 +30,42 @@ static int runs = 1;
 static int warmups = 0;
 static int first_command = 0;
 static int show_output = 0;
+static int ignore_failure = 0;
 //static char *input_filename = NULL;
 static char *output_filename = NULL;
 
+static const char *progname = "null name";
+static const char *progversion = "0.1";
+
 //hyperfine --export-csv slee.csv --show-output --warmup 10 --runs $reps -N ${commands[@]}
+
+// From sysctl (command-line) on macos 14.1.1:
+//
+// kern.osproductversion: 14.4.1
+// kern.osreleasetype: User
+//
+// hw.ncpu: 8
+// hw.byteorder: 1234
+// hw.memsize: 17179869184
+// hw.activecpu: 8
+// hw.physicalcpu: 8
+// hw.physicalcpu_max: 8
+// hw.logicalcpu: 8
+// hw.logicalcpu_max: 8
+// hw.cputype: 16777228
+// hw.cpusubtype: 2
+// hw.cpu64bit_capable: 1
+// hw.cpufamily: 458787763
+// hw.cpusubfamily: 2
+// hw.cacheconfig: 8 1 4 0 0 0 0 0 0 0
+// hw.cachesize: 3499048960 65536 4194304 0 0 0 0 0 0 0
+// hw.pagesize: 16384
+// hw.pagesize32: 16384
+// hw.cachelinesize: 128
+// hw.l1icachesize: 131072
+// hw.l1dcachesize: 65536
+// hw.l2cachesize: 4194304
+//
 
 
 // On Linux with systemd:
@@ -143,22 +175,24 @@ enum Options {
   OPT_WARMUP,
   OPT_RUNS,
   OPT_OUTPUT,
-  OPT_INPUT,
+  OPT_FILE,
   OPT_SHOWOUTPUT,
+  OPT_IGNORE,
   OPT_SHELL,
   OPT_VERSION,
   OPT_HELP,
 };
 
 static void init_options(void) {
-  optable_add(OPT_WARMUP,     "w", "warmup",       1, "Number of warmup runs");
-  optable_add(OPT_RUNS,       "r", "runs",         1, "Number of timed runs");
-  optable_add(OPT_OUTPUT,     "o", "output",       1, "Filename for timing data (CSV)");
-  optable_add(OPT_INPUT,      "i", "input",        1, "Filename for input (commands)");
-  optable_add(OPT_SHOWOUTPUT, NULL, "show-output", 1, "When set, program output is shown");
-  optable_add(OPT_SHELL,      "S", "shell",        1, "Shell to use to run commands (default is none)");
-  optable_add(OPT_VERSION,    "v", "version",      0, "Show version");
-  optable_add(OPT_HELP,       "h", "help",         0, "Show help");
+  optable_add(OPT_WARMUP,     "w",  "warmup",         1, "Number of warmup runs");
+  optable_add(OPT_RUNS,       "r",  "runs",           1, "Number of timed runs");
+  optable_add(OPT_OUTPUT,     "o",  "output",         1, "Write timing data (CSV) to <FILE>");
+  optable_add(OPT_FILE,       "f",  "file",           1, "Read commands from <FILE>");
+  optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    1, "Show program output");
+  optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, "Ignore non-zero exit codes");
+  optable_add(OPT_SHELL,      "S",  "shell",          1, "Use this shell to run commands (default 'none')");
+  optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
+  optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
     bail("\nError in command-line option parser configuration");
 }
@@ -193,7 +227,7 @@ static void print_rusage(struct rusage *usage) {
 }
 
 static void write_header(FILE *f) {
-  fprintf(f, "Command, "
+  fprintf(f, "Command, \"Exit code\", "
 	  "\"User time (us)\", \"System time (us)\", "
 	  "\"Max RSS (KiByte)\", "
 	  "\"Page Reclaims\", \"Page Faults\", "
@@ -201,11 +235,11 @@ static void write_header(FILE *f) {
 	  "\n");
 }
 
-static void write_line(FILE *f, const char *cmd, struct rusage *usage) {
+static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   int64_t time;
 
-  // TODO: Escape chars like quotes in 'cmd'
-  fprintf(f, "\"%s\", ", cmd);
+  fprintf(f, "\"%s\", ", escape(cmd));
+  fprintf(f, "%d, ", code);
 
   // User time in microseconds
   time = usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
@@ -255,19 +289,21 @@ static void write_line(FILE *f, const char *cmd, struct rusage *usage) {
 
 }
 
-static void run(const char *cmd, struct rusage *usage) {
+static void free_args(char **args) {
+  for (int i = 0; args[i]; i++) free(args[i]);
+  free(args);
+}
+
+static int run(char **args, struct rusage *usage) {
 
   int status;
   pid_t pid;
   FILE *f;
 
-  char **args = split(cmd);
-
   // Goin' for a ride!
   pid = fork();
 
   if (pid == 0) {
-
     if (!show_output) {
       f = freopen("/dev/null", "r", stdin);
       if (!f) bail("freopen failed on stdin");
@@ -276,24 +312,17 @@ static void run(const char *cmd, struct rusage *usage) {
       f = freopen("/dev/null", "w", stdout);
       if (!f) bail("freopen failed on stdout");
     }
-    
     execvp(args[0], args);
-
-  } else {
-
-    //    waitpid(pid, &status, 0);
-    //    getrusage(RUSAGE_CHILDREN, usage);
-    wait4(pid, &status, 0, usage);
-
-    // TODO: Handle non-zero status
-    if (WEXITSTATUS(status))
-      printf("Child exited with non-zero status: %d\n", WEXITSTATUS(status));
-
-
-    
-    for (int i = 0; args[i]; i++) free(args[i]);
-    free(args);
   }
+
+  wait4(pid, &status, 0, usage);
+
+  if (!ignore_failure && WEXITSTATUS(status)) {
+    fprintf(stderr, "Command exited with non-zero exit code: %d. ", WEXITSTATUS(status));
+    fprintf(stderr, "Use the -i/--ignore-failure option to ignore non-zero exit codes.\n");
+    exit(-1);
+  }
+    return WEXITSTATUS(status);
 }
 
 static int bad_option_value(const char *val, int n, const char *arg) {
@@ -316,7 +345,7 @@ static int bad_option_value(const char *val, int n, const char *arg) {
   return 0;
 }
 
-static void process_args(int argc, char **argv) {
+static int process_args(int argc, char **argv) {
   int n, i;
   const char *val;
 
@@ -327,7 +356,7 @@ static void process_args(int argc, char **argv) {
     if (n < 0) {
       if (val) {
 	// Command argument, not an option or switch
-	first_command = i;
+	if (!first_command) first_command = i;
 	continue;
       }
       printf("Error: invalid option/switch '%s'\n", argv[i]);
@@ -355,14 +384,19 @@ static void process_args(int argc, char **argv) {
 	if (bad_option_value(val, n, argv[i])) exit(-1);
 	output_filename = strdup(val);
 	break;
-      case OPT_INPUT:
-	printf("%15s  %s\n", "input", val);
+      case OPT_FILE:
+	printf("%15s  %s\n", "file", val);
 	if (bad_option_value(val, n, argv[i])) exit(-1);
 	break;
       case OPT_SHOWOUTPUT:
 	printf("%15s  %s\n", "show-output", val);
 	if (bad_option_value(val, n, argv[i])) exit(-1);
 	show_output = 1;
+	break;
+      case OPT_IGNORE:
+	printf("%15s  %s\n", "ignore-failure", val);
+	if (bad_option_value(val, n, argv[i])) exit(-1);
+	ignore_failure = 1;
 	break;
       case OPT_SHELL:
 	printf("%15s  %s\n", "shell", val);
@@ -371,10 +405,12 @@ static void process_args(int argc, char **argv) {
       case OPT_VERSION:
 	printf("%15s  %s\n", "version", val);
 	if (bad_option_value(val, n, argv[i])) exit(-1);
+	return n;
 	break;
       case OPT_HELP:
 	printf("%15s  %s\n", "help", val);
 	if (bad_option_value(val, n, argv[i])) exit(-1);
+	return n;
 	break;
       default:
 	printf("Error: Invalid option index %d\n", n);
@@ -382,12 +418,15 @@ static void process_args(int argc, char **argv) {
     }
   }
   optable_free();
+  return -1;
 }
 
 int main(int argc, char *argv[]) {
 
-  struct rusage usage;
   FILE *output = NULL;
+  struct rusage usage;
+  int immediate, code;
+  char **args;
   if (argc) progname = argv[0];
   
   if (argc < 2) {
@@ -397,8 +436,16 @@ int main(int argc, char *argv[]) {
   }
 
   init_options();
-  process_args(argc, argv);
+  immediate = process_args(argc, argv);
   
+  if (immediate == OPT_VERSION) {
+    printf("%s: %s\n", progname, progversion);
+    exit(0);
+  } else if (immediate == OPT_HELP) {
+    printf("%s: Help printing not implemented yet\n", progname);
+    exit(0);
+  }
+
   if (output_filename) {
     output = fopen(output_filename, "w");
     if (!output) {
@@ -409,19 +456,27 @@ int main(int argc, char *argv[]) {
 
   write_header(output);
 
-  for (int cmd = first_command; cmd < argc; cmd++) {
+  for (int k = first_command; k < argc; k++) {
+
+    printf("Command: %s\n", argv[k]);
+    args = split_unescape(argv[k]);
+    if (!args) exit(-1);	// Warning already issued
+    print_args(args);		// TEMP!
 
     printf("Warming up...\n");
     for (int i = 0; i < warmups; i++) {
-      run(argv[cmd], &usage);
-      write_line(output, argv[cmd], &usage);
+      code = run(args, &usage);
+      write_line(output, argv[k], code, &usage);
     }
 
     printf("Timed runs...\n");
     for (int i = 0; i < runs; i++) {
-      run(argv[cmd], &usage);
-      write_line(output, argv[cmd], &usage);
+      code = run(args, &usage);
+      write_line(output, argv[k], code, &usage);
     }
+
+    free_args(args);
+
   }
 
   if (output) fclose(output);
