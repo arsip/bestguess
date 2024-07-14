@@ -290,6 +290,17 @@ static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage)
   free(shell_cmd);
 }
 
+static FILE *maybe_open(const char *filename, const char *mode) {
+  if (!filename) return NULL;
+  FILE *f = fopen(filename, mode);
+  if (!f) {
+    fprintf(stderr, "Cannot open file: %s\n", filename);
+    perror(progname);
+    exit(-1);
+  }
+  return f;
+}
+
 static int run(const char *cmd, struct rusage *usage) {
 
   int status;
@@ -359,23 +370,9 @@ static void run_benchmarks(int argc, char **argv) {
   FILE *input = NULL, *output = NULL;
   char buf[MAXCMDLEN];
 
-  if (input_filename) {
-    input = fopen(input_filename, "r");
-    if (!input) {
-      fprintf(stderr, "Cannot open input file: %s\n", input_filename);
-      perror(progname);
-      exit(-1);
-    }
-  }
-
-  if (output_filename) {
-    output = fopen(output_filename, "w");
-    if (!output) {
-      fprintf(stderr, "Cannot open output file: %s\n", output_filename);
-      perror(progname);
-      exit(-1);
-    }
-  } else output = stdout;
+  input = maybe_open(input_filename, "r");
+  output = maybe_open(output_filename, "w");
+  if (!output) output = stdout;
 
   write_header(output);
 
@@ -383,10 +380,9 @@ static void run_benchmarks(int argc, char **argv) {
     run_command(argv[k], output);
 
   char *cmd = NULL;
-  if (input) do {
-      cmd = fgets(buf, MAXCMDLEN, input);
-      if (cmd) run_command(cmd, output);
-    } while (cmd);
+  if (input)
+    while ((cmd = fgets(buf, MAXCMDLEN, input)))
+      run_command(cmd, output);
   
   if (output) fclose(output);
   if (input) fclose(input);
@@ -498,7 +494,22 @@ static void usage(void) {
 }
 
 static int reduce_data(void) {
-  printf("Not implemented yet\n");
+  FILE *input = NULL, *output = NULL;
+  char buf[MAXCSVLEN];
+
+  printf("Not fully implemented yet\n");
+
+  input = maybe_open(input_filename, "r");
+  output = maybe_open(output_filename, "w");
+  if (!output) output = stdout;
+  if (!input) input = stdin;
+
+  char *line = NULL;
+  while ((line = fgets(buf, MAXCSVLEN, input)))
+    printf("%s", line);
+
+  if (input) fclose(input);
+  if (output) fclose(output);
   return 0;
 }
 

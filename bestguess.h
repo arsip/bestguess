@@ -18,6 +18,9 @@
 // E.g. "ls -lh" has 7 bytes (6 chars and NUL)
 #define MAXCMDLEN 4096
 
+// Maximum length of a single line in our own CSV file format
+#define MAXCSVLEN 4096
+
 // Change as desired
 #define PROCESS_DATA_COMMAND "reduce"
 
