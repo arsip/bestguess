@@ -17,6 +17,9 @@
   } while (0)
 
 
+void free_args(char **args);
+int  add_arg(char **args, int n, char *newarg);
+
 char  *unescape(const char *str);
 char  *escape(const char *str);
 

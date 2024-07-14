@@ -56,12 +56,47 @@ static const char *read_arg(const char *p) {
 // TODO: Keep MAX_ARGS or switch to a table?
 #define MAX_ARGS 200
 
+void free_args(char **args) {
+  for (int i = 0; args[i]; i++) free(args[i]);
+  free(args);
+}
+
+// Returns error indicator, 1 for error, 0 for success.
+// Overwrites args[n] with newarg.  If n is -1, appends.
+int add_arg(char **args, int n, char *newarg) {
+  if (!args || !newarg) return 1;
+  if (n >= MAX_ARGS) goto full;
+
+  int i;
+  if (n == -1) {
+    for (i = 0; i < MAX_ARGS; i++)
+      if (!args[i]) break;
+    if (args[i]) goto full;
+    n = i;
+  }
+  args[n] = newarg;
+  return 0;
+
+ full:
+  warn("args", "arg table full at %d items", MAX_ARGS);
+  return 1;
+}
+
+static char **newargs(void) {
+  size_t sz = (MAX_ARGS + 1) * sizeof(char *);
+  char **args = malloc(sz);
+  if (!args) return NULL;
+  memset(args, 0, sz);
+  return args;
+}
+
 // Split at whitespace, respecting pairs of double and single quotes
 char **split(const char *in) {
-  char **args = malloc(MAX_ARGS * sizeof(char *));
+  char **args = newargs();
   if (!args) goto oom;
 
   int n = 0;
+  char *new;
   const char *p, *end, *start = in;
 
   p = start;
@@ -81,11 +116,11 @@ char **split(const char *in) {
       start++;
       p++;
     } 
-    args[n] = malloc(end - start + 1);
-    if (!args[n]) goto oom;
-    memcpy(args[n], start, end - start);
-    args[n][end - start] = '\0';
-    n++;
+    new = malloc(end - start + 1);
+    if (!new) goto oom;
+    memcpy(new, start, end - start);
+    new[end - start] = '\0';
+    add_arg(args, n++, new);
   }
 
   args[n] = NULL;

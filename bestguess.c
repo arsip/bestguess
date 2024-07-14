@@ -33,6 +33,7 @@ static int show_output = 0;
 static int ignore_failure = 0;
 //static char *input_filename = NULL;
 static char *output_filename = NULL;
+static const char *shell = NULL;
 
 static const char *progname = "null name";
 static const char *progversion = "0.1";
@@ -188,9 +189,9 @@ static void init_options(void) {
   optable_add(OPT_RUNS,       "r",  "runs",           1, "Number of timed runs");
   optable_add(OPT_OUTPUT,     "o",  "output",         1, "Write timing data (CSV) to <FILE>");
   optable_add(OPT_FILE,       "f",  "file",           1, "Read commands from <FILE>");
-  optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    1, "Show program output");
+  optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, "Show program output");
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, "Ignore non-zero exit codes");
-  optable_add(OPT_SHELL,      "S",  "shell",          1, "Use this shell to run commands (default 'none')");
+  optable_add(OPT_SHELL,      "S",  "shell",          1, "Use this shell to run commands (else no shell)");
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
@@ -228,6 +229,7 @@ static void print_rusage(struct rusage *usage) {
 
 static void write_header(FILE *f) {
   fprintf(f, "Command, \"Exit code\", "
+	  "Shell, "
 	  "\"User time (us)\", \"System time (us)\", "
 	  "\"Max RSS (KiByte)\", "
 	  "\"Page Reclaims\", \"Page Faults\", "
@@ -238,8 +240,12 @@ static void write_header(FILE *f) {
 static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   int64_t time;
 
-  fprintf(f, "\"%s\", ", escape(cmd));
+  char *escaped_cmd = escape(cmd);
+  char *shell_cmd = shell ? escape(shell) : NULL;
+
+  fprintf(f, "\"%s\", ", escaped_cmd);
   fprintf(f, "%d, ", code);
+  fprintf(f, "\"%s\", ", shell_cmd ?: "");
 
   // User time in microseconds
   time = usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
@@ -286,19 +292,27 @@ static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage)
   //   ru_oublock
 
   fprintf(f, "\n");
-
+  free(escaped_cmd);
+  free(shell_cmd);
 }
 
-static void free_args(char **args) {
-  for (int i = 0; args[i]; i++) free(args[i]);
-  free(args);
-}
+static int run(const char *cmd, struct rusage *usage) {
 
-static int run(char **args, struct rusage *usage) {
-
+  char **args;
   int status;
   pid_t pid;
   FILE *f;
+
+  if (!shell || !*shell) {
+    args = split_unescape(cmd);
+    if (!args) exit(-1);		// Warning already issued
+  } else {
+    args = split_unescape(shell);
+    if (!args) exit(-1);		// Warning already issued
+    add_arg(args, -1, strdup(cmd));
+  }
+
+  //print_args(args);			// TEMP!
 
   // Goin' for a ride!
   pid = fork();
@@ -322,17 +336,15 @@ static int run(char **args, struct rusage *usage) {
     fprintf(stderr, "Use the -i/--ignore-failure option to ignore non-zero exit codes.\n");
     exit(-1);
   }
-    return WEXITSTATUS(status);
+  free_args(args);
+  return WEXITSTATUS(status);
 }
 
-static int bad_option_value(const char *val, int n, const char *arg) {
+static int bad_option_value(const char *val, int n) {
   if (val) {
     if (!optable_numvals(n)) {
       printf("Error: option '%s' does not take a value\n",
 	     optable_longname(n));
-      return 1;
-    } else if (!*val) {
-      printf("Error: option value is empty '%s'\n", arg);
       return 1;
     }
   } else {
@@ -371,45 +383,46 @@ static int process_args(int argc, char **argv) {
       case OPT_WARMUP:
 	sscanf(val, "%d", &warmups);
 	printf("%15s  %s ==> %d\n", "warmups", val, warmups);
-	if (bad_option_value(val, n, argv[i])) exit(-1);
+	if (bad_option_value(val, n)) exit(-1);
 	break;
       case OPT_RUNS:
 	// TODO: Check return value of sscanf
 	sscanf(val, "%d", &runs);
 	printf("%15s  %s ==> %d\n", "runs", val, runs);
-	if (bad_option_value(val, n, argv[i])) exit(-1);
+	if (bad_option_value(val, n)) exit(-1);
 	break;
       case OPT_OUTPUT:
 	printf("%15s  %s\n", "output", val);
-	if (bad_option_value(val, n, argv[i])) exit(-1);
+	if (bad_option_value(val, n)) exit(-1);
 	output_filename = strdup(val);
 	break;
       case OPT_FILE:
 	printf("%15s  %s\n", "file", val);
-	if (bad_option_value(val, n, argv[i])) exit(-1);
+	if (bad_option_value(val, n)) exit(-1);
 	break;
       case OPT_SHOWOUTPUT:
 	printf("%15s  %s\n", "show-output", val);
-	if (bad_option_value(val, n, argv[i])) exit(-1);
+	if (bad_option_value(val, n)) exit(-1);
 	show_output = 1;
 	break;
       case OPT_IGNORE:
 	printf("%15s  %s\n", "ignore-failure", val);
-	if (bad_option_value(val, n, argv[i])) exit(-1);
+	if (bad_option_value(val, n)) exit(-1);
 	ignore_failure = 1;
 	break;
       case OPT_SHELL:
 	printf("%15s  %s\n", "shell", val);
-	if (bad_option_value(val, n, argv[i])) exit(-1);
+	if (bad_option_value(val, n)) exit(-1);
+	shell = val;
 	break;
       case OPT_VERSION:
 	printf("%15s  %s\n", "version", val);
-	if (bad_option_value(val, n, argv[i])) exit(-1);
+	if (bad_option_value(val, n)) exit(-1);
 	return n;
 	break;
       case OPT_HELP:
 	printf("%15s  %s\n", "help", val);
-	if (bad_option_value(val, n, argv[i])) exit(-1);
+	if (bad_option_value(val, n)) exit(-1);
 	return n;
 	break;
       default:
@@ -426,7 +439,6 @@ int main(int argc, char *argv[]) {
   FILE *output = NULL;
   struct rusage usage;
   int immediate, code;
-  char **args;
   if (argc) progname = argv[0];
   
   if (argc < 2) {
@@ -459,23 +471,18 @@ int main(int argc, char *argv[]) {
   for (int k = first_command; k < argc; k++) {
 
     printf("Command: %s\n", argv[k]);
-    args = split_unescape(argv[k]);
-    if (!args) exit(-1);	// Warning already issued
-    print_args(args);		// TEMP!
 
     printf("Warming up...\n");
     for (int i = 0; i < warmups; i++) {
-      code = run(args, &usage);
+      code = run(argv[k], &usage);
       write_line(output, argv[k], code, &usage);
     }
 
     printf("Timed runs...\n");
     for (int i = 0; i < runs; i++) {
-      code = run(args, &usage);
+      code = run(argv[k], &usage);
       write_line(output, argv[k], code, &usage);
     }
-
-    free_args(args);
 
   }
 
