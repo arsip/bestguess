@@ -118,7 +118,7 @@ void optable_free(void) {
 
 // Return error code: 1 for out of memory, 0 for success
 static int table_init(void) {
-  const size_t initsize = 1;
+  const size_t initsize = 40;
   Tbl = calloc(initsize, sizeof(optable_option));
   if (!Tbl) return 1;
   Tbl_size = initsize;

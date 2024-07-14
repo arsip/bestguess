@@ -5,6 +5,9 @@
 //  MIT LICENSE 
 //  COPYRIGHT (C) Jamie A. Jennings, 2024
 
+static const char *progversion = "0.1";
+static const char *progname = "bestguess";
+
 #include "utils.h"
 #include "optable.h"
 #include "bestguess.h"
@@ -26,17 +29,16 @@
   #define FMTusec "d"
 #endif
 
+static int reducing_mode = 0;
 static int runs = 1;
 static int warmups = 0;
 static int first_command = 0;
 static int show_output = 0;
 static int ignore_failure = 0;
-//static char *input_filename = NULL;
+static char *input_filename = NULL;
 static char *output_filename = NULL;
 static const char *shell = NULL;
 
-static const char *progname = "null name";
-static const char *progversion = "0.1";
 
 //hyperfine --export-csv slee.csv --show-output --warmup 10 --runs $reps -N ${commands[@]}
 
@@ -188,7 +190,7 @@ static void init_options(void) {
   optable_add(OPT_WARMUP,     "w",  "warmup",         1, "Number of warmup runs");
   optable_add(OPT_RUNS,       "r",  "runs",           1, "Number of timed runs");
   optable_add(OPT_OUTPUT,     "o",  "output",         1, "Write timing data (CSV) to <FILE>");
-  optable_add(OPT_FILE,       "f",  "file",           1, "Read commands from <FILE>");
+  optable_add(OPT_FILE,       "f",  "file",           1, "Read commands/data from <FILE>");
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, "Show program output");
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, "Ignore non-zero exit codes");
   optable_add(OPT_SHELL,      "S",  "shell",          1, "Use this shell to run commands (else no shell)");
@@ -206,25 +208,30 @@ static void print_rusage(struct rusage *usage) {
   printf("Total  %ld.%" FMTusec "\n",
 	 usage->ru_stime.tv_sec + usage->ru_utime.tv_sec,
 	 usage->ru_stime.tv_usec + usage->ru_utime.tv_usec);
-
   puts("");
-
   printf("Max RSS:      %ld (approx. %0.2f MiB)\n",
 	 usage->ru_maxrss, (usage->ru_maxrss + 512) / 1024.0);
-  
   puts("");
-
   printf("Page reclaims: %6ld\n", usage->ru_minflt);
   printf("Page faults:   %6ld\n", usage->ru_majflt);
   printf("Swaps:         %6ld\n", usage->ru_nswap);
-
   puts("");
-
   printf("Context switches (vol):   %6ld\n", usage->ru_nvcsw);
   printf("                 (invol): %6ld\n", usage->ru_nivcsw);
   printf("                 (TOTAL): %6ld\n", usage->ru_nvcsw + usage->ru_nivcsw);
   puts("");
-
+  // These fields are currently unused (unmaintained) on Linux: 
+  //   ru_ixrss 
+  //   ru_idrss
+  //   ru_isrss
+  //   ru_nswap
+  //   ru_msgsnd
+  //   ru_msgrcv
+  //   ru_nsignals
+  //
+  // These fields are always zero on macos, and not too useful on Linux:
+  //   ru_inblock
+  //   ru_oublock
 }
 
 static void write_header(FILE *f) {
@@ -278,19 +285,6 @@ static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage)
   // exceeded its time slice.
   fprintf(f, "%ld ", usage->ru_nivcsw);
 
-  // These fields are currently unused (unmaintained) on Linux: 
-  //   ru_ixrss 
-  //   ru_idrss
-  //   ru_isrss
-  //   ru_nswap
-  //   ru_msgsnd
-  //   ru_msgrcv
-  //   ru_nsignals
-  //
-  // These fields are always zero on macos, and not useful on Linux:
-  //   ru_inblock
-  //   ru_oublock
-
   fprintf(f, "\n");
   free(escaped_cmd);
   free(shell_cmd);
@@ -298,21 +292,24 @@ static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage)
 
 static int run(const char *cmd, struct rusage *usage) {
 
-  char **args;
   int status;
   pid_t pid;
   FILE *f;
 
+  arglist *args = new_arglist(MAXARGS);
+  if (!args) exit(-1);		// Warning already issued
+
   if (!shell || !*shell) {
-    args = split_unescape(cmd);
-    if (!args) exit(-1);		// Warning already issued
+    if (split_unescape(cmd, args)) exit(-1); // Warning already issued
   } else {
-    args = split_unescape(shell);
-    if (!args) exit(-1);		// Warning already issued
-    add_arg(args, -1, strdup(cmd));
+    if (split_unescape(shell, args)) exit(-1); // Warning already issued
+    add_arg(args, strdup(cmd));
   }
 
-  //print_args(args);			// TEMP!
+  if (DEBUG) {
+    printf("Arguments to pass to exec:\n");
+    print_arglist(args);
+  }
 
   // Goin' for a ride!
   pid = fork();
@@ -326,7 +323,7 @@ static int run(const char *cmd, struct rusage *usage) {
       f = freopen("/dev/null", "w", stdout);
       if (!f) bail("freopen failed on stdout");
     }
-    execvp(args[0], args);
+    execvp(args->args[0], args->args);
   }
 
   wait4(pid, &status, 0, usage);
@@ -336,11 +333,69 @@ static int run(const char *cmd, struct rusage *usage) {
     fprintf(stderr, "Use the -i/--ignore-failure option to ignore non-zero exit codes.\n");
     exit(-1);
   }
-  free_args(args);
+  free_arglist(args);
   return WEXITSTATUS(status);
 }
 
+static void run_command(char *cmd, FILE *output) {
+  int code;
+  struct rusage usagedata;
+
+  if (output_filename) printf("Command: %s\n", cmd);
+
+  if (output_filename) printf("Warming up...\n");
+  for (int i = 0; i < warmups; i++) {
+    code = run(cmd, &usagedata);
+  }
+
+  if (output_filename) printf("Timed runs...\n");
+  for (int i = 0; i < runs; i++) {
+    code = run(cmd, &usagedata);
+    write_line(output, cmd, code, &usagedata);
+  }
+}
+
+static void run_benchmarks(int argc, char **argv) {
+  FILE *input = NULL, *output = NULL;
+  char buf[MAXCMDLEN];
+
+  if (input_filename) {
+    input = fopen(input_filename, "r");
+    if (!input) {
+      fprintf(stderr, "Cannot open input file: %s\n", input_filename);
+      perror(progname);
+      exit(-1);
+    }
+  }
+
+  if (output_filename) {
+    output = fopen(output_filename, "w");
+    if (!output) {
+      fprintf(stderr, "Cannot open output file: %s\n", output_filename);
+      perror(progname);
+      exit(-1);
+    }
+  } else output = stdout;
+
+  write_header(output);
+
+  for (int k = first_command; k < argc; k++)
+    run_command(argv[k], output);
+
+  char *cmd = NULL;
+  if (input) do {
+      cmd = fgets(buf, MAXCMDLEN, input);
+      if (cmd) run_command(cmd, output);
+    } while (cmd);
+  
+  if (output) fclose(output);
+  if (input) fclose(input);
+}
+
 static int bad_option_value(const char *val, int n) {
+  if (DEBUG)
+    printf("%20s: %s\n", optable_longname(n), val);
+
   if (val) {
     if (!optable_numvals(n)) {
       printf("Error: option '%s' does not take a value\n",
@@ -361,6 +416,7 @@ static int process_args(int argc, char **argv) {
   int n, i;
   const char *val;
 
+  // 'i' steps through the args from 1 to argc-1
   i = optable_init(argc, argv);
   if (i < 0) bail("Error initializing option parser");
 
@@ -368,65 +424,67 @@ static int process_args(int argc, char **argv) {
     if (n < 0) {
       if (val) {
 	// Command argument, not an option or switch
+	if ((i == 1) && (strcmp(val, PROCESS_DATA_COMMAND) == 0)) {
+	  if (DEBUG) printf("*** Reducing mode ***\n");
+	  reducing_mode = 1;
+	  continue;
+	}
 	if (!first_command) first_command = i;
 	continue;
       }
-      printf("Error: invalid option/switch '%s'\n", argv[i]);
+      fprintf(stderr, "Error: invalid option/switch '%s'\n", argv[i]);
       exit(-1);
     }
     if (first_command) {
-      printf("Error: options found after first command '%s'\n",
-	     argv[first_command]);
+      fprintf(stderr, "Error: options found after first command '%s'\n",
+	      argv[first_command]);
       exit(-1);
     }
     switch (n) {
       case OPT_WARMUP:
-	sscanf(val, "%d", &warmups);
-	printf("%15s  %s ==> %d\n", "warmups", val, warmups);
 	if (bad_option_value(val, n)) exit(-1);
+	if (!sscanf(val, "%d", &warmups)) {
+	  fprintf(stderr, "Failed to get number of warmups from '%s'\n", val);
+	  exit(-1);
+	}
 	break;
       case OPT_RUNS:
-	// TODO: Check return value of sscanf
-	sscanf(val, "%d", &runs);
-	printf("%15s  %s ==> %d\n", "runs", val, runs);
 	if (bad_option_value(val, n)) exit(-1);
+	if (!sscanf(val, "%d", &runs)) {
+	  fprintf(stderr, "Failed to get number of runs from '%s'\n", val);
+	  exit(-1);
+	}
 	break;
       case OPT_OUTPUT:
-	printf("%15s  %s\n", "output", val);
 	if (bad_option_value(val, n)) exit(-1);
 	output_filename = strdup(val);
 	break;
       case OPT_FILE:
-	printf("%15s  %s\n", "file", val);
 	if (bad_option_value(val, n)) exit(-1);
+	input_filename = strdup(val);
 	break;
       case OPT_SHOWOUTPUT:
-	printf("%15s  %s\n", "show-output", val);
 	if (bad_option_value(val, n)) exit(-1);
 	show_output = 1;
 	break;
       case OPT_IGNORE:
-	printf("%15s  %s\n", "ignore-failure", val);
 	if (bad_option_value(val, n)) exit(-1);
 	ignore_failure = 1;
 	break;
       case OPT_SHELL:
-	printf("%15s  %s\n", "shell", val);
 	if (bad_option_value(val, n)) exit(-1);
 	shell = val;
 	break;
       case OPT_VERSION:
-	printf("%15s  %s\n", "version", val);
 	if (bad_option_value(val, n)) exit(-1);
 	return n;
 	break;
       case OPT_HELP:
-	printf("%15s  %s\n", "help", val);
 	if (bad_option_value(val, n)) exit(-1);
 	return n;
 	break;
       default:
-	printf("Error: Invalid option index %d\n", n);
+	fprintf(stderr, "Error: Invalid option index %d\n", n);
 	exit(-1);
     }
   }
@@ -434,16 +492,23 @@ static int process_args(int argc, char **argv) {
   return -1;
 }
 
+static void usage(void) {
+  fprintf(stderr, "Usage: %s [options] <cmd> ...\n\n", progname);
+  fprintf(stderr, "For more information, try %s --help\n", progname);
+}
+
+static int reduce_data(void) {
+  printf("Not implemented yet\n");
+  return 0;
+}
+
 int main(int argc, char *argv[]) {
 
-  FILE *output = NULL;
-  struct rusage usage;
   int immediate, code;
   if (argc) progname = argv[0];
   
   if (argc < 2) {
-    printf("Usage: %s [options] <cmd> ...\n\n", progname);
-    printf("For more information, try %s --help\n", progname);
+    usage();
     exit(-1);
   }
 
@@ -458,35 +523,12 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
 
-  if (output_filename) {
-    output = fopen(output_filename, "w");
-    if (!output) {
-      perror(progname);
-      exit(-1);
-    }
-  } else output = stdout;
-
-  write_header(output);
-
-  for (int k = first_command; k < argc; k++) {
-
-    printf("Command: %s\n", argv[k]);
-
-    printf("Warming up...\n");
-    for (int i = 0; i < warmups; i++) {
-      code = run(argv[k], &usage);
-      write_line(output, argv[k], code, &usage);
-    }
-
-    printf("Timed runs...\n");
-    for (int i = 0; i < runs; i++) {
-      code = run(argv[k], &usage);
-      write_line(output, argv[k], code, &usage);
-    }
-
+  if (reducing_mode) {
+    code = reduce_data();
+    exit(code);
+  } else {
+    run_benchmarks(argc, argv);
   }
 
-  if (output) fclose(output);
-  if (output_filename) free(output_filename);
   return 0;
 }

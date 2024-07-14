@@ -53,49 +53,45 @@ static const char *read_arg(const char *p) {
   return p;
 }
 
-// TODO: Keep MAX_ARGS or switch to a table?
-#define MAX_ARGS 200
-
-void free_args(char **args) {
-  for (int i = 0; args[i]; i++) free(args[i]);
+void free_arglist(arglist *args) {
+  if (!args) return;
+  for (size_t i = 0; i < args->next; i++) free(args->args[i]);
   free(args);
 }
 
 // Returns error indicator, 1 for error, 0 for success.
-// Overwrites args[n] with newarg.  If n is -1, appends.
-int add_arg(char **args, int n, char *newarg) {
+int add_arg(arglist *args, char *newarg) {
   if (!args || !newarg) return 1;
-  if (n >= MAX_ARGS) goto full;
-
-  int i;
-  if (n == -1) {
-    for (i = 0; i < MAX_ARGS; i++)
-      if (!args[i]) break;
-    if (args[i]) goto full;
-    n = i;
+  if (args->next == args->max) {
+    warn("args", "arg table full at %d items", args->max);
+    return 1;
   }
-  args[n] = newarg;
+  args->args[args->next++] = newarg;
   return 0;
-
- full:
-  warn("args", "arg table full at %d items", MAX_ARGS);
-  return 1;
 }
 
-static char **newargs(void) {
-  size_t sz = (MAX_ARGS + 1) * sizeof(char *);
-  char **args = malloc(sz);
-  if (!args) return NULL;
-  memset(args, 0, sz);
-  return args;
-}
-
-// Split at whitespace, respecting pairs of double and single quotes
-char **split(const char *in) {
-  char **args = newargs();
+arglist *new_arglist(size_t limit) {
+  arglist *args = malloc(sizeof(arglist));
   if (!args) goto oom;
+  // Important: There must be a NULL at the end of the args
+  args->args = calloc(limit+1, sizeof(char *));
+  if (!args->args) goto oom;
+  args->max = limit;
+  args->next = 0;
+  return args;
 
-  int n = 0;
+ oom:
+  warn("args", "Out of memory");
+  return NULL;
+}
+
+// Split at whitespace, respecting pairs of double and single quotes.
+// Returns error code: 1 for error, 0 for no error.
+int split(const char *in, arglist *args) {
+  if (!in || !args) {
+    warn("args", "null required arg");
+    return 1;
+  }
   char *new;
   const char *p, *end, *start = in;
 
@@ -108,27 +104,25 @@ char **split(const char *in) {
     p = read_arg(p);
     if (!p) {
       warn("args", "Unmatched quotes in: %s", start);
-      return NULL;
+      return 1;
     }
-    // Successful read.  Store it in the 'args' array.
+    // Successful read.  Store a copy in the 'args' array.
     end = p;
     if (is_quote(p)) {
       start++;
       p++;
     } 
     new = malloc(end - start + 1);
-    if (!new) goto oom;
+    if (!new) {
+      warn("args", "Out of memory");
+      return 1;
+    }
     memcpy(new, start, end - start);
     new[end - start] = '\0';
-    add_arg(args, n++, new);
+    add_arg(args, new);
   }
 
-  args[n] = NULL;
-  return args;
-
- oom:
-  warn("args", "Out of memory");
-  return NULL;
+  return 0;
 }
 
 #define STRING_ESCAPE_CHARS "\\\"rnt"
@@ -198,23 +192,20 @@ char *escape(const char *str) {
   return result;
 }
 
-char **split_unescape(const char *in) {
+// Returns error code: 1 for error, 0 for no error.
+int split_unescape(const char *in, arglist *args) {
   char *unescaped = unescape(in);
-  //printf("*** Unescaped = '%s' ***\n", unescaped);
-  if (!unescaped) return NULL;
-  return split(unescaped);
+  if (!unescaped) return 1;
+  return split(unescaped, args);
 }
 
 __attribute__((unused))
-void print_args(char **args) {
-  if (args) {
-    int i = 0;
-    while (args[i]) {
-      printf("[%d] %s\n", i, args[i]);
-      i++;
-    }
-  } else {
-    printf("null args\n");
+void print_arglist(arglist *args) {
+  if (!args) {
+    printf("null arglist\n");
+    return;
   }
+  for (size_t i = 0; i < args->next; i++)
+    printf("[%zu] %s\n", i, args->args[i]);
 }
       

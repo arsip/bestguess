@@ -9,4 +9,19 @@
 
 #include "utils.h"
 
+// Maximum number of arguments in one command
+// E.g. "ls -l -h *.c" is a command with 3 arguments,
+// and "ls -lh *.c" has 2 arguments.
+#define MAXARGS 250
+
+// Maximum length of a single command, in bytes
+// E.g. "ls -lh" has 7 bytes (6 chars and NUL)
+#define MAXCMDLEN 4096
+
+// Change as desired
+#define PROCESS_DATA_COMMAND "reduce"
+
+// Change to non-zero to enable debugging output to stdout
+#define DEBUG 1
+
 #endif

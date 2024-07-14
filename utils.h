@@ -17,17 +17,24 @@
   } while (0)
 
 
-void free_args(char **args);
-int  add_arg(char **args, int n, char *newarg);
+typedef struct arglist {
+  size_t max;
+  size_t next;
+  char **args;
+} arglist;
+
+arglist *new_arglist(size_t limit);
+int      add_arg(arglist *args, char *newarg);
+void     free_arglist(arglist *args);
 
 char  *unescape(const char *str);
 char  *escape(const char *str);
 
-char **split(const char *in);
-char **split_unescape(const char *in);
+int split(const char *in, arglist *args);
+int split_unescape(const char *in, arglist *args);
 
 // For debugging: 
-void print_args(char **args);
+void print_arglist(arglist *args);
 
 
 #endif

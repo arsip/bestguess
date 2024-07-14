@@ -114,6 +114,7 @@ endif
 
 ifeq ($(RELEASE_MODE),true)
   # Release mode is true (production build)
+  COPT += -DNDEBUG -O2
   ASAN_FLAGS=
   ifeq ($(COMPILER),clang)
     # Alternative: LTOFLAGS=-flto=thin
@@ -124,6 +125,7 @@ ifeq ($(RELEASE_MODE),true)
 else
   # Release mode is false (debugging)
   ASAN_FLAGS=-fsanitize=address,undefined -fno-sanitize-recover=all 
+  COPT += -O0 -g
   ifeq ($(COMPILER),gcc) 
     ifeq ($(OS),macos)
       ifeq ($(ARCH),arm64)

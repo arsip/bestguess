@@ -32,7 +32,7 @@ include Makefile.depends
 
 # Log levels: 0=confess, 1=warn, 2=info, 3=trace
 LOGLEVEL ?= 1
-COPT = -O2 -DNDEBUG -DLOGLEVEL=$(LOGLEVEL)
+COPT ?= -O2 
 
 CWARNS = -Wall -Wextra \
 	 -Wcast-align \
@@ -55,7 +55,7 @@ CWARNS = -Wall -Wextra \
 
 CFLAGS= -D_DEFAULT_SOURCE -std=c99 -fPIC \
 	$(SYSCFLAGS) $(ASAN_FLAGS) \
-	$(CWARNS) $(COPT)
+	$(CWARNS) -DLOGLEVEL=$(LOGLEVEL) $(COPT)
 
 # -----------------------------------------------------------------------------
 
