@@ -23,12 +23,6 @@ static const char *progname = "bestguess";
 #include <sys/wait.h>
 #include <sys/resource.h>
 
-#ifdef __linux__
-  #define FMTusec "ld"
-#else
-  #define FMTusec "d"
-#endif
-
 static int reducing_mode = 0;
 static int runs = 1;
 static int warmups = 0;
@@ -40,140 +34,6 @@ static char *output_filename = NULL;
 static const char *shell = NULL;
 
 
-//hyperfine --export-csv slee.csv --show-output --warmup 10 --runs $reps -N ${commands[@]}
-
-// From sysctl (command-line) on macos 14.1.1:
-//
-// kern.osproductversion: 14.4.1
-// kern.osreleasetype: User
-//
-// hw.ncpu: 8
-// hw.byteorder: 1234
-// hw.memsize: 17179869184
-// hw.activecpu: 8
-// hw.physicalcpu: 8
-// hw.physicalcpu_max: 8
-// hw.logicalcpu: 8
-// hw.logicalcpu_max: 8
-// hw.cputype: 16777228
-// hw.cpusubtype: 2
-// hw.cpu64bit_capable: 1
-// hw.cpufamily: 458787763
-// hw.cpusubfamily: 2
-// hw.cacheconfig: 8 1 4 0 0 0 0 0 0 0
-// hw.cachesize: 3499048960 65536 4194304 0 0 0 0 0 0 0
-// hw.pagesize: 16384
-// hw.pagesize32: 16384
-// hw.cachelinesize: 128
-// hw.l1icachesize: 131072
-// hw.l1dcachesize: 65536
-// hw.l2cachesize: 4194304
-//
-
-
-// On Linux with systemd:
-//
-// To clear PageCache, dentries and inodes, use this command:
-// $ sudo sysctl vm.drop_caches=3
-// 
-// On Linux without systemd, run these commands as root:
-//
-// # sync; echo 1 > /proc/sys/vm/drop_caches # clear PageCache
-// # sync; echo 2 > /proc/sys/vm/drop_caches # clear dentries and inodes
-// # sync; echo 3 > /proc/sys/vm/drop_caches # clear all 3
-//
-// On macos:
-//
-// $ sync && sudo purge
-//
-
-// I/O operations
-// --------------
-
-// The macos kernel does not appear to populate the i/o block
-// operation counters in r_usage, at least not on a 2020 MacBook Air
-// (SSD) running macos 14.4.1.  The current linux kernels do report
-// block operation counts, but (1) only for actual disk reads, not for
-// files served from cache, and (2) it is not simple to determine the
-// block size.  E.g. One of my machines reports a block size of 4092
-// for its SSD (via 'blockdev'), but the effective size appears to be
-// 8192, probably due to the filesystem or mount options.
-//
-// Conclusion: We will not record values for "Input ops" (ru_inblock)
-// or "Output ops" (ru_oublock).
-
-
-
-// Usage: bestguess [options] prog arg1 arg2 .. argN
-//
-// Options:
-//
-//   -w M        perform M warmup runs
-//   -r M        perform M timed runs
-//   -o <file>   write output to <file>
-//   -i <file>   read <file> of commands to run
-//   -S <shell>  use <shell> to run commands, e.g. 'bash -c'
-//   -h          help
-//   -v          version
-//
-// Possible future options:
-//
-//   --prepare CMD    execute CMD before each timed run
-//   --conclude CMD   execute CMD after each timed run
-
-/* 
-   Rationale:
-
-   After using hyperfine (https://github.com/sharkdp/hyperfine), I've
-   concluded it has the wrong approach.  There are two problems and a
-   couple of design limitations.
-
-   Problem 1: Hyperfine assumes a normal distribution when calculating
-   all of the stats, and performance measurements are not normally
-   distributed.  There is a minimum time that may be approached, but
-   which can never be surpassed because there is a certain number of
-   cycles needed to execute a deterministic algorithm.  I do not want
-   to rely its statistical calculations.
-
-   Problem 2: There is no basis (best practice or scientific evidence)
-   to suggest that any of the following default features are
-   appropriate and work correctly:
-
-   - Correcting for shell spawning time
-   - Running repeatedly for at 3 seconds and at least 10 timed runs
-   - Detecting statistical outliers
-
-   Design issue 1: The only way to get all of the individual timed
-   values out of Hyperfine is in JSON.  Unix tools are built for text,
-   so a CSV file would be preferable.  Hyperfine has a CSV output
-   option, but it does not include all of the data that the JSON
-   format does.
-
-   Design issue 2: Many other benchmarking systems use one program to
-   collect the data and another to analyze it.  This is conducive to
-   better science, because the raw data is always saved, apart from
-   any analysis.  Saving the timing data allows several kinds of
-   analysis to be done, even much later after the timing runs are
-   complete.  Other people can analyze the data in different ways.
-
-   Design issue 3: Admittedlty a minor issue, but Python is not a
-   desirable prerequisite.  The data analysis scripts that come with
-   Hyperfine are Python programs, and maintaining a working Python
-   environment is laborious and error-prone.  Users must be able to
-   compile Rust, so why not roll the optional analyses done by the
-   scripts into the Hyperfine code?
-
-   Finally, much of Hyperfine's functionality might better fit in an
-   external program.  Certainly the statistical calculations are in
-   that category, but it is also simple to generate a list of commands
-   that iterate through parameter ranges.  And the shell, if desired,
-   can be included as part of the command.  Separately measuring shell
-   startup time seems prudent from a scientific perspective, both to
-   record that raw data and to be able to analyze it more carefully
-   than simply taking the mean of a few trials.
-   
-*/
-		       
 enum Options { 
   OPT_WARMUP,
   OPT_RUNS,
@@ -193,12 +53,18 @@ static void init_options(void) {
   optable_add(OPT_FILE,       "f",  "file",           1, "Read commands/data from <FILE>");
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, "Show program output");
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, "Ignore non-zero exit codes");
-  optable_add(OPT_SHELL,      "S",  "shell",          1, "Use this shell to run commands (else no shell)");
+  optable_add(OPT_SHELL,      "S",  "shell",          1, "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands");
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
     bail("\nError in command-line option parser configuration");
 }
+
+#ifdef __linux__
+  #define FMTusec "ld"
+#else
+  #define FMTusec "d"
+#endif
 
 __attribute__((unused))
 static void print_rusage(struct rusage *usage) {
@@ -234,15 +100,46 @@ static void print_rusage(struct rusage *usage) {
   //   ru_oublock
 }
 
+// This list is the order in which fields will print in the CSV output
+#define XFields(X)					    \
+  X(F_CMD,      "Command",                      "\"%s\"")   \
+  X(F_EXIT,     "Exit code",                    "%d")	    \
+  X(F_SHELL,    "Shell",                        "\"%s\"")   \
+  X(F_USER,     "User time (us)",               "%" PRId64) \
+  X(F_SYSTEM,   "System time (us)",             "%" PRId64) \
+  X(F_RSS,      "Max RSS (KiByte)",             "%ld")	    \
+  X(F_RECLAIMS, "Page Reclaims",                "%ld")	    \
+  X(F_FAULTS,   "Page Faults",                  "%ld")	    \
+  X(F_VCSW,     "Voluntary Context Switches",   "%ld")	    \
+  X(F_ICSW,     "Involuntary Context Switches", "%ld")	
+
+#define FIRST(a, b, c) a,
+typedef enum FieldCodes {XFields(FIRST) F_LAST};
+#define SECOND(a, b, c) b,
+const char *Headers[] = {XFields(SECOND) NULL};
+#define THIRD(a, b, c) c,
+const char *FieldFormats[] = {XFields(THIRD) NULL};
+
 static void write_header(FILE *f) {
-  fprintf(f, "Command, \"Exit code\", "
-	  "Shell, "
-	  "\"User time (us)\", \"System time (us)\", "
-	  "\"Max RSS (KiByte)\", "
-	  "\"Page Reclaims\", \"Page Faults\", "
-	  "\"Voluntary Context Switches\", \"Involuntary Context Switches\" "
-	  "\n");
+  for (int i = 0; i < (F_LAST - 1); i++)
+    fprintf(f, "%s,", Headers[i]);
+  fprintf(f, "%s\n", Headers[F_LAST - 1]);
 }
+
+#define SEP do {				\
+    fputc(',', f);				\
+  } while (0)
+#define WRITEFIELD(f, fmt_idx, val) do {	\
+  fprintf((f), FieldFormats[fmt_idx], (val));	\
+  } while (0)
+#define WRITE(f, fmt_idx, val) do {		\
+    WRITEFIELD(f, fmt_idx, val);		\
+    SEP;					\
+  } while (0)
+#define WRITELN(f, fmt_idx, val) do {		\
+    WRITEFIELD(f, fmt_idx, val);		\
+    fputc('\n', f);				\
+  } while (0)
 
 static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   int64_t time;
@@ -250,42 +147,39 @@ static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage)
   char *escaped_cmd = escape(cmd);
   char *shell_cmd = shell ? escape(shell) : NULL;
 
-  fprintf(f, "\"%s\",", escaped_cmd);
-  fprintf(f, "%d,", code);
-  fprintf(f, "\"%s\",", shell_cmd ?: "");
-
+  WRITE(f, F_CMD,   escaped_cmd);
+  WRITE(f, F_EXIT,  code);
+  if (shell_cmd) WRITE(f, F_SHELL, shell_cmd);
+  else SEP;
   // User time in microseconds
   time = usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
-  fprintf(f, "%" PRId64 ",", time);
+  WRITE(f, F_USER, time);
   // System time in microseconds
   time = usage->ru_stime.tv_sec * 1000 * 1000 + usage->ru_stime.tv_usec;
-  fprintf(f, "%" PRId64 ",", time);
+  WRITE(f, F_SYSTEM, time);
   // Max RSS in kibibytes
   // ru_maxrss (since Linux 2.6.32) This is the maximum resident set size used (in kilobytes).
   // When the above was written, a kilobyte meant 1024 bytes.
-  fprintf(f, "%ld,", usage->ru_maxrss);
+  WRITE(f, F_RSS, usage->ru_maxrss);
   // Page reclaims (count):
   // The number of page faults serviced without any I/O activity; here
   // I/O activity is avoided by “reclaiming” a page frame from the
   // list of pages awaiting reallocation.
-  fprintf(f, "%ld,", usage->ru_minflt);
+  WRITE(f, F_RECLAIMS, usage->ru_minflt);
   // Page faults (count):
   // The number of page faults serviced that required I/O activity.
-  fprintf(f, "%ld,", usage->ru_majflt);
-
+  WRITE(f, F_FAULTS, usage->ru_majflt);
   // Voluntary context switches:
   // The number of times a context switch resulted due to a process
   // voluntarily giving up the processor before its time slice was
   // completed (usually to await availability of a resource).
-  fprintf(f, "%ld,", usage->ru_nvcsw);
-
+  WRITE(f, F_VCSW, usage->ru_nvcsw);
   // Involuntary context switches:
   // The number of times a context switch resulted due to a higher
   // priority process becoming runnable or because the current process
   // exceeded its time slice.
-  fprintf(f, "%ld", usage->ru_nivcsw);
+  WRITELN(f, F_ICSW, usage->ru_nivcsw);
 
-  fprintf(f, "\n");
   free(escaped_cmd);
   free(shell_cmd);
 }
@@ -307,13 +201,15 @@ static int run(const char *cmd, struct rusage *usage) {
   pid_t pid;
   FILE *f;
 
+  // In the error checks below, we can exit immediately on error,
+  // because a warning will have already been issued
   arglist *args = new_arglist(MAXARGS);
-  if (!args) exit(-1);		// Warning already issued
+  if (!args) exit(-1);		               
 
   if (!shell || !*shell) {
-    if (split_unescape(cmd, args)) exit(-1); // Warning already issued
+    if (split_unescape(cmd, args)) exit(-1);
   } else {
-    if (split_unescape(shell, args)) exit(-1); // Warning already issued
+    if (split_unescape(shell, args)) exit(-1);
     add_arg(args, strdup(cmd));
   }
 

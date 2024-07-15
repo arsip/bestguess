@@ -28,12 +28,12 @@ release: clean
 # ------------------------------------------------------------------
 
 install: $(PROGRAM)
-	@printf "DESTDIR is $(DESTDIR).\n"; \
-	printf "Use 'make DESTDIR=/some/path' to install into /some/path/bin.\n"; \
-	printf "Copying $(PROGRAM) to $(DESTDIR)/bin..."; \
+	@printf "NOTE: DESTDIR is $(DESTDIR)\n"; \
+	printf "NOTE: Use 'make DESTDIR=/some/path' to install into /some/path/bin\n"; \
+	printf "Copying $(PROGRAM) to $(DESTDIR)/bin\n"; \
 	mkdir -p "$(DESTDIR)/bin"; \
 	cp "$(PROGRAM)" "$(DESTDIR)/bin/$(PROGRAM)"; \
-	printf " done.\n"
+	printf "Done\n"
 
 # -----------------------------------------------------------------------------
 RELEASE_MODE ?= false
