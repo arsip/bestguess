@@ -23,6 +23,8 @@ static optable_option      *Tbl = NULL;
 static int             Tbl_size = 0;
 static int             Tbl_next = 0;
 static int              Tbl_err = 0;
+static const char        *Usage = NULL;
+
 // Parsing state:
 static const char *ShortnamePtr = NULL;
 static int                 Argc = 0;
@@ -50,6 +52,12 @@ const char *optable_shortname(int n) {
 const char *optable_longname(int n) {
   if (Tbl && (n >= 0) && (n < Tbl_size))
     return Tbl[n].longname;
+  return NULL;
+}
+
+const char *optable_helptext(int n) {
+  if (Tbl && (n >= 0) && (n < Tbl_size))
+    return Tbl[n].help;
   return NULL;
 }
 
@@ -303,4 +311,21 @@ int optable_next(int *n, const char **value, int i) {
   return i;
 }
 
+void optable_setusage(const char *usagetext) {
+  Usage = usagetext;
+}
 
+void optable_printusage(const char *progname) {
+  printf("Usage: %s %s\n", progname, Usage ?: "");
+}
+
+void optable_printhelp(const char *progname) {
+  int i;
+  optable_printusage(progname);
+  printf("\n");
+  for (i = optable_iter_start(); i >= 0; i = optable_iter_next(i))
+    printf("  -%-6s  --%-16s  %s\n",
+	   optable_shortname(i),
+	   optable_longname(i),
+	   optable_helptext(i));
+}

@@ -1,93 +1,134 @@
-# bestguess
-
-
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/JamieTheRiveter/bestguess.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/JamieTheRiveter/bestguess/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
+# Best Guess
 
 ## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+The goal, in short, is to improve on Hyperfine (a popular benchmarking tool).
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+To build in debug/development mode:
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```
+make
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+To build in release mode:
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```
+make release
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+To install to default location:
+
+```
+make install
+```
+
+To install to custom location `/some/path/bin`:
+
+```
+make DESTDIR=/some/path install
+```
+
+
+## Examples
+
+### Output to terminal
+
+Run 3 commands without using a shell, doing 5 warmup runs and 10 timed runs.
+Output, in CSV format, will be printed to the terminal because no output
+filename was given:
+
+```
+bestguess --warmup 5 --runs 10 \
+"./run pexl run findAll longword 10" \
+"./run lpeg run captureAll longword 10" \
+"./run rosie run captureAll longword 10"
+```
+
+These option names are the same ones used by Hyperfine, and can be shortened to
+`-w` and `-r`, respectively.
+
+
+### Output to file
+
+Add `-o filename` to the above command to get:
+
+```
+bestguess --warmup 5 --runs 10 \
+-o data.csv \
+"./run pexl run findAll longword 10" \
+"./run lpeg run captureAll longword 10" \
+"./run rosie run captureAll longword 10"
+```
+
+A similar option for Hyperfine is `--export-csv` which writes summary statistics
+to a CSV file.  (Hyperfine will not export the raw timing data in any format
+except JSON.)
+
 
 ## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+If you are interested in contributing, get in touch!  My [personal
+blog](https://jamiejennings.com) shows several ways to reach me.  (Don't use
+Twitter, though, as I'm no longer there.)
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
 
 ## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+
+It's all mine.  I did it because it needed to be done.
+
+Performance benchmarking is fraught.  We know that timing data is not normally
+distributed, so why do commonly used tools produce statistics on the flawed
+assumption that it is?
+
+Timing how long it takes to perform an operation or run an entire program
+produces one number, which is usually measured by summing the user and system
+times as reported by the OS.  That one number can vary a lot.  Cache misses,
+mispredicted branches, and throttling may affect any program.  When a process is
+preemptively suspended by the OS or is waiting on I/O, it does not accrue
+runtime, but (we conjecture) the likelihood of cache misses and branch
+mispredictions, i.e. things that slow execution, increases dramatically because
+some other process ran on "our core" of the CPU for a bit.
+
+Continuing to conjecture, it's possible that short-duration program measurements
+(and microbenchmarks) will exhibit wide variation because the effects of a
+single context switch might be of the same order of magnitude as the minimum
+runtime recorded.
+
+And for long-duration measurements, we will want to know how often our program
+was kicked off the processor so another could run.  The distribution of events
+in time interval is typically modeled with a [Poisson
+distribution](https://en.wikipedia.org/wiki/Poisson_distribution), and we should
+determine whether the underlying assumptions justifying that model hold for our
+work.
+
+One hypothesis is that the distribution of performance measurements will be
+bi-modal, and will correspond to the sum of two effects: CPU noise (cache misses
+and branch mispredictions) and the compounding effects of context switches.
+
+In any case, there is an ideal "best performance" on a given architecture,
+during which all loads are from L1 and every branch is perfectly predicted.  The
+distribution of runtimes cannot be normal, due to this lower limit.  It is
+likely to be log-normal, as [Lemire
+suggests](https://lemire.me/blog/2023/04/06/are-your-memory-bound-benchmarking-timings-normally-distributed/). 
+
+
+In science, magic spells trouble.  We should avoid tools that seem to magically
+know what is going on when they don't.  For example, some [excellent
+work](https://arxiv.org/abs/1602.00602) concludes that "widely studied
+microbenchmarks often fail to reach a steady state of peak performance".
+Although our project is not meant for microbenchmarking, this work is relevant.
+If some systems do not reach a steady state of high performance, then how do we
+know that we are not measuring exactly such a system?  How do we know that
+"warmup runs" should be discarded, or that they were necessary at all?
+
+More science needs to be done on performance benchmarking on modern CPUs and
+OSes.  And we need better tools to do it.
+
 
 ## License
-For open source projects, say how it is licensed.
+
+MIT open source license.
 
 ## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+
+In active development.

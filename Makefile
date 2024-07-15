@@ -17,13 +17,23 @@ help:
 	@echo "  tags    Rebuilds tag files e.g. for Emacs"
 	@echo "  config  Prints the important settings"
 
-debug:
+debug: clean
 	@echo "NOTE: Building in debug mode"; \
 	$(MAKE) RELEASE_MODE=false $(PROGRAM)
 
-release:
+release: clean
 	@echo "NOTE: Building in RELEASE MODE"; \
 	$(MAKE) RELEASE_MODE=true $(PROGRAM)
+
+# ------------------------------------------------------------------
+
+install: $(PROGRAM)
+	@printf "DESTDIR is $(DESTDIR).\n"; \
+	printf "Use 'make DESTDIR=/some/path' to install into /some/path/bin.\n"; \
+	printf "Copying $(PROGRAM) to $(DESTDIR)/bin..."; \
+	mkdir -p "$(DESTDIR)/bin"; \
+	cp "$(PROGRAM)" "$(DESTDIR)/bin/$(PROGRAM)"; \
+	printf " done.\n"
 
 # -----------------------------------------------------------------------------
 RELEASE_MODE ?= false
@@ -64,11 +74,6 @@ $(PROGRAM): TAGS $(OBJECTS)
 
 optiontest: TAGS $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $@.c $(OBJECTS) 
-
-# ------------------------------------------------------------------
-
-install: $(PROGRAM)
-	cp "$(PROGRAM)" "$(DESTDIR)/bin/$(PROGRAM)"
 
 # ------------------------------------------------------------------
 

@@ -352,14 +352,14 @@ static void run_command(char *cmd, FILE *output) {
   int code;
   struct rusage usagedata;
 
-  if (output_filename) printf("Command: %s\n", cmd);
+  if (output_filename) fprintf(stderr, "Command: %s\n", cmd);
 
-  if (output_filename) printf("Warming up...\n");
+  if (output_filename) fprintf(stderr, "Warming up...\n");
   for (int i = 0; i < warmups; i++) {
     code = run(cmd, &usagedata);
   }
 
-  if (output_filename) printf("Timed runs...\n");
+  if (output_filename) fprintf(stderr, "Timed runs...\n");
   for (int i = 0; i < runs; i++) {
     code = run(cmd, &usagedata);
     write_line(output, cmd, code, &usagedata);
@@ -488,11 +488,6 @@ static int process_args(int argc, char **argv) {
   return -1;
 }
 
-static void usage(void) {
-  fprintf(stderr, "Usage: %s [options] <cmd> ...\n\n", progname);
-  fprintf(stderr, "For more information, try %s --help\n", progname);
-}
-
 static int reduce_data(void) {
   FILE *input = NULL, *output = NULL;
   char buf[MAXCSVLEN];
@@ -517,9 +512,11 @@ int main(int argc, char *argv[]) {
 
   int immediate, code;
   if (argc) progname = argv[0];
-  
+  optable_setusage("[options] <cmd> ...");
+
   if (argc < 2) {
-    usage();
+    optable_printusage(progname);
+    fprintf(stderr, "For more information, try %s --help\n", progname);
     exit(-1);
   }
 
@@ -530,7 +527,7 @@ int main(int argc, char *argv[]) {
     printf("%s: %s\n", progname, progversion);
     exit(0);
   } else if (immediate == OPT_HELP) {
-    printf("%s: Help printing not implemented yet\n", progname);
+    optable_printhelp(progname);
     exit(0);
   }
 

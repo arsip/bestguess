@@ -25,6 +25,6 @@
 #define PROCESS_DATA_COMMAND "reduce"
 
 // Change to non-zero to enable debugging output to stdout
-#define DEBUG 1
+#define DEBUG 0
 
 #endif

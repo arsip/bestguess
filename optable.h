@@ -53,6 +53,7 @@ int         optable_count(void);
 const char *optable_shortname(int n);
 const char *optable_longname(int n);
 int         optable_numvals(int n);
+const char *optable_helptext(int n);
 
 int  optable_iter_start(void);
 int  optable_iter_next(int i);
@@ -67,5 +68,9 @@ int  optable_next(int *n, const char **value, int i);
 int  optable_is_option(const char *arg);
 void optable_free(void);
 int  optable_error(void);
+
+void optable_setusage(const char *usagetext);
+void optable_printusage(const char *progname);
+void optable_printhelp(const char *progname);
 
 #endif
