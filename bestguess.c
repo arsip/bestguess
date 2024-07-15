@@ -250,40 +250,40 @@ static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage)
   char *escaped_cmd = escape(cmd);
   char *shell_cmd = shell ? escape(shell) : NULL;
 
-  fprintf(f, "\"%s\", ", escaped_cmd);
-  fprintf(f, "%d, ", code);
-  fprintf(f, "\"%s\", ", shell_cmd ?: "");
+  fprintf(f, "\"%s\",", escaped_cmd);
+  fprintf(f, "%d,", code);
+  fprintf(f, "\"%s\",", shell_cmd ?: "");
 
   // User time in microseconds
   time = usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
-  fprintf(f, "%" PRId64 ", ", time);
+  fprintf(f, "%" PRId64 ",", time);
   // System time in microseconds
   time = usage->ru_stime.tv_sec * 1000 * 1000 + usage->ru_stime.tv_usec;
-  fprintf(f, "%" PRId64 ", ", time);
+  fprintf(f, "%" PRId64 ",", time);
   // Max RSS in kibibytes
   // ru_maxrss (since Linux 2.6.32) This is the maximum resident set size used (in kilobytes).
   // When the above was written, a kilobyte meant 1024 bytes.
-  fprintf(f, "%ld, ", usage->ru_maxrss);
+  fprintf(f, "%ld,", usage->ru_maxrss);
   // Page reclaims (count):
   // The number of page faults serviced without any I/O activity; here
   // I/O activity is avoided by “reclaiming” a page frame from the
   // list of pages awaiting reallocation.
-  fprintf(f, "%ld, ", usage->ru_minflt);
+  fprintf(f, "%ld,", usage->ru_minflt);
   // Page faults (count):
   // The number of page faults serviced that required I/O activity.
-  fprintf(f, "%ld, ", usage->ru_majflt);
+  fprintf(f, "%ld,", usage->ru_majflt);
 
   // Voluntary context switches:
   // The number of times a context switch resulted due to a process
   // voluntarily giving up the processor before its time slice was
   // completed (usually to await availability of a resource).
-  fprintf(f, "%ld, ", usage->ru_nvcsw);
+  fprintf(f, "%ld,", usage->ru_nvcsw);
 
   // Involuntary context switches:
   // The number of times a context switch resulted due to a higher
   // priority process becoming runnable or because the current process
   // exceeded its time slice.
-  fprintf(f, "%ld ", usage->ru_nivcsw);
+  fprintf(f, "%ld", usage->ru_nivcsw);
 
   fprintf(f, "\n");
   free(escaped_cmd);
