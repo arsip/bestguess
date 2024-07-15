@@ -33,7 +33,6 @@ static char *input_filename = NULL;
 static char *output_filename = NULL;
 static const char *shell = NULL;
 
-
 enum Options { 
   OPT_WARMUP,
   OPT_RUNS,
@@ -141,9 +140,19 @@ static void write_header(FILE *f) {
     fputc('\n', f);				\
   } while (0)
 
-static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
-  int64_t time;
+static int64_t usertime(struct rusage *usage) {
+  return usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
+}
 
+static int64_t systemtime(struct rusage *usage) {
+  return usage->ru_stime.tv_sec * 1000 * 1000 + usage->ru_stime.tv_usec;
+}
+
+static int64_t totaltime(struct rusage *usage) {
+  return usertime(usage) + systemtime(usage);
+}
+
+static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   char *escaped_cmd = escape(cmd);
   char *shell_cmd = shell ? escape(shell) : NULL;
 
@@ -152,11 +161,9 @@ static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage)
   if (shell_cmd) WRITE(f, F_SHELL, shell_cmd);
   else SEP;
   // User time in microseconds
-  time = usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
-  WRITE(f, F_USER, time);
+  WRITE(f, F_USER, usertime(usage));
   // System time in microseconds
-  time = usage->ru_stime.tv_sec * 1000 * 1000 + usage->ru_stime.tv_usec;
-  WRITE(f, F_SYSTEM, time);
+  WRITE(f, F_SYSTEM, systemtime(usage));
   // Max RSS in kibibytes
   // ru_maxrss (since Linux 2.6.32) This is the maximum resident set size used (in kilobytes).
   // When the above was written, a kilobyte meant 1024 bytes.
@@ -193,6 +200,28 @@ static FILE *maybe_open(const char *filename, const char *mode) {
     exit(-1);
   }
   return f;
+}
+
+static void print_summary (struct rusage *usagedata) {
+  if (!usagedata) return;
+  int64_t umin = INT64_MAX, smin = INT64_MAX, tmin = INT64_MAX;
+  int64_t umax = 0, smax = 0, tmax = 0;
+  for (int i = 0; i < runs; i++) {
+    if (usertime(&usagedata[i]) < umin) umin = usertime(&usagedata[i]);
+    if (systemtime(&usagedata[i]) < smin) smin = systemtime(&usagedata[i]);
+    if (totaltime(&usagedata[i]) < tmin) tmin = totaltime(&usagedata[i]);
+    if (usertime(&usagedata[i]) > umax) umax = usertime(&usagedata[i]);
+    if (systemtime(&usagedata[i]) > smax) smax = systemtime(&usagedata[i]);
+    if (totaltime(&usagedata[i]) > tmax) tmax = totaltime(&usagedata[i]);
+  }
+  printf("Summary:\n");
+  printf("  User time range..... %.3fs - %.3fs\n",
+	 (float) (umin / (1000.0 * 1000.0)), (float) (umax / (1000.0 * 1000.0)));
+  printf("  System time range... %.3fs - %.3fs\n",
+	 (float) (smin / (1000.0 * 1000.0)), (float) (smax / (1000.0 * 1000.0)));
+  printf("  Total time range.... %.3fs - %.3fs\n",
+	 (float) (tmin / (1000.0 * 1000.0)), (float) (tmax / (1000.0 * 1000.0)));
+  
 }
 
 static int run(const char *cmd, struct rusage *usage) {
@@ -244,26 +273,36 @@ static int run(const char *cmd, struct rusage *usage) {
   return WEXITSTATUS(status);
 }
 
-static void run_command(char *cmd, FILE *output) {
+static void run_command(int num, char *cmd, FILE *output) {
   int code;
-  struct rusage usagedata;
+  struct rusage *usagedata = malloc(runs * sizeof(struct rusage));
+  if (!usagedata) bail("Out of memory");
 
-  if (output_filename) fprintf(stderr, "Command: %s\n", cmd);
+  if (output_filename)
+    fprintf(stderr, "Command %d: %s\n", num, *cmd ? cmd : "(empty)");
 
-  if (output_filename) fprintf(stderr, "Warming up...\n");
+  if (output_filename)
+    fprintf(stderr, "  Warming up...\n");
+
   for (int i = 0; i < warmups; i++) {
-    code = run(cmd, &usagedata);
+    code = run(cmd, &(usagedata[0]));
   }
 
-  if (output_filename) fprintf(stderr, "Timed runs...\n");
+  if (output_filename)
+    fprintf(stderr, "  Timed runs...\n");
+
   for (int i = 0; i < runs; i++) {
-    code = run(cmd, &usagedata);
-    write_line(output, cmd, code, &usagedata);
+    code = run(cmd, &(usagedata[i]));
+    write_line(output, cmd, code, &(usagedata[i]));
   }
+
+  print_summary(usagedata);
+  
 }
 
-static void run_benchmarks(int argc, char **argv) {
+static void run_all_commands(int argc, char **argv) {
   FILE *input = NULL, *output = NULL;
+  int num = 1;
   char buf[MAXCMDLEN];
 
   input = maybe_open(input_filename, "r");
@@ -273,12 +312,12 @@ static void run_benchmarks(int argc, char **argv) {
   write_header(output);
 
   for (int k = first_command; k < argc; k++)
-    run_command(argv[k], output);
+    run_command(num++, argv[k], output);
 
   char *cmd = NULL;
   if (input)
     while ((cmd = fgets(buf, MAXCMDLEN, input)))
-      run_command(cmd, output);
+      run_command(num++, cmd, output);
   
   if (output) fclose(output);
   if (input) fclose(input);
@@ -431,7 +470,7 @@ int main(int argc, char *argv[]) {
     code = reduce_data();
     exit(code);
   } else {
-    run_benchmarks(argc, argv);
+    run_all_commands(argc, argv);
   }
 
   return 0;
