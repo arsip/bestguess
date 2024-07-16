@@ -17,6 +17,7 @@ static const char *progname = "bestguess";
 #include <string.h>
 #include <unistd.h> 
 #include <inttypes.h>
+#include <math.h>
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -112,6 +113,10 @@ static void print_rusage(struct rusage *usage) {
   X(F_VCSW,     "Voluntary Context Switches",   "%ld")	    \
   X(F_ICSW,     "Involuntary Context Switches", "%ld")	
 
+// F_TOTAL is a pseudo field name used only for computing summary
+// statistics.  It is never written to the raw data output file.
+#define F_TOTAL -1
+
 #define FIRST(a, b, c) a,
 typedef enum FieldCodes {XFields(FIRST) F_LAST};
 #define SECOND(a, b, c) b,
@@ -202,8 +207,62 @@ static FILE *maybe_open(const char *filename, const char *mode) {
   return f;
 }
 
+#define MAKE_COMPARATOR(accessor)					\
+  static int compare_##accessor(void *context,				\
+				const void *idx_ptr1,			\
+				const void *idx_ptr2) {			\
+    struct rusage *usagedata = context;					\
+    const int idx1 = *((const int *)idx_ptr1);				\
+    const int idx2 = *((const int *)idx_ptr2);				\
+    if (accessor(&usagedata[idx1]) > accessor(&usagedata[idx2]))	\
+      return 1;								\
+    if (accessor(&usagedata[idx1]) < accessor(&usagedata[idx2]))	\
+      return -1;							\
+    return 0;								\
+  }
+
+MAKE_COMPARATOR(usertime)
+MAKE_COMPARATOR(systemtime)
+MAKE_COMPARATOR(totaltime)
+
+#define MEDIAN_SELECT(accessor, usagedata)		\
+  ((runs == (runs/2) * 2) 				\
+   ?							\
+   ((accessor(&(usagedata)[runs/2 - 1]) +		\
+     accessor(&(usagedata)[runs/2])) / 2)		\
+   :							\
+   (accessor(&usagedata[runs/2])))			\
+
+static int64_t find_median(struct rusage *usagedata, int field) {
+  if (runs < 1) return 0;
+  int *indices = malloc(runs * sizeof(int));
+  if (!indices) bail("out of memory");
+  for (int i = 0; i < runs; i++) indices[i] = i;
+  switch (field) {
+    case F_USER:
+      qsort_r(indices, runs, sizeof(int), usagedata, compare_usertime);
+      return MEDIAN_SELECT(usertime, usagedata);
+    case F_SYSTEM:
+      qsort_r(indices, runs, sizeof(int), usagedata, compare_systemtime);
+      return MEDIAN_SELECT(systemtime, usagedata);
+    case F_TOTAL:
+      qsort_r(indices, runs, sizeof(int), usagedata, compare_totaltime);
+      return MEDIAN_SELECT(totaltime, usagedata);
+    default:
+      warn(progname, "Unsupported field code %d", field);
+      return INT64_MAX;
+  }
+}
+
 static void print_summary (struct rusage *usagedata) {
-  if (!usagedata) return;
+  printf("  Summary:             Range         Median\n");
+  if (runs < 1) {
+    printf("    No data (number of timed runs was %d)\n", runs);
+    return;
+  }
+  const char *units;
+  double divisor;
+  int64_t median;
   int64_t umin = INT64_MAX, smin = INT64_MAX, tmin = INT64_MAX;
   int64_t umax = 0, smax = 0, tmax = 0;
   for (int i = 0; i < runs; i++) {
@@ -214,14 +273,28 @@ static void print_summary (struct rusage *usagedata) {
     if (systemtime(&usagedata[i]) > smax) smax = systemtime(&usagedata[i]);
     if (totaltime(&usagedata[i]) > tmax) tmax = totaltime(&usagedata[i]);
   }
-  printf("Summary:\n");
-  printf("  User time range..... %.3fs - %.3fs\n",
-	 (float) (umin / (1000.0 * 1000.0)), (float) (umax / (1000.0 * 1000.0)));
-  printf("  System time range... %.3fs - %.3fs\n",
-	 (float) (smin / (1000.0 * 1000.0)), (float) (smax / (1000.0 * 1000.0)));
-  printf("  Total time range.... %.3fs - %.3fs\n",
-	 (float) (tmin / (1000.0 * 1000.0)), (float) (tmax / (1000.0 * 1000.0)));
-  
+  if (tmax > (1000 * 1000)) {
+    units = "s";
+    divisor = 1000.0 * 1000.0;
+  } else {
+    units = "ms";
+    divisor = 1000.0;
+  }
+  median = find_median(usagedata, F_USER);
+  printf("    User time     %.3f%s - %.3f%s    %.3f%s\n",
+	 (double)(umin / divisor), units,
+	 (double)(umax / divisor), units,
+	 (double)(median / divisor), units);
+  median = find_median(usagedata, F_SYSTEM);
+  printf("    System time   %.3f%s - %.3f%s    %.3f%s\n",
+	 (double)(smin / divisor), units,
+	 (double)(smax / divisor), units,
+	 (double)(median / divisor), units);
+  median = find_median(usagedata, F_TOTAL);
+  printf("    Total time    %.3f%s - %.3f%s    %.3f%s\n",
+	 (double)(tmin / divisor), units,
+	 (double)(tmax / divisor), units,
+	 (double)(median / divisor), units);
 }
 
 static int run(const char *cmd, struct rusage *usage) {
