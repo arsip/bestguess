@@ -225,13 +225,13 @@ MAKE_COMPARATOR(usertime)
 MAKE_COMPARATOR(systemtime)
 MAKE_COMPARATOR(totaltime)
 
-#define MEDIAN_SELECT(accessor, usagedata)		\
+#define MEDIAN_SELECT(accessor, indices, usagedata)	\
   ((runs == (runs/2) * 2) 				\
    ?							\
-   ((accessor(&(usagedata)[runs/2 - 1]) +		\
-     accessor(&(usagedata)[runs/2])) / 2)		\
+   ((accessor(&(usagedata)[indices[runs/2 - 1]]) +	\
+     accessor(&(usagedata)[indices[runs/2]])) / 2)	\
    :							\
-   (accessor(&usagedata[runs/2])))			\
+   (accessor(&usagedata[indices[runs/2]])))		\
 
 static int64_t find_median(struct rusage *usagedata, int field) {
   if (runs < 1) return 0;
@@ -241,13 +241,13 @@ static int64_t find_median(struct rusage *usagedata, int field) {
   switch (field) {
     case F_USER:
       qsort_r(indices, runs, sizeof(int), usagedata, compare_usertime);
-      return MEDIAN_SELECT(usertime, usagedata);
+      return MEDIAN_SELECT(usertime, indices, usagedata);
     case F_SYSTEM:
       qsort_r(indices, runs, sizeof(int), usagedata, compare_systemtime);
-      return MEDIAN_SELECT(systemtime, usagedata);
+      return MEDIAN_SELECT(systemtime, indices, usagedata);
     case F_TOTAL:
       qsort_r(indices, runs, sizeof(int), usagedata, compare_totaltime);
-      return MEDIAN_SELECT(totaltime, usagedata);
+      return MEDIAN_SELECT(totaltime, indices, usagedata);
     default:
       warn(progname, "Unsupported field code %d", field);
       return INT64_MAX;
