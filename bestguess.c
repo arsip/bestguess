@@ -32,6 +32,7 @@ static int show_output = 0;
 static int ignore_failure = 0;
 static char *input_filename = NULL;
 static char *output_filename = NULL;
+static char *hf_filename = NULL;
 static const char *shell = NULL;
 
 enum Options { 
@@ -42,6 +43,7 @@ enum Options {
   OPT_SHOWOUTPUT,
   OPT_IGNORE,
   OPT_SHELL,
+  OPT_HFCSV,			// Hyperfine format CSV
   OPT_VERSION,
   OPT_HELP,
 };
@@ -54,6 +56,7 @@ static void init_options(void) {
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, "Show program output");
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, "Ignore non-zero exit codes");
   optable_add(OPT_SHELL,      "S",  "shell",          1, "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands");
+  optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, "Write Hyperfine-style summary (CSV) to <FILE>");
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
@@ -150,6 +153,7 @@ static void write_header(FILE *f) {
   for (int i = 0; i < (F_LAST - 1); i++)
     fprintf(f, "%s,", Headers[i]);
   fprintf(f, "%s\n", Headers[F_LAST - 1]);
+  fflush(f);
 }
 
 #define SEP do {				\
@@ -233,28 +237,43 @@ static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage)
   // exceeded its time slice.
   WRITELN(f, F_ICSW, usage->ru_nivcsw);
 
+  fflush(f);
   free(escaped_cmd);
   free(shell_cmd);
 }
 
-// command,mean,stddev,median,user,system,min,max
+static void write_hf_header(FILE *f) {
+  fprintf(f, "command,mean,stddev,median,user,system,min,max\n");
+  fflush(f);
+}
+
 static void write_hf_line(FILE *f, Summary *s) {
   const double million = 1000.0 * 1000.0;
   // command
-  WRITEFMT(f, "%s", s->cmd);
+  WRITEFMT(f, "%s", *(s->cmd) ? s->cmd : shell);
   SEP;
   // mean (using median because it's more useful with log-normal distributions)
   WRITEFMT(f, "%f", (double) s->total / million);
   // median (repeated to be compatible with hf format)
   WRITEFMT(f, "%f", (double) s->total / million);
+  // stddev omitted until we know what to report for a log-normal distribution
+  WRITEFMT(f, "%f", (double) 0.0);
+  // Total time in seconds as double
+  WRITEFMT(f, "%f", (double) s->total / million);
+  SEP;
   // User time in seconds as double 
   WRITEFMT(f, "%f", (double) s->user / million);
   SEP;
   // System time in seconds as double
   WRITEFMT(f, "%f", (double) s->system / million);
   SEP;
-
+  // Min total time in seconds as double 
+  WRITEFMT(f, "%f", (double) s->tmin / million);
+  SEP;
+  // Max total time in seconds as double
+  WRITEFMT(f, "%f", (double) s->tmax / million);
   NEWLINE;
+  fflush(f);
 }
 
 static FILE *maybe_open(const char *filename, const char *mode) {
@@ -477,23 +496,25 @@ static int run(const char *cmd, struct rusage *usage) {
   return WEXITSTATUS(status);
 }
 
-static void run_command(int num, char *cmd, FILE *output) {
+static void run_command(int num, char *cmd,
+			FILE *output,
+			FILE *hf_output) {
   int code;
   struct rusage *usagedata = malloc(runs * sizeof(struct rusage));
   if (!usagedata) bail("Out of memory");
 
   if (output_filename)
-    fprintf(stderr, "Command %d: %s\n", num, *cmd ? cmd : "(empty)");
+    printf("Command %d: %s\n", num, *cmd ? cmd : "(empty)");
 
   if (output_filename)
-    fprintf(stderr, "  Warming up...\n");
+    printf("  Warming up with %d runs...\n", warmups);
 
   for (int i = 0; i < warmups; i++) {
     code = run(cmd, &(usagedata[0]));
   }
 
   if (output_filename)
-    fprintf(stderr, "  Timed runs...\n");
+    printf("  Timing %d runs...\n", runs);
 
   for (int i = 0; i < runs; i++) {
     code = run(cmd, &(usagedata[i]));
@@ -502,32 +523,43 @@ static void run_command(int num, char *cmd, FILE *output) {
 
   Summary *s = calc_summary(cmd, usagedata);
   if (!s) bail("Error generating summary statistics");
-  print_summary(num, s, usagedata);
+
+  // If raw data is going to an output file, we print a summary on the
+  // terminal (else raw data goes to terminal so that it can be piped
+  // to another process).
+  if (output_filename) print_summary(num, s, usagedata);
+
+  if (hf_filename) write_hf_line(hf_output, s);
+
+
   free_Summary(s);
   
 }
 
 static void run_all_commands(int argc, char **argv) {
-  FILE *input = NULL, *output = NULL;
+  FILE *input = NULL, *output = NULL, *hf_output = NULL;
   int num = 1;
   char buf[MAXCMDLEN];
 
   input = maybe_open(input_filename, "r");
   output = maybe_open(output_filename, "w");
+  hf_output = maybe_open(hf_filename, "w");
   if (!output) output = stdout;
 
   write_header(output);
+  if (hf_output) write_hf_header(hf_output);
 
   for (int k = first_command; k < argc; k++)
-    run_command(num++, argv[k], output);
+    run_command(num++, argv[k], output, hf_output);
 
   char *cmd = NULL;
   if (input)
     while ((cmd = fgets(buf, MAXCMDLEN, input)))
-      run_command(num++, cmd, output);
+      run_command(num++, cmd, output, hf_output);
   
   if (output) fclose(output);
   if (input) fclose(input);
+  if (hf_output) fclose(hf_output);
 }
 
 static int bad_option_value(const char *val, int n) {
@@ -612,6 +644,10 @@ static int process_args(int argc, char **argv) {
       case OPT_SHELL:
 	if (bad_option_value(val, n)) exit(-1);
 	shell = val;
+	break;
+      case OPT_HFCSV:
+	if (bad_option_value(val, n)) exit(-1);
+	hf_filename = strdup(val);
 	break;
       case OPT_VERSION:
 	if (bad_option_value(val, n)) exit(-1);
