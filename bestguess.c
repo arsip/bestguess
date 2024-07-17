@@ -250,15 +250,18 @@ static void write_hf_header(FILE *f) {
 
 static void write_hf_line(FILE *f, Summary *s) {
   const double million = 1000.0 * 1000.0;
-  // command
+  // Command
   WRITEFMT(f, "%s", *(s->cmd) ? s->cmd : shell);
   SEP;
-  // mean (using median because it's more useful with log-normal distributions)
+  // Mean (but really Median because it's more useful with log-normal distributions)
   WRITEFMT(f, "%f", (double) s->total / million);
-  // median (repeated to be compatible with hf format)
+  SEP;
+  // Median (repeated to be compatible with hf format)
   WRITEFMT(f, "%f", (double) s->total / million);
-  // stddev omitted until we know what to report for a log-normal distribution
+  SEP;
+  // Stddev omitted until we know what to report for a log-normal distribution
   WRITEFMT(f, "%f", (double) 0.0);
+  SEP;
   // Total time in seconds as double
   WRITEFMT(f, "%f", (double) s->total / million);
   SEP;
