@@ -1,14 +1,29 @@
 # Rationale
 
 After using hyperfine (https://github.com/sharkdp/hyperfine), I've concluded it
-has the wrong approach.  There are two problems and a couple of design
-limitations.
+has the wrong approach.  There are two problems and some design limitations.
+
+A proper critique of Hyperfine would include (at length) a description of its
+strengths.  This is not such a critique, though in fairness to Hyperfine it is
+an excellent tool overall.  Aside from the statistics it calculates, the tool is
+well thought out.  It works on many platforms and automates many aspects of
+benchmarking well.  The output is very well displayed, showing careful attention
+to detail in presenting result summaries.
 
 **Problem 1:** Hyperfine assumes a normal distribution when calculating all of
 the stats, and performance measurements are not normally distributed.  There is
 a minimum time that may be approached, but which can never be surpassed because
 there is a certain number of cycles needed to execute a deterministic algorithm.
-I do not want to rely its statistical calculations.
+
+Performance data may well follow a log-normal distribution.  In any case, we
+have used an Anderson-Darling test to confirm that the data we are seeing (in a
+variety of settings across a variety of platforms) is astoundingly far from
+being normally distributed.
+
+Because all of Hyperfine's statistics are calculated assuming a normal
+distribution, we cannot rely on its (1) standard deviation, (2) outlier
+detection, or (3) mean values.  (Because performance can get almost arbitrarily
+bad, but can only get so good, high runtimes skew the mean.)
 
 **Problem 2:** There is no basis (best practice or scientific evidence) to
 suggest that any of the following default features are appropriate and work
@@ -31,19 +46,17 @@ timing data allows several kinds of analysis to be done, even much later after
 the timing runs are complete.  Other people can analyze the data in different
 ways.
 
-**Design issue 3:** Admittedly a minor issue, but Python is not a desirable
-dependency for any project.  The data analysis scripts that come with Hyperfine
-are Python programs, and maintaining a working Python environment is laborious
-and error-prone.  Users must be able to compile Rust, so why not roll the
-optional analyses done by the scripts into the Hyperfine code?
+**Design issue 3:** Admittedly a minor issue, and certainly a personal
+preference: Python is not a desirable dependency for any project.  The data
+analysis scripts that come with Hyperfine are Python programs.  Maintaining a
+working Python environment is laborious and error-prone, requiring
+Python-specific virtual environments of one type or another.  Hyperfine users
+must be able to compile Rust, so why not roll the optional analyses done by the
+Python scripts into the Hyperfine code, or at least into a companion program?
 
-Finally, much of Hyperfine's functionality might better fit in an external
-program.  Certainly the statistical calculations are in that category, but it is
-also simple to generate a list of commands that iterate through parameter
-ranges.  And the shell, if desired, can be included as part of the command.
-Separately measuring shell startup time seems prudent from a scientific
-perspective, both to record that raw data and to be able to analyze it more
-carefully than simply taking the mean of a few trials.
+Much of Hyperfine's functionality might better fit in an external program.
+Certainly the statistical calculations are in that category, but it is also
+simple to generate a list of commands that iterate through parameter ranges.
 
 
 # Enhancements to consider
