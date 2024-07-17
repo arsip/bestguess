@@ -60,6 +60,28 @@ static void init_options(void) {
     bail("\nError in command-line option parser configuration");
 }
 
+typedef struct Summary {
+  char   *cmd;
+  int     runs;
+  int64_t user;			// median
+  int64_t umin;
+  int64_t umax;
+  int64_t system;		// median
+  int64_t smin;
+  int64_t smax;
+  int64_t total;		// median
+  int64_t tmin;
+  int64_t tmax;
+  int64_t rss;			// median
+  int64_t rssmin;
+  int64_t rssmax;
+} Summary;
+
+static void free_Summary(Summary *s) {
+  free(s->cmd);
+  free(s);
+}
+
 #ifdef __linux__
   #define FMTusec "ld"
 #else
@@ -107,7 +129,7 @@ static void print_rusage(struct rusage *usage) {
   X(F_SHELL,    "Shell",                        "\"%s\"")   \
   X(F_USER,     "User time (us)",               "%" PRId64) \
   X(F_SYSTEM,   "System time (us)",             "%" PRId64) \
-  X(F_RSS,      "Max RSS (KiByte)",             "%ld")	    \
+  X(F_RSS,      "Max RSS (Bytes)",              "%ld")	    \
   X(F_RECLAIMS, "Page Reclaims",                "%ld")	    \
   X(F_FAULTS,   "Page Faults",                  "%ld")	    \
   X(F_VCSW,     "Voluntary Context Switches",   "%ld")	    \
@@ -133,17 +155,24 @@ static void write_header(FILE *f) {
 #define SEP do {				\
     fputc(',', f);				\
   } while (0)
-#define WRITEFIELD(f, fmt_idx, val) do {	\
-  fprintf((f), FieldFormats[fmt_idx], (val));	\
+#define NEWLINE do {				\
+    fputc('\n', f);				\
+  } while (0)
+#define WRITEFMT(f, fmt_string, val) do {	\
+    fprintf((f), (fmt_string), (val));		\
   } while (0)
 #define WRITE(f, fmt_idx, val) do {		\
-    WRITEFIELD(f, fmt_idx, val);		\
+    WRITEFMT(f, FieldFormats[fmt_idx], val);	\
     SEP;					\
   } while (0)
 #define WRITELN(f, fmt_idx, val) do {		\
-    WRITEFIELD(f, fmt_idx, val);		\
-    fputc('\n', f);				\
+    WRITE(f, fmt_idx, val);			\
+    NEWLINE;					\
   } while (0)
+
+static int64_t rss(struct rusage *usage) {
+  return usage->ru_maxrss;
+}
 
 static int64_t usertime(struct rusage *usage) {
   return usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
@@ -155,6 +184,18 @@ static int64_t systemtime(struct rusage *usage) {
 
 static int64_t totaltime(struct rusage *usage) {
   return usertime(usage) + systemtime(usage);
+}
+
+static int64_t volcsw(struct rusage *usage) {
+  return usage->ru_nvcsw;
+}
+
+static int64_t involcsw(struct rusage *usage) {
+  return usage->ru_nivcsw;
+}
+
+static int64_t totalcsw(struct rusage *usage) {
+  return volcsw(usage) + involcsw(usage);
 }
 
 static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
@@ -196,6 +237,26 @@ static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage)
   free(shell_cmd);
 }
 
+// command,mean,stddev,median,user,system,min,max
+static void write_hf_line(FILE *f, Summary *s) {
+  const double million = 1000.0 * 1000.0;
+  // command
+  WRITEFMT(f, "%s", s->cmd);
+  SEP;
+  // mean (using median because it's more useful with log-normal distributions)
+  WRITEFMT(f, "%f", (double) s->total / million);
+  // median (repeated to be compatible with hf format)
+  WRITEFMT(f, "%f", (double) s->total / million);
+  // User time in seconds as double 
+  WRITEFMT(f, "%f", (double) s->user / million);
+  SEP;
+  // System time in seconds as double
+  WRITEFMT(f, "%f", (double) s->system / million);
+  SEP;
+
+  NEWLINE;
+}
+
 static FILE *maybe_open(const char *filename, const char *mode) {
   if (!filename) return NULL;
   FILE *f = fopen(filename, mode);
@@ -224,6 +285,7 @@ static FILE *maybe_open(const char *filename, const char *mode) {
 MAKE_COMPARATOR(usertime)
 MAKE_COMPARATOR(systemtime)
 MAKE_COMPARATOR(totaltime)
+MAKE_COMPARATOR(rss)
 
 #define MEDIAN_SELECT(accessor, indices, usagedata)	\
   ((runs == (runs/2) * 2) 				\
@@ -239,6 +301,9 @@ static int64_t find_median(struct rusage *usagedata, int field) {
   if (!indices) bail("out of memory");
   for (int i = 0; i < runs; i++) indices[i] = i;
   switch (field) {
+    case F_RSS:
+      qsort_r(indices, runs, sizeof(int), usagedata, compare_rss);
+      return MEDIAN_SELECT(rss, indices, usagedata);
     case F_USER:
       qsort_r(indices, runs, sizeof(int), usagedata, compare_usertime);
       return MEDIAN_SELECT(usertime, indices, usagedata);
@@ -254,47 +319,113 @@ static int64_t find_median(struct rusage *usagedata, int field) {
   }
 }
 
-static void print_summary (struct rusage *usagedata) {
-  printf("  Summary:             Range         Median\n");
+static Summary *calc_summary(char *cmd,
+			     struct rusage *usagedata) {
+
+  Summary *s = calloc(1, sizeof(Summary));
+  if (!s) bail("Out of memory");
+
+  s->cmd = escape(cmd);
+  s->runs = runs;
+
   if (runs < 1) {
-    printf("    No data (number of timed runs was %d)\n", runs);
-    return;
+    // No data to process, and 's' contains all zeros in the numeric
+    // fields except for number of runs
+    return s;
   }
-  const char *units;
-  double divisor;
-  int64_t median;
+
   int64_t umin = INT64_MAX, smin = INT64_MAX, tmin = INT64_MAX;
   int64_t umax = 0, smax = 0, tmax = 0;
+  int64_t rssmin = INT64_MAX, rssmax = 0;
+
+  // Find mins and maxes
   for (int i = 0; i < runs; i++) {
     if (usertime(&usagedata[i]) < umin) umin = usertime(&usagedata[i]);
     if (systemtime(&usagedata[i]) < smin) smin = systemtime(&usagedata[i]);
     if (totaltime(&usagedata[i]) < tmin) tmin = totaltime(&usagedata[i]);
+    if (rss(&usagedata[i]) < rssmin) rssmin = rss(&usagedata[i]);
+
     if (usertime(&usagedata[i]) > umax) umax = usertime(&usagedata[i]);
     if (systemtime(&usagedata[i]) > smax) smax = systemtime(&usagedata[i]);
     if (totaltime(&usagedata[i]) > tmax) tmax = totaltime(&usagedata[i]);
+    if (rss(&usagedata[i]) > rssmax) rssmax = rss(&usagedata[i]);
   }
-  if (tmax > (1000 * 1000)) {
+  
+  s->tmin = tmin;
+  s->tmax = tmax;
+  s->umin = umin;
+  s->umax = umax;
+  s->smin = smin;
+  s->smax = smax;
+  s->rssmin = rssmin;
+  s->rssmax = rssmax;
+
+  // Find medians
+  s->user = find_median(usagedata, F_USER);
+  s->system = find_median(usagedata, F_SYSTEM);
+  s->total = find_median(usagedata, F_TOTAL);
+  s->rss = find_median(usagedata, F_RSS);
+
+  return s;
+}
+
+// Note: For a log-normal distribution, the geometric mean is the
+// median value and is a more useful measure of the "typical" value
+// than is the arithmetic mean.
+static void print_summary(int num, Summary *s, struct rusage *usagedata) {
+
+  printf("  Summary:                 Range               Median\n");
+
+  if (runs < 1) {
+    printf("    No data (number of timed runs was %d)\n", runs);
+    return;
+  }
+
+  const char *units;
+  double divisor;
+  
+  // Decide on which time unit to use for printing the summary
+  if (s->tmax > (1000 * 1000)) {
     units = "s";
     divisor = 1000.0 * 1000.0;
   } else {
     units = "ms";
     divisor = 1000.0;
   }
-  median = find_median(usagedata, F_USER);
-  printf("    User time     %.3f%s - %.3f%s    %.3f%s\n",
-	 (double)(umin / divisor), units,
-	 (double)(umax / divisor), units,
-	 (double)(median / divisor), units);
-  median = find_median(usagedata, F_SYSTEM);
-  printf("    System time   %.3f%s - %.3f%s    %.3f%s\n",
-	 (double)(smin / divisor), units,
-	 (double)(smax / divisor), units,
-	 (double)(median / divisor), units);
-  median = find_median(usagedata, F_TOTAL);
-  printf("    Total time    %.3f%s - %.3f%s    %.3f%s\n",
-	 (double)(tmin / divisor), units,
-	 (double)(tmax / divisor), units,
-	 (double)(median / divisor), units);
+
+  printf("    User time     %6.3f %3s - %6.3f %3s    %6.3f %3s\n",
+	 (double)(s->umin / divisor), units,
+	 (double)(s->umax / divisor), units,
+	 (double)(s->user / divisor), units);
+
+  printf("    System time   %6.3f %3s - %6.3f %3s    %6.3f %3s\n",
+	 (double)(s->smin / divisor), units,
+	 (double)(s->smax / divisor), units,
+	 (double)(s->system / divisor), units);
+
+  printf("    Total time    %6.3f %3s - %6.3f %3s    %6.3f %3s\n",
+	 (double)(s->tmin / divisor), units,
+	 (double)(s->tmax / divisor), units,
+	 (double)(s->total / divisor), units);
+
+  printf("    Max RSS       %6.3f %3s - %6.3f %3s    %6.3f %3s\n",
+	 (double) s->rssmin / (1024.0 * 1024.0), "MiB",
+	 (double) s->rssmax / (1024.0 * 1024.0), "MiB",
+	 (double) s->rss / (1024.0 * 1024.0), "MiB");
+
+  int64_t csw;
+  const char *descriptor;
+  for (int i = 0; i < runs; i++) {
+    csw = totalcsw(&usagedata[i]);
+    if (csw > MED_CSW) {
+      if (csw > HIGH_CSW) descriptor = "high";
+      else descriptor = "moderate";
+      printf("Iteration %2d: %s number of context switches (%" PRId64 ")"
+	     " for command #%d: %s\n", i, descriptor, csw, num,
+	     (s->cmd && *(s->cmd)) ? s->cmd : "(empty)");
+    }
+  } // for each iteration executed
+
 }
 
 static int run(const char *cmd, struct rusage *usage) {
@@ -369,7 +500,10 @@ static void run_command(int num, char *cmd, FILE *output) {
     write_line(output, cmd, code, &(usagedata[i]));
   }
 
-  print_summary(usagedata);
+  Summary *s = calc_summary(cmd, usagedata);
+  if (!s) bail("Error generating summary statistics");
+  print_summary(num, s, usagedata);
+  free_Summary(s);
   
 }
 

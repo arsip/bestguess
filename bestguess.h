@@ -9,6 +9,11 @@
 
 #include "utils.h"
 
+// Thresholds used only for printing summary info
+#define HIGH_CSW 50
+#define MED_CSW  20
+
+
 // Maximum number of arguments in one command
 // E.g. "ls -l -h *.c" is a command with 3 arguments,
 // and "ls -lh *.c" has 2 arguments.
