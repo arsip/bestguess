@@ -253,16 +253,13 @@ static void write_hf_line(FILE *f, Summary *s) {
   // Command
   WRITEFMT(f, "%s", *(s->cmd) ? s->cmd : shell);
   SEP;
-  // Mean (but really Median because it's more useful with log-normal distributions)
-  WRITEFMT(f, "%f", (double) s->total / million);
-  SEP;
-  // Median (repeated to be compatible with hf format)
+  // Mean total time (really Median because it's more useful)
   WRITEFMT(f, "%f", (double) s->total / million);
   SEP;
   // Stddev omitted until we know what to report for a log-normal distribution
   WRITEFMT(f, "%f", (double) 0.0);
   SEP;
-  // Total time in seconds as double
+  // Median total time (repeated to be compatible with hf format)
   WRITEFMT(f, "%f", (double) s->total / million);
   SEP;
   // User time in seconds as double 
@@ -395,9 +392,11 @@ static Summary *calc_summary(char *cmd,
 // Note: For a log-normal distribution, the geometric mean is the
 // median value and is a more useful measure of the "typical" value
 // than is the arithmetic mean.
+#define FMT "%7.3f"
+#define LFMT "%-7.3f"
 static void print_summary(int num, Summary *s, struct rusage *usagedata) {
 
-  printf("  Summary:                 Range               Median\n");
+  printf("  Summary:                  Range                 Median\n");
 
   if (runs < 1) {
     printf("    No data (number of timed runs was %d)\n", runs);
@@ -416,22 +415,22 @@ static void print_summary(int num, Summary *s, struct rusage *usagedata) {
     divisor = 1000.0;
   }
 
-  printf("    User time     %6.3f %3s - %6.3f %3s    %6.3f %3s\n",
+  printf("    User time     " FMT " %3s - " LFMT " %3s    " FMT " %3s\n",
 	 (double)(s->umin / divisor), units,
 	 (double)(s->umax / divisor), units,
 	 (double)(s->user / divisor), units);
 
-  printf("    System time   %6.3f %3s - %6.3f %3s    %6.3f %3s\n",
+  printf("    System time   " FMT " %3s - " LFMT " %3s    " FMT " %3s\n",
 	 (double)(s->smin / divisor), units,
 	 (double)(s->smax / divisor), units,
 	 (double)(s->system / divisor), units);
 
-  printf("    Total time    %6.3f %3s - %6.3f %3s    %6.3f %3s\n",
+  printf("    Total time    " FMT " %3s - " LFMT " %3s    " FMT " %3s\n",
 	 (double)(s->tmin / divisor), units,
 	 (double)(s->tmax / divisor), units,
 	 (double)(s->total / divisor), units);
 
-  printf("    Max RSS       %6.3f %3s - %6.3f %3s    %6.3f %3s\n",
+  printf("    Max RSS       " FMT " %3s - " LFMT " %3s    " FMT " %3s\n",
 	 (double) s->rssmin / (1024.0 * 1024.0), "MiB",
 	 (double) s->rssmax / (1024.0 * 1024.0), "MiB",
 	 (double) s->rss / (1024.0 * 1024.0), "MiB");
