@@ -10,8 +10,8 @@
 #include "utils.h"
 
 // Thresholds used only for printing summary info
-#define HIGH_CSW 99
-#define MED_CSW  49
+#define HIGH_CSW 599
+#define MED_CSW  299
 
 
 // Maximum number of arguments in one command
