@@ -30,6 +30,7 @@ static int warmups = 0;
 static int first_command = 0;
 static int show_output = 0;
 static int ignore_failure = 0;
+static int output_to_stdout = 0;
 static char *input_filename = NULL;
 static char *output_filename = NULL;
 static char *hf_filename = NULL;
@@ -51,12 +52,12 @@ enum Options {
 static void init_options(void) {
   optable_add(OPT_WARMUP,     "w",  "warmup",         1, "Number of warmup runs");
   optable_add(OPT_RUNS,       "r",  "runs",           1, "Number of timed runs");
-  optable_add(OPT_OUTPUT,     "o",  "output",         1, "Write timing data (CSV) to <FILE>");
+  optable_add(OPT_OUTPUT,     "o",  "output",         1, "Write timing data to CSV <FILE> (use - for stdout)");
   optable_add(OPT_FILE,       "f",  "file",           1, "Read commands/data from <FILE>");
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, "Show program output");
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, "Ignore non-zero exit codes");
   optable_add(OPT_SHELL,      "S",  "shell",          1, "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands");
-  optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, "Write Hyperfine-style summary (CSV) to <FILE>");
+  optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, "Write Hyperfine-style CSV summary to <FILE>");
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
@@ -445,6 +446,8 @@ static void print_summary(int num, Summary *s, struct rusage *usagedata) {
     }
   } // for each iteration executed
 
+  printf("\n");
+  fflush(stdout);
 }
 
 static int run(const char *cmd, struct rusage *usage) {
@@ -503,22 +506,24 @@ static void run_command(int num, char *cmd,
   struct rusage *usagedata = malloc(runs * sizeof(struct rusage));
   if (!usagedata) bail("Out of memory");
 
-  if (output_filename)
+  if (!output_to_stdout) {
     printf("Command %d: %s\n", num, *cmd ? cmd : "(empty)");
-
-  if (output_filename)
     printf("  Warming up with %d runs...\n", warmups);
+    fflush(stdout);
+  }
 
   for (int i = 0; i < warmups; i++) {
     code = run(cmd, &(usagedata[0]));
   }
 
-  if (output_filename)
+  if (!output_to_stdout) {
     printf("  Timing %d runs...\n", runs);
+    fflush(stdout);
+  }
 
   for (int i = 0; i < runs; i++) {
     code = run(cmd, &(usagedata[i]));
-    write_line(output, cmd, code, &(usagedata[i]));
+    if (output) write_line(output, cmd, code, &(usagedata[i]));
   }
 
   Summary *s = calc_summary(cmd, usagedata);
@@ -527,7 +532,7 @@ static void run_command(int num, char *cmd,
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
-  if (output_filename) print_summary(num, s, usagedata);
+  if (!output_to_stdout) print_summary(num, s, usagedata);
 
   if (hf_filename) write_hf_line(hf_output, s);
 
@@ -541,12 +546,27 @@ static void run_all_commands(int argc, char **argv) {
   int num = 1;
   char buf[MAXCMDLEN];
 
-  input = maybe_open(input_filename, "r");
-  output = maybe_open(output_filename, "w");
-  hf_output = maybe_open(hf_filename, "w");
-  if (!output) output = stdout;
+  if (!output_to_stdout && !output_filename) {
+    printf("NOTE: Use '-%s <FILE>' or '--%s <FILE>' to write raw data to a file.\n",
+	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
+    printf("      A single dash '-' instead of a file name prints to stdout.\n\n");
+    fflush(stdout);
+  }
 
-  write_header(output);
+  if (output_filename && (*output_filename == '-')) {
+    printf("WARNING: Output filename '%s' begins with a dash\n\n", output_filename);
+    fflush(stdout);
+  }
+
+  input = maybe_open(input_filename, "r");
+  hf_output = maybe_open(hf_filename, "w");
+
+  if (output_to_stdout)
+    output = stdout;
+  else
+    output = maybe_open(output_filename, "w");
+
+  if (output) write_header(output);
   if (hf_output) write_hf_header(hf_output);
 
   for (int k = first_command; k < argc; k++)
@@ -627,7 +647,12 @@ static int process_args(int argc, char **argv) {
 	break;
       case OPT_OUTPUT:
 	if (bad_option_value(val, n)) exit(-1);
-	output_filename = strdup(val);
+	if (strcmp(val, "-") == 0) {
+	  output_to_stdout = 1;
+	} else {
+	  output_filename = strdup(val);
+	  output_to_stdout = 0;
+	}
 	break;
       case OPT_FILE:
 	if (bad_option_value(val, n)) exit(-1);
@@ -662,7 +687,6 @@ static int process_args(int argc, char **argv) {
 	exit(-1);
     }
   }
-  optable_free();
   return -1;
 }
 
@@ -716,5 +740,6 @@ int main(int argc, char *argv[]) {
     run_all_commands(argc, argv);
   }
 
+  optable_free();
   return 0;
 }

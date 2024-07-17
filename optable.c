@@ -257,8 +257,17 @@ static int match_short_option(const char *arg, const char **value) {
   return -1;
 }
 
+// Ensure 'arg' is non-null before calling
+static int all_dashes(const char *arg) {
+  while (*arg)
+    if (*(arg++) != '-') return 0;
+  return 1;
+}
+
+// A single dash, or any sequence of dashes, is a VALUE on the command
+// line, not some kind of empty option or switch
 int optable_is_option(const char *arg) {
-  return (arg && (*arg == '-'));
+  return arg && (*arg == '-') && !all_dashes(arg);
 }
 
 static int argv_next_is_value(const char *value, int n, int i) {
