@@ -317,30 +317,37 @@ MAKE_COMPARATOR(rss)
 
 static int64_t find_median(struct rusage *usagedata, int field) {
   if (runs < 1) return 0;
+  int64_t result;
   int *indices = malloc(runs * sizeof(int));
   if (!indices) bail("out of memory");
   for (int i = 0; i < runs; i++) indices[i] = i;
   switch (field) {
     case F_RSS:
       qsort_r(indices, runs, sizeof(int), usagedata, compare_rss);
-      return MEDIAN_SELECT(rss, indices, usagedata);
+      result = MEDIAN_SELECT(rss, indices, usagedata);
+      break;
     case F_USER:
       qsort_r(indices, runs, sizeof(int), usagedata, compare_usertime);
-      return MEDIAN_SELECT(usertime, indices, usagedata);
+      result = MEDIAN_SELECT(usertime, indices, usagedata);
+      break;
     case F_SYSTEM:
       qsort_r(indices, runs, sizeof(int), usagedata, compare_systemtime);
-      return MEDIAN_SELECT(systemtime, indices, usagedata);
+      result = MEDIAN_SELECT(systemtime, indices, usagedata);
+      break;
     case F_TOTAL:
       qsort_r(indices, runs, sizeof(int), usagedata, compare_totaltime);
-      return MEDIAN_SELECT(totaltime, indices, usagedata);
+      result = MEDIAN_SELECT(totaltime, indices, usagedata);
+      break;
     default:
       warn(progname, "Unsupported field code %d", field);
-      return INT64_MAX;
+      result = 0;
   }
+  free(indices);
+  return result;
 }
 
-static Summary *calc_summary(char *cmd,
-			     struct rusage *usagedata) {
+static Summary *summarize(char *cmd,
+			  struct rusage *usagedata) {
 
   Summary *s = calloc(1, sizeof(Summary));
   if (!s) bail("Out of memory");
@@ -392,11 +399,9 @@ static Summary *calc_summary(char *cmd,
 // Note: For a log-normal distribution, the geometric mean is the
 // median value and is a more useful measure of the "typical" value
 // than is the arithmetic mean.
-#define FMT "%7.3f"
-#define LFMT "%-7.3f"
-static void print_summary(int num, Summary *s, struct rusage *usagedata) {
-
-  printf("  Summary:                  Range                 Median\n");
+#define FMT "%7.3f %-3s"
+static void print_command_summary(Summary *s) {
+  printf("                     Median                 Range\n");
 
   if (runs < 1) {
     printf("    No data (number of timed runs was %d)\n", runs);
@@ -415,40 +420,26 @@ static void print_summary(int num, Summary *s, struct rusage *usagedata) {
     divisor = 1000.0;
   }
 
-  printf("    User time     " FMT " %3s - " LFMT " %3s    " FMT " %3s\n",
+  printf("    Total time    " FMT "     " FMT " - " FMT "\n",
+	 (double)(s->total / divisor), units,
+	 (double)(s->tmin / divisor), units,
+	 (double)(s->tmax / divisor), units);
+
+  printf("    User time     "  FMT "     " FMT " - " FMT "\n",
 	 (double)(s->umin / divisor), units,
 	 (double)(s->umax / divisor), units,
 	 (double)(s->user / divisor), units);
 
-  printf("    System time   " FMT " %3s - " LFMT " %3s    " FMT " %3s\n",
+  printf("    System time   " FMT "     " FMT " - " FMT "\n",
 	 (double)(s->smin / divisor), units,
 	 (double)(s->smax / divisor), units,
 	 (double)(s->system / divisor), units);
 
-  printf("    Total time    " FMT " %3s - " LFMT " %3s    " FMT " %3s\n",
-	 (double)(s->tmin / divisor), units,
-	 (double)(s->tmax / divisor), units,
-	 (double)(s->total / divisor), units);
-
-  printf("    Max RSS       " FMT " %3s - " LFMT " %3s    " FMT " %3s\n",
+  printf("    Max RSS       " FMT "     " FMT " - " FMT "\n",
 	 (double) s->rssmin / (1024.0 * 1024.0), "MiB",
 	 (double) s->rssmax / (1024.0 * 1024.0), "MiB",
 	 (double) s->rss / (1024.0 * 1024.0), "MiB");
 
-  int64_t csw;
-  const char *descriptor;
-  for (int i = 0; i < runs; i++) {
-    csw = totalcsw(&usagedata[i]);
-    if (csw > MED_CSW) {
-      if (csw > HIGH_CSW) descriptor = "high";
-      else descriptor = "moderate";
-      printf("Iteration %2d: %s number of context switches (%" PRId64 ")"
-	     " for command #%d: %s\n", i, descriptor, csw, num,
-	     (s->cmd && *(s->cmd)) ? s->cmd : "(empty)");
-    }
-  } // for each iteration executed
-
-  printf("\n");
   fflush(stdout);
 }
 
@@ -501,16 +492,33 @@ static int run(const char *cmd, struct rusage *usage) {
   return WEXITSTATUS(status);
 }
 
-static void run_command(int num, char *cmd,
-			FILE *output,
-			FILE *hf_output) {
+static void print_csw_warnings(Summary *s, struct rusage *usagedata) {
+  int64_t csw;
+  const char *descriptor;
+  for (int i = 0; i < runs; i++) {
+    csw = totalcsw(&usagedata[i]);
+    if (csw > MED_CSW) {
+      if (csw > HIGH_CSW) descriptor = "high";
+      else descriptor = "moderate";
+      printf("  Iter. %d: %s number of context switches (%" PRId64 "): "
+	     "%s\n", i, descriptor, csw,
+	     (s->cmd && *(s->cmd)) ? s->cmd : "(empty)");
+    }
+  } // for each iteration executed
+}
+
+// Returns median total runtime for 'cmd'
+static int64_t run_command(int num, char *cmd,
+			   FILE *output,
+			   FILE *hf_output) {
   int code;
+  int64_t median;
   struct rusage *usagedata = malloc(runs * sizeof(struct rusage));
   if (!usagedata) bail("Out of memory");
 
   if (!output_to_stdout) {
-    printf("Command %d: %s\n", num, *cmd ? cmd : "(empty)");
-    printf("  Warming up with %d runs...\n", warmups);
+    printf("Command %d: %s\n", num+1, *cmd ? cmd : "(empty)");
+    //printf("  Warming up with %d run%s\n", warmups, (warmups==1) ? "" : "s");
     fflush(stdout);
   }
 
@@ -519,7 +527,7 @@ static void run_command(int num, char *cmd,
   }
 
   if (!output_to_stdout) {
-    printf("  Timing %d runs...\n", runs);
+    //printf("  Timing %d run%s\n", runs, (runs==1) ? "" : "s");
     fflush(stdout);
   }
 
@@ -528,30 +536,64 @@ static void run_command(int num, char *cmd,
     if (output) write_line(output, cmd, code, &(usagedata[i]));
   }
 
-  Summary *s = calc_summary(cmd, usagedata);
+  Summary *s = summarize(cmd, usagedata);
   if (!s) bail("Error generating summary statistics");
 
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
-  if (!output_to_stdout) print_summary(num, s, usagedata);
+  if (!output_to_stdout) print_command_summary(s);
 
+  // If exporting in Hyperfine CSV format, write that line of data
   if (hf_filename) write_hf_line(hf_output, s);
 
+  // Not sure if we'll keep this, but it's interesting for now
+  print_csw_warnings(s, usagedata);
 
+  printf("\n");
+  fflush(stdout);
+  median = s->total;
   free_Summary(s);
+  return median;
+}
+
+static void print_overall_summary(const char *commands[],
+				  int64_t mediantimes[],
+				  int n) {
+  if (n < 2) return;
+  int best = 0;
+  int64_t fastest = mediantimes[best];
+  double factor;
   
+  for (int i = 1; i < n; i++)
+    if (mediantimes[i] < fastest) {
+      fastest = mediantimes[i];
+      best = i;
+    }
+  printf("\nSummary\n");
+  printf("  %s ran\n", commands[best]);
+  for (int i = 0; i < n; i++) {
+    if (i != best) {
+      factor = (double) mediantimes[i] / (double) fastest;
+      printf("    %5.2f times faster than %s\n", factor, commands[i]);
+    }
+  }
+  fflush(stdout);
+
+
 }
 
 static void run_all_commands(int argc, char **argv) {
-  FILE *input = NULL, *output = NULL, *hf_output = NULL;
-  int num = 1;
+  int n = 0;
   char buf[MAXCMDLEN];
+  int64_t mediantimes[MAXCMDS];
+  const char *commands[MAXCMDLEN];
+  FILE *input = NULL, *output = NULL, *hf_output = NULL;
 
   if (!output_to_stdout && !output_filename) {
-    printf("NOTE: Use '-%s <FILE>' or '--%s <FILE>' to write raw data to a file.\n",
+    printf("Use '-%s <FILE>' or '--%s <FILE>' to write raw data to a file.\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
-    printf("      A single dash '-' instead of a file name prints to stdout.\n\n");
+    printf("A single dash '-' instead of a file name prints to stdout.\n\n");
     fflush(stdout);
   }
 
@@ -571,14 +613,22 @@ static void run_all_commands(int argc, char **argv) {
   if (output) write_header(output);
   if (hf_output) write_hf_header(hf_output);
 
-  for (int k = first_command; k < argc; k++)
-    run_command(num++, argv[k], output, hf_output);
+  for (int k = first_command; k < argc; k++) {
+    commands[n] = argv[k];
+    mediantimes[n] = run_command(n, argv[k], output, hf_output);
+    n++;
+  }
 
   char *cmd = NULL;
   if (input)
-    while ((cmd = fgets(buf, MAXCMDLEN, input)))
-      run_command(num++, cmd, output, hf_output);
+    while ((cmd = fgets(buf, MAXCMDLEN, input))) {
+      commands[n] = cmd;
+      mediantimes[n] = run_command(n, cmd, output, hf_output);
+      n++;
+    }
   
+  print_overall_summary(commands, mediantimes, n);
+
   if (output) fclose(output);
   if (input) fclose(input);
   if (hf_output) fclose(hf_output);

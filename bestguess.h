@@ -9,10 +9,11 @@
 
 #include "utils.h"
 
-// Thresholds used only for printing summary info
-#define HIGH_CSW 599
-#define MED_CSW  299
+// Change to non-zero to enable debugging output to stdout
+#define DEBUG 0
 
+// Maximum number of commands we allow to benchmark
+#define MAXCMDS 200
 
 // Maximum number of arguments in one command
 // E.g. "ls -l -h *.c" is a command with 3 arguments,
@@ -29,7 +30,9 @@
 // Change as desired
 #define PROCESS_DATA_COMMAND "reduce"
 
-// Change to non-zero to enable debugging output to stdout
-#define DEBUG 0
+// Thresholds used only for printing summary info
+#define HIGH_CSW 5000
+#define MED_CSW  2000
+
 
 #endif
