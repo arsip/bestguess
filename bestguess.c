@@ -58,17 +58,28 @@ enum Options {
   OPT_HELP,
 };
 
+#define HELP_WARMUP "Number of warmup runs"
+#define HELP_RUNS "Number of timed runs"
+#define HELP_OUTPUT "Write timing data to CSV <FILE> (use - for stdout)"
+#define HELP_FILE "Read commands/data from <FILE>"
+#define HELP_BRIEF "Brief performance summary (shows only total time)"
+#define HELP_GRAPH "Show graph of total time for each iteration"
+#define HELP_SHOWOUTPUT "Show output of commands as they run"
+#define HELP_IGNORE "Ignore non-zero exit codes"
+#define HELP_SHELL "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands"
+#define HELP_HFCSV "Write Hyperfine-style CSV summary to <FILE>"
+
 static void init_options(void) {
-  optable_add(OPT_WARMUP,     "w",  "warmup",         1, "Number of warmup runs");
-  optable_add(OPT_RUNS,       "r",  "runs",           1, "Number of timed runs");
-  optable_add(OPT_OUTPUT,     "o",  "output",         1, "Write timing data to CSV <FILE> (use - for stdout)");
-  optable_add(OPT_FILE,       "f",  "file",           1, "Read commands/data from <FILE>");
-  optable_add(OPT_BRIEF,      "b",  "brief",          0, "Brief performance summary");
-  optable_add(OPT_GRAPH,      "g",  "graph",          0, "Show graph of total time for each iteration");
-  optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, "Show program output");
-  optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, "Ignore non-zero exit codes");
-  optable_add(OPT_SHELL,      "S",  "shell",          1, "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands");
-  optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, "Write Hyperfine-style CSV summary to <FILE>");
+  optable_add(OPT_WARMUP,     "w",  "warmup",         1, HELP_WARMUP);
+  optable_add(OPT_RUNS,       "r",  "runs",           1, HELP_RUNS);
+  optable_add(OPT_OUTPUT,     "o",  "output",         1, HELP_OUTPUT);
+  optable_add(OPT_FILE,       "f",  "file",           1, HELP_FILE);
+  optable_add(OPT_BRIEF,      "b",  "brief",          0, HELP_BRIEF);
+  optable_add(OPT_GRAPH,      "g",  "graph",          0, HELP_GRAPH);
+  optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, HELP_SHOWOUTPUT);
+  optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, HELP_IGNORE);
+  optable_add(OPT_SHELL,      "S",  "shell",          1, HELP_SHELL);
+  optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
@@ -258,9 +269,10 @@ static FILE *maybe_open(const char *filename, const char *mode) {
 // The arg order for comparators passed to qsort_r differs between
 // linux and macos.
 #ifdef __linux__
+typedef int (comparator)(const void *, const void *, void *);
 #define MAKE_COMPARATOR(accessor)					\
   static int compare_##accessor(const void *idx_ptr1,			\
-				const void *idx_ptr2,\
+				const void *idx_ptr2,			\
 				void *context) {			\
     struct rusage *usagedata = context;					\
     const int idx1 = *((const int *)idx_ptr1);				\
@@ -272,6 +284,7 @@ static FILE *maybe_open(const char *filename, const char *mode) {
     return 0;								\
   }
 #else
+typedef int (comparator)(void *, const void *, const void *);
 #define MAKE_COMPARATOR(accessor)					\
   static int compare_##accessor(void *context,				\
 				const void *idx_ptr1,			\
@@ -301,39 +314,35 @@ MAKE_COMPARATOR(tcsw)
    :							\
    (accessor(&usagedata[indices[runs/2]])))		\
 
-static int64_t find_median(struct rusage *usagedata, int field) {
+static int64_t really_find_median(struct rusage *usagedata,
+				  int64_t (accessor)(struct rusage *),
+				  comparator compare) {
   if (runs < 1) return 0;
   int64_t result;
   int *indices = malloc(runs * sizeof(int));
   if (!indices) bail("Out of memory");
   for (int i = 0; i < runs; i++) indices[i] = i;
-  switch (field) {
-    case F_RSS:
-      sort(indices, runs, sizeof(int), usagedata, compare_rss);
-      result = MEDIAN_SELECT(rss, indices, usagedata);
-      break;
-    case F_USER:
-      sort(indices, runs, sizeof(int), usagedata, compare_usertime);
-      result = MEDIAN_SELECT(usertime, indices, usagedata);
-      break;
-    case F_SYSTEM:
-      sort(indices, runs, sizeof(int), usagedata, compare_systemtime);
-      result = MEDIAN_SELECT(systemtime, indices, usagedata);
-      break;
-    case F_TOTAL:
-      sort(indices, runs, sizeof(int), usagedata, compare_totaltime);
-      result = MEDIAN_SELECT(totaltime, indices, usagedata);
-      break;
-    case F_TCSW:
-      sort(indices, runs, sizeof(int), usagedata, compare_tcsw);
-      result = MEDIAN_SELECT(tcsw, indices, usagedata);
-      break;
-    default:
-      bail("ERROR: Unsupported field code (find median)");
-      result = 0;
-  }
+  sort(indices, runs, sizeof(int), usagedata, compare);
+  result = MEDIAN_SELECT(accessor, indices, usagedata);
   free(indices);
   return result;
+}
+
+static int64_t find_median(struct rusage *usagedata, int field) {
+  switch (field) {
+    case F_RSS:
+      return really_find_median(usagedata, rss, compare_rss);
+    case F_USER:
+      return really_find_median(usagedata, usertime, compare_usertime);
+    case F_SYSTEM:
+      return really_find_median(usagedata, systemtime, compare_systemtime);
+    case F_TOTAL:
+      return really_find_median(usagedata, totaltime, compare_totaltime);
+    case F_TCSW:
+      return really_find_median(usagedata, tcsw, compare_tcsw);
+    default:
+      bail("ERROR: Unsupported field code (find median)");
+  }
 }
 
 static Summary *summarize(char *cmd,
