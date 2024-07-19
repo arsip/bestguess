@@ -288,23 +288,23 @@ static int64_t find_median(struct rusage *usagedata, int field) {
   for (int i = 0; i < runs; i++) indices[i] = i;
   switch (field) {
     case F_RSS:
-      qsort_r(indices, runs, sizeof(int), usagedata, compare_rss);
+      sort(indices, runs, sizeof(int), usagedata, compare_rss);
       result = MEDIAN_SELECT(rss, indices, usagedata);
       break;
     case F_USER:
-      qsort_r(indices, runs, sizeof(int), usagedata, compare_usertime);
+      sort(indices, runs, sizeof(int), usagedata, compare_usertime);
       result = MEDIAN_SELECT(usertime, indices, usagedata);
       break;
     case F_SYSTEM:
-      qsort_r(indices, runs, sizeof(int), usagedata, compare_systemtime);
+      sort(indices, runs, sizeof(int), usagedata, compare_systemtime);
       result = MEDIAN_SELECT(systemtime, indices, usagedata);
       break;
     case F_TOTAL:
-      qsort_r(indices, runs, sizeof(int), usagedata, compare_totaltime);
+      sort(indices, runs, sizeof(int), usagedata, compare_totaltime);
       result = MEDIAN_SELECT(totaltime, indices, usagedata);
       break;
     case F_TCSW:
-      qsort_r(indices, runs, sizeof(int), usagedata, compare_tcsw);
+      sort(indices, runs, sizeof(int), usagedata, compare_tcsw);
       result = MEDIAN_SELECT(tcsw, indices, usagedata);
       break;
     default:
