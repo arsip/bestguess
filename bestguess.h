@@ -31,8 +31,8 @@
 #define PROCESS_DATA_COMMAND "reduce"
 
 // Thresholds used only for printing summary info
-#define HIGH_CSW 5000
-#define MED_CSW  2000
+#define HIGH_CSW 40000
+#define MED_CSW  10000
 
 
 #endif

@@ -25,6 +25,7 @@ static const char *progname = "bestguess";
 #include <sys/resource.h>
 
 static int reducing_mode = 0;
+static int brief_summary = 0;
 static int runs = 1;
 static int warmups = 0;
 static int first_command = 0;
@@ -36,11 +37,14 @@ static char *output_filename = NULL;
 static char *hf_filename = NULL;
 static const char *shell = NULL;
 
+// The order of the options below is the order they will appear in the
+// printed help text.
 enum Options { 
   OPT_WARMUP,
   OPT_RUNS,
   OPT_OUTPUT,
   OPT_FILE,
+  OPT_BRIEF,
   OPT_SHOWOUTPUT,
   OPT_IGNORE,
   OPT_SHELL,
@@ -54,6 +58,7 @@ static void init_options(void) {
   optable_add(OPT_RUNS,       "r",  "runs",           1, "Number of timed runs");
   optable_add(OPT_OUTPUT,     "o",  "output",         1, "Write timing data to CSV <FILE> (use - for stdout)");
   optable_add(OPT_FILE,       "f",  "file",           1, "Read commands/data from <FILE>");
+  optable_add(OPT_BRIEF,      "b",  "brief",          0, "Brief performance summary");
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, "Show program output");
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, "Ignore non-zero exit codes");
   optable_add(OPT_SHELL,      "S",  "shell",          1, "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands");
@@ -79,51 +84,14 @@ typedef struct Summary {
   int64_t rss;			// median
   int64_t rssmin;
   int64_t rssmax;
+  int64_t csw;			// median
+  int64_t cswmin;
+  int64_t cswmax;
 } Summary;
 
 static void free_Summary(Summary *s) {
   free(s->cmd);
   free(s);
-}
-
-#ifdef __linux__
-  #define FMTusec "ld"
-#else
-  #define FMTusec "d"
-#endif
-
-__attribute__((unused))
-static void print_rusage(struct rusage *usage) {
-
-  printf("User   %ld.%" FMTusec "\n", usage->ru_utime.tv_sec, usage->ru_utime.tv_usec);
-  printf("System %ld.%" FMTusec "\n", usage->ru_stime.tv_sec, usage->ru_stime.tv_usec);
-  printf("Total  %ld.%" FMTusec "\n",
-	 usage->ru_stime.tv_sec + usage->ru_utime.tv_sec,
-	 usage->ru_stime.tv_usec + usage->ru_utime.tv_usec);
-  puts("");
-  printf("Max RSS:      %ld (approx. %0.2f MiB)\n",
-	 usage->ru_maxrss, (usage->ru_maxrss + 512) / 1024.0);
-  puts("");
-  printf("Page reclaims: %6ld\n", usage->ru_minflt);
-  printf("Page faults:   %6ld\n", usage->ru_majflt);
-  printf("Swaps:         %6ld\n", usage->ru_nswap);
-  puts("");
-  printf("Context switches (vol):   %6ld\n", usage->ru_nvcsw);
-  printf("                 (invol): %6ld\n", usage->ru_nivcsw);
-  printf("                 (TOTAL): %6ld\n", usage->ru_nvcsw + usage->ru_nivcsw);
-  puts("");
-  // These fields are currently unused (unmaintained) on Linux: 
-  //   ru_ixrss 
-  //   ru_idrss
-  //   ru_isrss
-  //   ru_nswap
-  //   ru_msgsnd
-  //   ru_msgrcv
-  //   ru_nsignals
-  //
-  // These fields are always zero on macos, and not too useful on Linux:
-  //   ru_inblock
-  //   ru_oublock
 }
 
 // This list is the order in which fields will print in the CSV output
@@ -139,9 +107,10 @@ static void print_rusage(struct rusage *usage) {
   X(F_VCSW,     "Voluntary Context Switches",   "%ld")	    \
   X(F_ICSW,     "Involuntary Context Switches", "%ld")	
 
-// F_TOTAL is a pseudo field name used only for computing summary
-// statistics.  It is never written to the raw data output file.
+// Below are pseudo field names used only for computing summary
+// statistics.  They are never written to the raw data output file.
 #define F_TOTAL -1
+#define F_TCSW -2
 
 #define FIRST(a, b, c) a,
 typedef enum FieldCodes {XFields(FIRST) F_LAST};
@@ -156,24 +125,6 @@ static void write_header(FILE *f) {
   fprintf(f, "%s\n", Headers[F_LAST - 1]);
   fflush(f);
 }
-
-#define SEP do {				\
-    fputc(',', f);				\
-  } while (0)
-#define NEWLINE do {				\
-    fputc('\n', f);				\
-  } while (0)
-#define WRITEFMT(f, fmt_string, val) do {	\
-    fprintf((f), (fmt_string), (val));		\
-  } while (0)
-#define WRITE(f, fmt_idx, val) do {		\
-    WRITEFMT(f, FieldFormats[fmt_idx], val);	\
-    SEP;					\
-  } while (0)
-#define WRITELN(f, fmt_idx, val) do {		\
-    WRITE(f, fmt_idx, val);			\
-    NEWLINE;					\
-  } while (0)
 
 static int64_t rss(struct rusage *usage) {
   return usage->ru_maxrss;
@@ -191,47 +142,65 @@ static int64_t totaltime(struct rusage *usage) {
   return usertime(usage) + systemtime(usage);
 }
 
-static int64_t volcsw(struct rusage *usage) {
+static int64_t vcsw(struct rusage *usage) {
   return usage->ru_nvcsw;
 }
 
-static int64_t involcsw(struct rusage *usage) {
+static int64_t icsw(struct rusage *usage) {
   return usage->ru_nivcsw;
 }
 
-static int64_t totalcsw(struct rusage *usage) {
-  return volcsw(usage) + involcsw(usage);
+static int64_t tcsw(struct rusage *usage) {
+  return vcsw(usage) + icsw(usage);
 }
+
+#define SEP do {				\
+    fputc(',', f);				\
+  } while (0)
+#define NEWLINE do {				\
+    fputc('\n', f);				\
+  } while (0)
+#define WRITEFMT(f, fmt_string, val) do {	\
+    fprintf((f), (fmt_string), (val));		\
+  } while (0)
+#define WRITESEP(f, fmt_idx, val) do {		\
+    WRITEFMT(f, FieldFormats[fmt_idx], val);	\
+    SEP;					\
+  } while (0)
+#define WRITELN(f, fmt_idx, val) do {		\
+    WRITEFMT(f, FieldFormats[fmt_idx], val);	\
+    NEWLINE;					\
+  } while (0)
 
 static void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   char *escaped_cmd = escape(cmd);
   char *shell_cmd = shell ? escape(shell) : NULL;
 
-  WRITE(f, F_CMD,   escaped_cmd);
-  WRITE(f, F_EXIT,  code);
-  if (shell_cmd) WRITE(f, F_SHELL, shell_cmd);
+  WRITESEP(f, F_CMD,   escaped_cmd);
+  WRITESEP(f, F_EXIT,  code);
+  if (shell_cmd) WRITESEP(f, F_SHELL, shell_cmd);
   else SEP;
   // User time in microseconds
-  WRITE(f, F_USER, usertime(usage));
+  WRITESEP(f, F_USER, usertime(usage));
   // System time in microseconds
-  WRITE(f, F_SYSTEM, systemtime(usage));
+  WRITESEP(f, F_SYSTEM, systemtime(usage));
   // Max RSS in kibibytes
   // ru_maxrss (since Linux 2.6.32) This is the maximum resident set size used (in kilobytes).
   // When the above was written, a kilobyte meant 1024 bytes.
-  WRITE(f, F_RSS, usage->ru_maxrss);
+  WRITESEP(f, F_RSS, usage->ru_maxrss);
   // Page reclaims (count):
   // The number of page faults serviced without any I/O activity; here
   // I/O activity is avoided by “reclaiming” a page frame from the
   // list of pages awaiting reallocation.
-  WRITE(f, F_RECLAIMS, usage->ru_minflt);
+  WRITESEP(f, F_RECLAIMS, usage->ru_minflt);
   // Page faults (count):
   // The number of page faults serviced that required I/O activity.
-  WRITE(f, F_FAULTS, usage->ru_majflt);
+  WRITESEP(f, F_FAULTS, usage->ru_majflt);
   // Voluntary context switches:
   // The number of times a context switch resulted due to a process
   // voluntarily giving up the processor before its time slice was
   // completed (usually to await availability of a resource).
-  WRITE(f, F_VCSW, usage->ru_nvcsw);
+  WRITESEP(f, F_VCSW, usage->ru_nvcsw);
   // Involuntary context switches:
   // The number of times a context switch resulted due to a higher
   // priority process becoming runnable or because the current process
@@ -251,29 +220,21 @@ static void write_hf_header(FILE *f) {
 static void write_hf_line(FILE *f, Summary *s) {
   const double million = 1000.0 * 1000.0;
   // Command
-  WRITEFMT(f, "%s", *(s->cmd) ? s->cmd : shell);
-  SEP;
+  WRITEFMT(f, "%s", *(s->cmd) ? s->cmd : shell); SEP;
   // Mean total time (really Median because it's more useful)
-  WRITEFMT(f, "%f", (double) s->total / million);
-  SEP;
+  WRITEFMT(f, "%f", (double) s->total / million); SEP;
   // Stddev omitted until we know what to report for a log-normal distribution
-  WRITEFMT(f, "%f", (double) 0.0);
-  SEP;
+  WRITEFMT(f, "%f", (double) 0.0); SEP;
   // Median total time (repeated to be compatible with hf format)
-  WRITEFMT(f, "%f", (double) s->total / million);
-  SEP;
+  WRITEFMT(f, "%f", (double) s->total / million); SEP;
   // User time in seconds as double 
-  WRITEFMT(f, "%f", (double) s->user / million);
-  SEP;
+  WRITEFMT(f, "%f", (double) s->user / million); SEP;
   // System time in seconds as double
-  WRITEFMT(f, "%f", (double) s->system / million);
-  SEP;
+  WRITEFMT(f, "%f", (double) s->system / million); SEP;
   // Min total time in seconds as double 
-  WRITEFMT(f, "%f", (double) s->tmin / million);
-  SEP;
+  WRITEFMT(f, "%f", (double) s->tmin / million); SEP;
   // Max total time in seconds as double
-  WRITEFMT(f, "%f", (double) s->tmax / million);
-  NEWLINE;
+  WRITEFMT(f, "%f", (double) s->tmax / million); NEWLINE;
   fflush(f);
 }
 
@@ -306,6 +267,7 @@ MAKE_COMPARATOR(usertime)
 MAKE_COMPARATOR(systemtime)
 MAKE_COMPARATOR(totaltime)
 MAKE_COMPARATOR(rss)
+MAKE_COMPARATOR(tcsw)
 
 #define MEDIAN_SELECT(accessor, indices, usagedata)	\
   ((runs == (runs/2) * 2) 				\
@@ -338,6 +300,10 @@ static int64_t find_median(struct rusage *usagedata, int field) {
       qsort_r(indices, runs, sizeof(int), usagedata, compare_totaltime);
       result = MEDIAN_SELECT(totaltime, indices, usagedata);
       break;
+    case F_TCSW:
+      qsort_r(indices, runs, sizeof(int), usagedata, compare_tcsw);
+      result = MEDIAN_SELECT(tcsw, indices, usagedata);
+      break;
     default:
       warn(progname, "Unsupported field code %d", field);
       result = 0;
@@ -361,9 +327,11 @@ static Summary *summarize(char *cmd,
     return s;
   }
 
-  int64_t umin = INT64_MAX, smin = INT64_MAX, tmin = INT64_MAX;
-  int64_t umax = 0, smax = 0, tmax = 0;
+  int64_t umin = INT64_MAX,   umax = 0;
+  int64_t smin = INT64_MAX,   smax = 0;
+  int64_t tmin = INT64_MAX,   tmax = 0;
   int64_t rssmin = INT64_MAX, rssmax = 0;
+  int64_t cswmin = INT64_MAX, cswmax = 0;
 
   // Find mins and maxes
   for (int i = 0; i < runs; i++) {
@@ -371,11 +339,13 @@ static Summary *summarize(char *cmd,
     if (systemtime(&usagedata[i]) < smin) smin = systemtime(&usagedata[i]);
     if (totaltime(&usagedata[i]) < tmin) tmin = totaltime(&usagedata[i]);
     if (rss(&usagedata[i]) < rssmin) rssmin = rss(&usagedata[i]);
+    if (tcsw(&usagedata[i]) < cswmin) cswmin = tcsw(&usagedata[i]);
 
     if (usertime(&usagedata[i]) > umax) umax = usertime(&usagedata[i]);
     if (systemtime(&usagedata[i]) > smax) smax = systemtime(&usagedata[i]);
     if (totaltime(&usagedata[i]) > tmax) tmax = totaltime(&usagedata[i]);
     if (rss(&usagedata[i]) > rssmax) rssmax = rss(&usagedata[i]);
+    if (tcsw(&usagedata[i]) > cswmax) cswmax = tcsw(&usagedata[i]);
   }
   
   s->tmin = tmin;
@@ -386,12 +356,15 @@ static Summary *summarize(char *cmd,
   s->smax = smax;
   s->rssmin = rssmin;
   s->rssmax = rssmax;
+  s->cswmin = cswmin;
+  s->cswmax = cswmax;
 
   // Find medians
   s->user = find_median(usagedata, F_USER);
   s->system = find_median(usagedata, F_SYSTEM);
   s->total = find_median(usagedata, F_TOTAL);
   s->rss = find_median(usagedata, F_RSS);
+  s->csw = find_median(usagedata, F_TCSW);
 
   return s;
 }
@@ -400,8 +373,10 @@ static Summary *summarize(char *cmd,
 // median value and is a more useful measure of the "typical" value
 // than is the arithmetic mean.
 #define FMT "%7.3f %-3s"
+#define IFMT "%7" PRId64
 static void print_command_summary(Summary *s) {
-  printf("                     Median                 Range\n");
+  if (!brief_summary)
+    printf("                         Median                 Range\n");
 
   if (runs < 1) {
     printf("    No data (number of timed runs was %d)\n", runs);
@@ -420,25 +395,37 @@ static void print_command_summary(Summary *s) {
     divisor = 1000.0;
   }
 
-  printf("    Total time    " FMT "     " FMT " - " FMT "\n",
+  const char *timelabel;
+  if (brief_summary)
+    timelabel = "    Median time       ";
+  else
+    timelabel = "    Total time        ";
+
+  printf("%s" FMT "     " FMT " - " FMT "\n",
+	 timelabel,
 	 (double)(s->total / divisor), units,
 	 (double)(s->tmin / divisor), units,
 	 (double)(s->tmax / divisor), units);
 
-  printf("    User time     "  FMT "     " FMT " - " FMT "\n",
-	 (double)(s->umin / divisor), units,
-	 (double)(s->umax / divisor), units,
-	 (double)(s->user / divisor), units);
+  if (!brief_summary) {
+    printf("    User time         "  FMT "     " FMT " - " FMT "\n",
+	   (double)(s->umin / divisor), units,
+	   (double)(s->umax / divisor), units,
+	   (double)(s->user / divisor), units);
 
-  printf("    System time   " FMT "     " FMT " - " FMT "\n",
-	 (double)(s->smin / divisor), units,
-	 (double)(s->smax / divisor), units,
-	 (double)(s->system / divisor), units);
+    printf("    System time       " FMT "     " FMT " - " FMT "\n",
+	   (double)(s->smin / divisor), units,
+	   (double)(s->smax / divisor), units,
+	   (double)(s->system / divisor), units);
 
-  printf("    Max RSS       " FMT "     " FMT " - " FMT "\n",
-	 (double) s->rssmin / (1024.0 * 1024.0), "MiB",
-	 (double) s->rssmax / (1024.0 * 1024.0), "MiB",
-	 (double) s->rss / (1024.0 * 1024.0), "MiB");
+    printf("    Max RSS           " FMT "     " FMT " - " FMT "\n",
+	   (double) s->rssmin / (1024.0 * 1024.0), "MiB",
+	   (double) s->rssmax / (1024.0 * 1024.0), "MiB",
+	   (double) s->rss / (1024.0 * 1024.0), "MiB");
+
+    printf("    Context switches  " IFMT " %-8s" IFMT " cnt - " IFMT " cnt\n",
+	   s->csw, "count", s->cswmin, s->cswmax);
+  }
 
   fflush(stdout);
 }
@@ -492,21 +479,6 @@ static int run(const char *cmd, struct rusage *usage) {
   return WEXITSTATUS(status);
 }
 
-static void print_csw_warnings(Summary *s, struct rusage *usagedata) {
-  int64_t csw;
-  const char *descriptor;
-  for (int i = 0; i < runs; i++) {
-    csw = totalcsw(&usagedata[i]);
-    if (csw > MED_CSW) {
-      if (csw > HIGH_CSW) descriptor = "high";
-      else descriptor = "moderate";
-      printf("  Iter. %d: %s number of context switches (%" PRId64 "): "
-	     "%s\n", i, descriptor, csw,
-	     (s->cmd && *(s->cmd)) ? s->cmd : "(empty)");
-    }
-  } // for each iteration executed
-}
-
 // Returns median total runtime for 'cmd'
 static int64_t run_command(int num, char *cmd,
 			   FILE *output,
@@ -546,9 +518,6 @@ static int64_t run_command(int num, char *cmd,
 
   // If exporting in Hyperfine CSV format, write that line of data
   if (hf_filename) write_hf_line(hf_output, s);
-
-  // Not sure if we'll keep this, but it's interesting for now
-  print_csw_warnings(s, usagedata);
 
   printf("\n");
   fflush(stdout);
@@ -590,7 +559,7 @@ static void run_all_commands(int argc, char **argv) {
   const char *commands[MAXCMDLEN];
   FILE *input = NULL, *output = NULL, *hf_output = NULL;
 
-  if (!output_to_stdout && !output_filename) {
+  if (!output_to_stdout && !output_filename && !brief_summary) {
     printf("Use '-%s <FILE>' or '--%s <FILE>' to write raw data to a file.\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
     printf("A single dash '-' instead of a file name prints to stdout.\n\n");
@@ -683,6 +652,10 @@ static int process_args(int argc, char **argv) {
       exit(-1);
     }
     switch (n) {
+      case OPT_BRIEF:
+	if (bad_option_value(val, n)) exit(-1);
+	brief_summary = 1;
+	break;
       case OPT_WARMUP:
 	if (bad_option_value(val, n)) exit(-1);
 	if (!sscanf(val, "%d", &warmups)) {
