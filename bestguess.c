@@ -26,6 +26,7 @@ static const char *progname = "bestguess";
 
 static int reducing_mode = 0;
 static int brief_summary = 0;
+static int show_graph = 0;
 static int runs = 1;
 static int warmups = 0;
 static int first_command = 0;
@@ -45,6 +46,7 @@ enum Options {
   OPT_OUTPUT,
   OPT_FILE,
   OPT_BRIEF,
+  OPT_GRAPH,
   OPT_SHOWOUTPUT,
   OPT_IGNORE,
   OPT_SHELL,
@@ -59,6 +61,7 @@ static void init_options(void) {
   optable_add(OPT_OUTPUT,     "o",  "output",         1, "Write timing data to CSV <FILE> (use - for stdout)");
   optable_add(OPT_FILE,       "f",  "file",           1, "Read commands/data from <FILE>");
   optable_add(OPT_BRIEF,      "b",  "brief",          0, "Brief performance summary");
+  optable_add(OPT_GRAPH,      "g",  "graph",          0, "Show graph of total time for each iteration");
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, "Show program output");
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, "Ignore non-zero exit codes");
   optable_add(OPT_SHELL,      "S",  "shell",          1, "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands");
@@ -66,7 +69,7 @@ static void init_options(void) {
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
-    bail("\nError in command-line option parser configuration");
+    bail("\nERROR: failed to configure command-line option parser");
 }
 
 typedef struct Summary {
@@ -281,7 +284,7 @@ static int64_t find_median(struct rusage *usagedata, int field) {
   if (runs < 1) return 0;
   int64_t result;
   int *indices = malloc(runs * sizeof(int));
-  if (!indices) bail("out of memory");
+  if (!indices) bail("Out of memory");
   for (int i = 0; i < runs; i++) indices[i] = i;
   switch (field) {
     case F_RSS:
@@ -305,7 +308,7 @@ static int64_t find_median(struct rusage *usagedata, int field) {
       result = MEDIAN_SELECT(tcsw, indices, usagedata);
       break;
     default:
-      warn(progname, "Unsupported field code %d", field);
+      bail("ERROR: Unsupported field code (find median)");
       result = 0;
   }
   free(indices);
@@ -372,12 +375,12 @@ static Summary *summarize(char *cmd,
 // Note: For a log-normal distribution, the geometric mean is the
 // median value and is a more useful measure of the "typical" value
 // than is the arithmetic mean.
-#define FMT "%7.1f %-3s"
-#define FMTs "%7.3f %-3s"
-#define IFMT "%7" PRId64
+#define FMT "%6.1f %-3s"
+#define FMTs "%6.3f %-3s"
+#define IFMT "%6" PRId64
 static void print_command_summary(Summary *s) {
   if (!brief_summary)
-    printf("                          Median                Range\n");
+    printf("                      Median               Range\n");
 
   if (runs < 1) {
     printf("    No data (number of timed runs was %d)\n", runs);
@@ -400,9 +403,9 @@ static void print_command_summary(Summary *s) {
 
   const char *timelabel;
   if (brief_summary)
-    timelabel = "    Median time       ";
+    timelabel = "  Median time      ";
   else
-    timelabel = "    Total time        ";
+    timelabel = "  Total time       ";
 
   printf(timefmt, timelabel,
 	 (double)(s->total / divisor), units,
@@ -410,22 +413,22 @@ static void print_command_summary(Summary *s) {
 	 (double)(s->tmax / divisor), units);
 
   if (!brief_summary) {
-    printf("    User time         "  FMT "     " FMT " - " FMT "\n",
+    printf("  User time        "  FMT "     " FMT " - " FMT "\n",
 	   (double)(s->umin / divisor), units,
 	   (double)(s->umax / divisor), units,
 	   (double)(s->user / divisor), units);
 
-    printf("    System time       " FMT "     " FMT " - " FMT "\n",
+    printf("  System time      " FMT "     " FMT " - " FMT "\n",
 	   (double)(s->smin / divisor), units,
 	   (double)(s->smax / divisor), units,
 	   (double)(s->system / divisor), units);
 
-    printf("    Max RSS           " FMT "     " FMT " - " FMT "\n",
+    printf("  Max RSS          " FMT "     " FMT " - " FMT "\n",
 	   (double) s->rssmin / (1024.0 * 1024.0), "MiB",
 	   (double) s->rssmax / (1024.0 * 1024.0), "MiB",
 	   (double) s->rss / (1024.0 * 1024.0), "MiB");
 
-    printf("    Context switches  " IFMT " %-8s" IFMT " cnt - " IFMT " cnt\n",
+    printf("  Context switches " IFMT " %-8s" IFMT " cnt - " IFMT " cnt\n",
 	   s->csw, "count", s->cswmin, s->cswmax);
   }
 
@@ -481,6 +484,23 @@ static int run(const char *cmd, struct rusage *usage) {
   return WEXITSTATUS(status);
 }
 
+#define BAR "▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
+static void print_graph(Summary *s, struct rusage *usagedata) {
+  int bars;
+  int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
+  int maxbars = strlen(BAR) / bytesperbar;
+  int64_t scale = s->tmax / (maxbars - 1);
+  printf("0%*smax\n", maxbars - 3, "");
+  for (int i = 0; i < runs; i++) {
+    bars = (int) (totaltime(&usagedata[i]) / scale);
+    if (bars <= maxbars)
+      printf("|%.*s\n", bars * bytesperbar, BAR);
+    else
+      printf("|time exceeds plot size\n");
+  }
+  fflush(stdout);
+}
+
 // Returns median total runtime for 'cmd'
 static int64_t run_command(int num, char *cmd,
 			   FILE *output,
@@ -492,7 +512,6 @@ static int64_t run_command(int num, char *cmd,
 
   if (!output_to_stdout) {
     printf("Command %d: %s\n", num+1, *cmd ? cmd : "(empty)");
-    //printf("  Warming up with %d run%s\n", warmups, (warmups==1) ? "" : "s");
     fflush(stdout);
   }
 
@@ -501,7 +520,6 @@ static int64_t run_command(int num, char *cmd,
   }
 
   if (!output_to_stdout) {
-    //printf("  Timing %d run%s\n", runs, (runs==1) ? "" : "s");
     fflush(stdout);
   }
 
@@ -511,12 +529,15 @@ static int64_t run_command(int num, char *cmd,
   }
 
   Summary *s = summarize(cmd, usagedata);
-  if (!s) bail("Error generating summary statistics");
+  if (!s) bail("ERROR: failed to generate summary statistics");
 
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
-  if (!output_to_stdout) print_command_summary(s);
+  if (!output_to_stdout) {
+    print_command_summary(s);
+    if (show_graph) print_graph(s, usagedata);
+  }
 
   // If exporting in Hyperfine CSV format, write that line of data
   if (hf_filename) write_hf_line(hf_output, s);
@@ -531,7 +552,9 @@ static int64_t run_command(int num, char *cmd,
 static void print_overall_summary(const char *commands[],
 				  int64_t mediantimes[],
 				  int n) {
-  if (n < 2) return;
+
+  if ((n < 2) || (runs < 1)) return;
+
   int best = 0;
   int64_t fastest = mediantimes[best];
   double factor;
@@ -541,17 +564,16 @@ static void print_overall_summary(const char *commands[],
       fastest = mediantimes[i];
       best = i;
     }
-  printf("\nSummary\n");
+  printf("Summary\n");
   printf("  %s ran\n", commands[best]);
   for (int i = 0; i < n; i++) {
     if (i != best) {
       factor = (double) mediantimes[i] / (double) fastest;
-      printf("    %5.2f times faster than %s\n", factor, commands[i]);
+      printf("  %6.2f times faster than %s\n", factor, commands[i]);
     }
   }
+
   fflush(stdout);
-
-
 }
 
 static void run_all_commands(int argc, char **argv) {
@@ -562,14 +584,14 @@ static void run_all_commands(int argc, char **argv) {
   FILE *input = NULL, *output = NULL, *hf_output = NULL;
 
   if (!output_to_stdout && !output_filename && !brief_summary) {
-    printf("Use '-%s <FILE>' or '--%s <FILE>' to write raw data to a file.\n",
+    printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
     printf("A single dash '-' instead of a file name prints to stdout.\n\n");
     fflush(stdout);
   }
 
   if (output_filename && (*output_filename == '-')) {
-    printf("WARNING: Output filename '%s' begins with a dash\n\n", output_filename);
+    printf("Warning: Output filename '%s' begins with a dash\n\n", output_filename);
     fflush(stdout);
   }
 
@@ -587,7 +609,7 @@ static void run_all_commands(int argc, char **argv) {
   for (int k = first_command; k < argc; k++) {
     commands[n] = argv[k];
     mediantimes[n] = run_command(n, argv[k], output, hf_output);
-    n++;
+    if (++n == MAXCMDS) goto toomany;
   }
 
   char *cmd = NULL;
@@ -595,7 +617,7 @@ static void run_all_commands(int argc, char **argv) {
     while ((cmd = fgets(buf, MAXCMDLEN, input))) {
       commands[n] = cmd;
       mediantimes[n] = run_command(n, cmd, output, hf_output);
-      n++;
+      if (++n == MAXCMDS) goto toomany;
     }
   
   print_overall_summary(commands, mediantimes, n);
@@ -603,6 +625,12 @@ static void run_all_commands(int argc, char **argv) {
   if (output) fclose(output);
   if (input) fclose(input);
   if (hf_output) fclose(hf_output);
+  return;
+
+ toomany:
+  printf("ERROR: Number of commands exceeds configured maximum of %d\n",
+	 MAXCMDS);
+  bail("Exiting...");
 }
 
 static int bad_option_value(const char *val, int n) {
@@ -631,7 +659,7 @@ static int process_args(int argc, char **argv) {
 
   // 'i' steps through the args from 1 to argc-1
   i = optable_init(argc, argv);
-  if (i < 0) bail("Error initializing option parser");
+  if (i < 0) bail("ERROR: Failed to initialize option parser");
 
   while ((i = optable_next(&n, &val, i))) {
     if (n < 0) {
@@ -657,6 +685,10 @@ static int process_args(int argc, char **argv) {
       case OPT_BRIEF:
 	if (bad_option_value(val, n)) exit(-1);
 	brief_summary = 1;
+	break;
+      case OPT_GRAPH:
+	if (bad_option_value(val, n)) exit(-1);
+	show_graph = 1;
 	break;
       case OPT_WARMUP:
 	if (bad_option_value(val, n)) exit(-1);
@@ -710,7 +742,7 @@ static int process_args(int argc, char **argv) {
 	return n;
 	break;
       default:
-	fprintf(stderr, "Error: Invalid option index %d\n", n);
+	fprintf(stderr, "Error: invalid option index %d\n", n);
 	exit(-1);
     }
   }

@@ -6,6 +6,17 @@
 
 #include "utils.h"
 #include <string.h>
+#include <stdarg.h>
+
+static void warning(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, "Warning: ");
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    fputc('\n', stderr);
+    fflush(stderr);
+}
 
 static int whitespacep(const char c) {
   return ((c == ' ') || (c == '\t') ||
@@ -63,7 +74,7 @@ void free_arglist(arglist *args) {
 int add_arg(arglist *args, char *newarg) {
   if (!args || !newarg) return 1;
   if (args->next == args->max) {
-    warn("args", "arg table full at %d items", args->max);
+    warning("arg table full at %d items", args->max);
     return 1;
   }
   args->args[args->next++] = newarg;
@@ -73,7 +84,8 @@ int add_arg(arglist *args, char *newarg) {
 arglist *new_arglist(size_t limit) {
   arglist *args = malloc(sizeof(arglist));
   if (!args) goto oom;
-  // Important: There must be a NULL at the end of the args
+  // Important: There must be a NULL at the end of the args,
+  // so we allocate 1 more than needed and use 'calloc'.
   args->args = calloc(limit+1, sizeof(char *));
   if (!args->args) goto oom;
   args->max = limit;
@@ -81,7 +93,7 @@ arglist *new_arglist(size_t limit) {
   return args;
 
  oom:
-  warn("args", "Out of memory");
+  warning("Out of memory");
   return NULL;
 }
 
@@ -89,7 +101,7 @@ arglist *new_arglist(size_t limit) {
 // Returns error code: 1 for error, 0 for no error.
 int split(const char *in, arglist *args) {
   if (!in || !args) {
-    warn("args", "null required arg");
+    warning("null required arg");
     return 1;
   }
   char *new;
@@ -103,7 +115,7 @@ int split(const char *in, arglist *args) {
     start = p;
     p = read_arg(p);
     if (!p) {
-      warn("args", "Unmatched quotes in: %s", start);
+      warning("Unmatched quotes in: %s", start);
       return 1;
     }
     // Successful read.  Store a copy in the 'args' array.
@@ -114,7 +126,7 @@ int split(const char *in, arglist *args) {
     } 
     new = malloc(end - start + 1);
     if (!new) {
-      warn("args", "Out of memory");
+      warning("Out of memory");
       return 1;
     }
     memcpy(new, start, end - start);
@@ -149,7 +161,6 @@ char *unescape(const char *str) {
   int chr, i = 0;
   size_t len = strlen(str);
   char *result = malloc(len + 1);
-  //printf("*** Unescape: str = '%s' len = %zu ***\n", str, len);
   while (*str) {
     if (*str == '\\') {
       str++;
@@ -176,7 +187,6 @@ char *escape(const char *str) {
   int chr, i = 0;
   size_t len = strlen(str);
   char *result = malloc(2 * len + 1);
-  //printf("*** Escape IN: str = '%s' len = %zu ***\n", str, len);
   while (*str) {
     if (!(chr = escape_char(str))) {
       // No escape needed
@@ -188,7 +198,6 @@ char *escape(const char *str) {
     str++;
   }
   result[i] = '\0';
-  //printf("*** Escape OUT: str = '%s' result = %s ***\n", str, result);
   return result;
 }
 

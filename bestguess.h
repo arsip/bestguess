@@ -30,9 +30,10 @@
 // Change as desired
 #define PROCESS_DATA_COMMAND "reduce"
 
-// Thresholds used only for printing summary info
-#define HIGH_CSW 40000
-#define MED_CSW  10000
-
+#define bail(msg) do {				\
+    fprintf(stderr, "%s\n", msg);		\
+    fflush(NULL);				\
+    exit(-1);					\
+  } while (0)
 
 #endif

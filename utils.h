@@ -9,13 +9,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "logging.h"
-
-#define bail(msg) do {				\
-    confess(progname, msg);			\
-    exit(-1);					\
-  } while (0)
-
 
 typedef struct arglist {
   size_t max;

@@ -4,11 +4,14 @@
 // 
 //  COPYRIGHT (c) Jamie A. Jennings, 2024
 
-#include "utils.h"
+#include "bestguess.h"
 #include "optable.h"
 
-#define ASSERT(val) do {			\
-    if (!val) bail("assertion failed");		\
+#define ASSERT(val) do {					\
+  if (!val) {							\
+  fprintf(stderr, "ERROR: Assertion failed %s:%d\n",		\
+	  __FILE__, __LINE__);					\
+  bail("");							\
   } while(0)
 
 typedef enum Options { 
