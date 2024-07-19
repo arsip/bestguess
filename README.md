@@ -60,8 +60,10 @@ Key changes from Hyperfine:
 
   * `-S`, `--shell <CMD>`: Default is none. If used, supply the entire shell
     command, e.g. `/bin/bash -c`.
-  * `-o`, `--output <FILE>`	
-  * `-i`, `--input <FILE>`	
+  * `-o`, `--output <FILE>`	(added by BestGuess)
+  * `-i`, `--input <FILE>`	(added by BestGuess)
+  * `-b`, `--brief`         (added by BestGuess)
+  * `-g`, `--graph`         (added by BestGuess)
 
 **Shell usage:** For BestGuess, the default is to _not_ use a shell at all.  If
 you supply a shell, you will need to give the entire command including the `-c`
@@ -111,37 +113,58 @@ command, the worse it performs.
 ### Summary to terminal, no raw data output
 
 ```shell
-$ ./bestguess -r=10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
-NOTE: Use '-o <FILE>' or '--output <FILE>' to write raw data to a file.
-	A single dash '-' instead of a file name prints to stdout.
+$ bestguess -r=10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+Use -o <FILE> or --output <FILE> to write raw data to a file.
+A single dash '-' instead of a file name prints to stdout.
 
 Command 1: (empty)
-Warming up with 0 runs...
-Timing 10 runs...
-Summary:                 Range               Median
-  User time      0.614  ms -  1.438  ms     0.745  ms
-  System time    1.071  ms -  4.114  ms     1.306  ms
-  Total time     1.685  ms -  5.552  ms     2.053  ms
-  Max RSS        1.703 MiB -  1.859 MiB     1.703 MiB
+                      Median               Range
+  Total time          1.4 ms         1.3 ms  -    2.0 ms 
+  User time           0.5 ms         0.7 ms  -    0.5 ms 
+  System time         0.8 ms         1.4 ms  -    0.9 ms 
+  Max RSS             1.7 MiB        1.7 MiB -    1.7 MiB
+  Context switches      2 count        2 cnt -      2 cnt
 
 Command 2: ls -l
-Warming up with 0 runs...
-Timing 10 runs...
-Summary:                 Range               Median
-  User time      0.884  ms -  1.556  ms     1.074  ms
-  System time    1.445  ms -  2.766  ms     1.691  ms
-  Total time     2.329  ms -  4.311  ms     2.765  ms
-  Max RSS        1.781 MiB -  2.016 MiB     1.875 MiB
+                      Median               Range
+  Total time          2.5 ms         2.2 ms  -    3.6 ms 
+  User time           0.8 ms         1.3 ms  -    0.9 ms 
+  System time         1.4 ms         2.3 ms  -    1.5 ms 
+  Max RSS             1.7 MiB        2.0 MiB -    1.8 MiB
+  Context switches     15 count       15 cnt -     16 cnt
 
 Command 3: ps Aux
-Warming up with 0 runs...
-Timing 10 runs...
-Summary:                 Range               Median
-  User time     10.548  ms - 10.964  ms    10.585  ms
-  System time   33.794  ms - 35.765  ms    34.069  ms
-  Total time    44.392  ms - 46.729  ms    44.645  ms
-  Max RSS        3.000 MiB -  3.266 MiB     3.078 MiB
+                      Median               Range
+  Total time         42.9 ms        42.7 ms  -   44.5 ms 
+  User time          10.3 ms        10.5 ms  -   10.3 ms 
+  System time        32.4 ms        34.0 ms  -   32.6 ms 
+  Max RSS             2.7 MiB        3.2 MiB -    3.0 MiB
+  Context switches     14 count       14 cnt -     18 cnt
 
+Summary
+   ran
+    1.79 times faster than ls -l
+   30.87 times faster than ps Aux
+$ 
+```
+
+### Brief output to terminal
+
+```shell
+$ bestguess -b -r=10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+Command 1: (empty)
+  Median time         2.0 ms         1.7 ms  -    3.2 ms 
+
+Command 2: ls -l
+  Median time         3.0 ms         2.5 ms  -    4.0 ms 
+
+Command 3: ps Aux
+  Median time        42.7 ms        42.6 ms  -   44.8 ms 
+
+Summary
+   ran
+    1.48 times faster than ls -l
+   21.14 times faster than ps Aux
 $ 
 ```
 
@@ -152,14 +175,14 @@ Output, in CSV format, will be printed to the terminal because the output
 filename was given as `-`:
 
 ```shell
-$ ./bestguess -o - -r=2 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+$ bestguess -o - -r=2 -S "/bin/bash -c" "" "ls -l" "ps Aux"
 Command,Exit code,Shell,User time (us),System time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches
-"",0,"/bin/bash -c",1064,2936,1785856,225,6,4,2,
-"",0,"/bin/bash -c",944,1599,1785856,225,6,0,2,
-"ls -l",0,"/bin/bash -c",2039,3796,1900544,386,9,1,16,
-"ls -l",0,"/bin/bash -c",1703,2810,1949696,395,3,0,15,
-"ps Aux",0,"/bin/bash -c",14778,46327,3948544,1180,5,3,15,
-"ps Aux",0,"/bin/bash -c",10989,34819,3194880,1133,5,0,16,
+"",0,"/bin/bash -c",703,1420,1769472,228,3,0,2
+"",0,"/bin/bash -c",679,1208,1769472,228,3,0,2
+"ls -l",0,"/bin/bash -c",1646,2812,1916928,393,3,0,15
+"ls -l",0,"/bin/bash -c",1467,2415,1835008,388,3,0,15
+"ps Aux",0,"/bin/bash -c",13412,41285,3817472,1143,4,0,14
+"ps Aux",0,"/bin/bash -c",10617,33690,3145728,1107,4,0,14
 $ 
 ```
 
@@ -173,34 +196,35 @@ Change to using `-o <FILE>` and you'll see summary statistics printed on the
 terminal, and the raw timing data saved to the named file:
 
 ```shell
-$ ./bestguess -o /tmp/data.csv -r=2 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+$ bestguess -o /tmp/data.csv -r=2 -S "/bin/bash -c" "" "ls -l" "ps Aux"
 Command 1: (empty)
-  Warming up with 0 runs...
-  Timing 2 runs...
-  Summary:                 Range               Median
-    User time      0.596  ms -  0.831  ms     0.713  ms
-    System time    1.065  ms -  2.227  ms     1.646  ms
-    Total time     1.661  ms -  3.058  ms     2.359  ms
-    Max RSS        1.703 MiB -  1.703 MiB     1.703 MiB
+                      Median               Range
+  Total time          2.8 ms         2.5 ms  -    3.2 ms 
+  User time           0.9 ms         1.1 ms  -    1.0 ms 
+  System time         1.6 ms         2.0 ms  -    1.8 ms 
+  Max RSS             1.7 MiB        1.7 MiB -    1.7 MiB
+  Context switches      2 count        2 cnt -      2 cnt
 
 Command 2: ls -l
-  Warming up with 0 runs...
-  Timing 2 runs...
-  Summary:                 Range               Median
-    User time      1.315  ms -  1.564  ms     1.439  ms
-    System time    2.187  ms -  2.953  ms     2.570  ms
-    Total time     3.502  ms -  4.517  ms     4.009  ms
-    Max RSS        1.875 MiB -  1.953 MiB     1.914 MiB
+                      Median               Range
+  Total time          5.3 ms         4.8 ms  -    5.8 ms 
+  User time           1.8 ms         2.1 ms  -    2.0 ms 
+  System time         3.0 ms         3.7 ms  -    3.3 ms 
+  Max RSS             1.7 MiB        1.8 MiB -    1.7 MiB
+  Context switches     15 count       15 cnt -     15 cnt
 
 Command 3: ps Aux
-  Warming up with 0 runs...
-  Timing 2 runs...
-  Summary:                 Range               Median
-    User time     10.831  ms - 12.496  ms    11.663  ms
-    System time   34.742  ms - 40.202  ms    37.472  ms
-    Total time    45.573  ms - 52.698  ms    49.135  ms
-    Max RSS        3.047 MiB -  3.219 MiB     3.133 MiB
+                      Median               Range
+  Total time         52.4 ms        44.1 ms  -   60.6 ms 
+  User time          10.6 ms        14.9 ms  -   12.8 ms 
+  System time        33.5 ms        45.7 ms  -   39.6 ms 
+  Max RSS             2.8 MiB        3.5 MiB -    3.1 MiB
+  Context switches     14 count       14 cnt -     14 cnt
 
+Summary
+   ran
+    1.88 times faster than ls -l
+   18.58 times faster than ps Aux
 $ 
 ```
 
@@ -233,14 +257,14 @@ than 1ms would seem to be a good practice.)
 
 ```shell
 $ bestguess -o - -r 3 "ls -l" "/bin/ls -l"
-Command,Exit code,Shell,User time (us),System time (us),Max RSS (KiByte),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches
-"ls -l",0,,765,3059,1949696,510,0,0,25
-"ls -l",0,,702,1926,2129920,521,0,0,19
-"ls -l",0,,681,3906,1933312,509,0,0,27
-"/bin/ls -l",0,,772,1808,2146304,521,0,0,22
-"/bin/ls -l",0,,844,1874,1851392,503,0,0,20
-"/bin/ls -l",0,,743,1659,2080768,517,0,0,18
-~/Projects/bestguess<main>$ 
+Command,Exit code,Shell,User time (us),System time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches
+"ls -l",0,,1727,4565,1835008,234,0,0,14
+"ls -l",0,,1332,3389,1949696,241,0,0,15
+"ls -l",0,,1203,2898,1867776,237,0,0,14
+"/bin/ls -l",0,,1037,1723,1916928,240,0,0,14
+"/bin/ls -l",0,,988,1706,1818624,233,0,0,14
+"/bin/ls -l",0,,838,1443,1818624,233,0,0,14
+$ 
 ```
 
 ### You can measure the shell startup time
@@ -260,14 +284,102 @@ other commands (`ls -l` in the example below).
 
 ```shell
 $ bestguess -o - -r 3 -S "/bin/bash -c" "" "ls -l"
-Command,Exit code,Shell,User time (us),System time (us),Max RSS (KiByte),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches
-"",0,"/bin/bash -c",593,1438,1769472,489,3,0,2
-"",0,"/bin/bash -c",551,1220,1769472,490,3,0,3
-"",0,"/bin/bash -c",557,1219,1769472,489,3,0,3
-"ls -l",0,"/bin/bash -c",1081,2124,1933312,655,3,0,16
-"ls -l",0,"/bin/bash -c",1253,2579,2097152,665,3,0,16
-"ls -l",0,"/bin/bash -c",1024,2132,1933312,655,3,0,16
+Command,Exit code,Shell,User time (us),System time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches
+"",0,"/bin/bash -c",1299,2511,1769472,228,3,0,4
+"",0,"/bin/bash -c",971,1748,1769472,230,3,0,2
+"",0,"/bin/bash -c",866,1587,1769472,230,3,0,2
+"ls -l",0,"/bin/bash -c",2034,3582,1949696,397,3,0,15
+"ls -l",0,"/bin/bash -c",1805,3050,1835008,390,3,0,15
+"ls -l",0,"/bin/bash -c",1608,2772,1835008,393,3,0,15
+$ 
 ```
+
+## Bar graph
+
+There's a "cheap" but useful bar graph feature in BestGuess (`-g` or `--graph`)
+that shows the total time taken for each iteration as a horizontal bar.
+
+The bar is scaled to the maximum time needed for any iteration of command.  The
+chart, therefore, is meant to show variation between iterations of the same
+command.  Iteration 0 prints first.
+
+In the example below, we see lots of variation in execution time of `ps`, and we
+get a sense of how many warmup runs would be useful -- at least one, perhaps 3
+or even 5.
+
+By contrast, the variation across iterations of `find` was much less.  And only
+the first iteration appears worse than the others, though perhaps the difference
+is not significant.
+
+```shell
+$ bestguess -g -i -r=10 -S "/bin/bash -c" "ps Aux" "find /usr \"*.dylib\"" "ls -l"
+Use -o <FILE> or --output <FILE> to write raw data to a file.
+A single dash '-' instead of a file name prints to stdout.
+
+Command 1: ps Aux
+                      Median               Range
+  Total time          2.9 ms         2.1 ms  -    3.9 ms 
+  User time           0.0 ms         2.6 ms  -    1.6 ms 
+  System time         0.0 ms         3.2 ms  -    1.1 ms 
+  Max RSS             0.0 MiB        0.0 MiB -    0.0 MiB
+  Context switches      1 count        1 cnt -      2 cnt
+0                                                                           max
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+
+Command 2: find /usr "*.dylib"
+                      Median               Range
+  Total time        120.8 ms       119.3 ms  -  124.7 ms 
+  User time          25.6 ms        40.5 ms  -   35.3 ms 
+  System time        80.0 ms        94.7 ms  -   86.3 ms 
+  Max RSS             0.0 MiB        0.0 MiB -    0.0 MiB
+  Context switches     30 count       29 cnt -     32 cnt
+0                                                                           max
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+
+Command 3: ls -l
+                      Median               Range
+  Total time          1.1 ms         1.0 ms  -    1.4 ms 
+  User time           0.0 ms         1.2 ms  -    0.0 ms 
+  System time         0.0 ms         1.4 ms  -    1.1 ms 
+  Max RSS             0.0 MiB        0.0 MiB -    0.0 MiB
+  Context switches      1 count        1 cnt -      1 cnt
+0                                                                           max
+|time exceeds plot size: 1375 us
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+
+Summary
+  ls -l ran
+    2.58 times faster than ps Aux
+  108.07 times faster than find /usr "*.dylib"
+$ 
+```
+
 
 ## Contributing
 
@@ -278,8 +390,9 @@ Twitter, though, as I'm no longer there.)
 
 ## Authors and acknowledgment
 
-It's all mine.  I did it because it needed to be done.  If it's broken, that's
-on me.
+It was me and I acted alone.  I did it because it needed to be done.  If it
+works for you, then you're welcome.  And if it's broken, that's on me as well
+(let me know).
 
 Performance benchmarking is fraught.  We know that timing data is not normally
 distributed, so why do commonly used tools produce statistics on the flawed

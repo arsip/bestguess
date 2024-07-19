@@ -560,12 +560,12 @@ static int64_t run_command(int num, char *cmd,
   if (!output_to_stdout) {
     print_command_summary(s);
     if (show_graph) print_graph(s, usagedata);
+    printf("\n");
   }
 
   // If exporting in Hyperfine CSV format, write that line of data
   if (hf_filename) write_hf_line(hf_output, s);
 
-  printf("\n");
   fflush(stdout);
   median = s->total;
   free_Summary(s);
@@ -643,7 +643,8 @@ static void run_all_commands(int argc, char **argv) {
       if (++n == MAXCMDS) goto toomany;
     }
   
-  print_overall_summary(commands, mediantimes, n);
+  if (!output_to_stdout)
+    print_overall_summary(commands, mediantimes, n);
 
   if (output) fclose(output);
   if (input) fclose(input);
@@ -676,8 +677,19 @@ static int bad_option_value(const char *val, int n) {
   return 0;
 }
 
+#define SCANINT(val, intvar, posvar, desc) do {			\
+    if (bad_option_value(val, n)) exit(-1);			\
+    int scancount = sscanf(val, "%d%n", &(intvar), &(posvar));	\
+    if ((scancount != 1) || (posvar != (int) strlen(val))) {	\
+      fprintf(stderr, "Failed to get %s from '%s'\n",		\
+	      desc, val);					\
+      exit(-1);							\
+    }								\
+  } while (0)
+
 static int process_args(int argc, char **argv) {
   int n, i;
+  int posn;
   const char *val;
 
   // 'i' steps through the args from 1 to argc-1
@@ -714,18 +726,10 @@ static int process_args(int argc, char **argv) {
 	show_graph = 1;
 	break;
       case OPT_WARMUP:
-	if (bad_option_value(val, n)) exit(-1);
-	if (!sscanf(val, "%d", &warmups)) {
-	  fprintf(stderr, "Failed to get number of warmups from '%s'\n", val);
-	  exit(-1);
-	}
+	SCANINT(val, warmups, posn, "number of warmups");
 	break;
       case OPT_RUNS:
-	if (bad_option_value(val, n)) exit(-1);
-	if (!sscanf(val, "%d", &runs)) {
-	  fprintf(stderr, "Failed to get number of runs from '%s'\n", val);
-	  exit(-1);
-	}
+	SCANINT(val, runs, posn, "number of runs");
 	break;
       case OPT_OUTPUT:
 	if (bad_option_value(val, n)) exit(-1);
