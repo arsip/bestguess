@@ -372,25 +372,28 @@ static Summary *summarize(char *cmd,
 // Note: For a log-normal distribution, the geometric mean is the
 // median value and is a more useful measure of the "typical" value
 // than is the arithmetic mean.
-#define FMT "%7.3f %-3s"
+#define FMT "%7.1f %-3s"
+#define FMTs "%7.3f %-3s"
 #define IFMT "%7" PRId64
 static void print_command_summary(Summary *s) {
   if (!brief_summary)
-    printf("                         Median                 Range\n");
+    printf("                          Median                Range\n");
 
   if (runs < 1) {
     printf("    No data (number of timed runs was %d)\n", runs);
     return;
   }
 
-  const char *units;
+  const char *units, *timefmt;
   double divisor;
   
   // Decide on which time unit to use for printing the summary
   if (s->tmax > (1000 * 1000)) {
+    timefmt = "%s" FMTs "     " FMTs " - " FMTs "\n",
     units = "s";
     divisor = 1000.0 * 1000.0;
   } else {
+    timefmt = "%s" FMT "     " FMT " - " FMT "\n",
     units = "ms";
     divisor = 1000.0;
   }
@@ -401,8 +404,7 @@ static void print_command_summary(Summary *s) {
   else
     timelabel = "    Total time        ";
 
-  printf("%s" FMT "     " FMT " - " FMT "\n",
-	 timelabel,
+  printf(timefmt, timelabel,
 	 (double)(s->total / divisor), units,
 	 (double)(s->tmin / divisor), units,
 	 (double)(s->tmax / divisor), units);
