@@ -63,7 +63,7 @@ CWARNS = -Wall -Wextra \
 
 # ------------------------------------------------------------------
 
-CFLAGS= -D_DEFAULT_SOURCE -std=c99 -fPIC \
+CFLAGS= -std=c99 -fPIC \
 	$(SYSCFLAGS) $(ASAN_FLAGS) \
 	$(CWARNS) -DLOGLEVEL=$(LOGLEVEL) $(COPT)
 

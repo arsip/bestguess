@@ -37,7 +37,7 @@
   } while (0)
 
 // qsort arg order differs between linux and macos
-#if defined(__linux__)
+#ifdef __linux__
   #define sort(base, n, sz, context, compare) qsort_r((base), (n), (sz), (compare), (context))
 #else
   #define sort qsort_r

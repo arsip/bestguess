@@ -5,6 +5,9 @@
 //  MIT LICENSE 
 //  COPYRIGHT (C) Jamie A. Jennings, 2024
 
+#define _DEFAULT_SOURCE
+#define _GNU_SOURCE
+
 static const char *progversion = "0.1";
 static const char *progname = "bestguess";
 
@@ -252,6 +255,23 @@ static FILE *maybe_open(const char *filename, const char *mode) {
   return f;
 }
 
+// The arg order for comparators passed to qsort_r differs between
+// linux and macos.
+#ifdef __linux__
+#define MAKE_COMPARATOR(accessor)					\
+  static int compare_##accessor(const void *idx_ptr1,			\
+				const void *idx_ptr2,\
+				void *context) {			\
+    struct rusage *usagedata = context;					\
+    const int idx1 = *((const int *)idx_ptr1);				\
+    const int idx2 = *((const int *)idx_ptr2);				\
+    if (accessor(&usagedata[idx1]) > accessor(&usagedata[idx2]))	\
+      return 1;								\
+    if (accessor(&usagedata[idx1]) < accessor(&usagedata[idx2]))	\
+      return -1;							\
+    return 0;								\
+  }
+#else
 #define MAKE_COMPARATOR(accessor)					\
   static int compare_##accessor(void *context,				\
 				const void *idx_ptr1,			\
@@ -265,6 +285,7 @@ static FILE *maybe_open(const char *filename, const char *mode) {
       return -1;							\
     return 0;								\
   }
+#endif
 
 MAKE_COMPARATOR(usertime)
 MAKE_COMPARATOR(systemtime)
