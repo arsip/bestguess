@@ -119,7 +119,7 @@ static void free_Summary(Summary *s) {
 #define F_TCSW -2
 
 #define FIRST(a, b, c) a,
-typedef enum FieldCodes {XFields(FIRST) F_LAST};
+enum FieldCodes {XFields(FIRST) F_LAST};
 #define SECOND(a, b, c) b,
 const char *Headers[] = {XFields(SECOND) NULL};
 #define THIRD(a, b, c) c,
@@ -517,7 +517,8 @@ static void print_graph(Summary *s, struct rusage *usagedata) {
     if (bars <= maxbars)
       printf("|%.*s\n", bars * bytesperbar, BAR);
     else
-      printf("|time exceeds plot size\n");
+      printf("|time exceeds plot size: %" PRId64 " us\n",
+	     totaltime(&usagedata[i]));
   }
   fflush(stdout);
 }
