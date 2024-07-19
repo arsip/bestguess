@@ -58,6 +58,11 @@ These Hyperfine options are effectively the same in BestGuess:
 
 Key changes from Hyperfine:
 
+  * Many options are _not_ supported.
+    * Some, like _prepare_ and _conclude_ are planned.
+	* Others, like the ones that automate parameter generations, are not in
+      plan.  BestGuess can read commands from a file, and we think it's easier
+      to generate a command file with the desired parameters.
   * `-S`, `--shell <CMD>`: Default is none. If used, supply the entire shell
     command, e.g. `/bin/bash -c`.
   * `-o`, `--output <FILE>`	(added by BestGuess)

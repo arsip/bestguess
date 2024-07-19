@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Jennings
+    given-names: Jamie
+    orcid: https://orcid.org/0000-0002-3716-5162
+title: "BestGuess Benchmarking Software"
+repository-code: "https://gitlab.com/JamieTheRiveter/bestguess/"
+type: software
+license: MIT
+version: 0.2.0
+date-released: 2024-07-19
