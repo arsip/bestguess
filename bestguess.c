@@ -510,10 +510,11 @@ static void print_graph(Summary *s, struct rusage *usagedata) {
   int bars;
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int maxbars = strlen(BAR) / bytesperbar;
-  int64_t scale = s->tmax / (maxbars - 1);
+  int64_t scale = s->tmax / maxbars;
   printf("0%*smax\n", maxbars - 3, "");
   for (int i = 0; i < runs; i++) {
-    bars = (int) (totaltime(&usagedata[i]) / scale);
+    bars = (int) (totaltime(&usagedata[i]) / scale - 1);
+    if (bars < 0) bars = 0;
     if (bars <= maxbars)
       printf("|%.*s\n", bars * bytesperbar, BAR);
     else
