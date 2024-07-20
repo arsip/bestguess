@@ -79,7 +79,8 @@ shell argument.  It doesn't know what shell you are using or how to invoke it.
 `-S` option and use `""` (empty string) for one of the commands.  This starts
 the shell and then runs, as you would expect, no command.  Rationale: Hidden
 measurements are bad science.  If you want to measure something, do so
-explicitly.
+explicitly.  Subtracting the estimated shell startup time from the measured
+command times should certainly be done explicitly so that is transparent.
 
 **Input file\:** You can supply commands, one to a line, in a file.  BestGuess
 first executes any commands supplied on the command line, and then if an input

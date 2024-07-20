@@ -218,3 +218,17 @@ void print_arglist(arglist *args) {
     printf("[%zu] %s\n", i, args->args[i]);
 }
       
+int ends_in(const char *str, const char *suffix) {
+  if (!str || !suffix) return 0;
+  const char *end1 = str;
+  const char *end2 = suffix;
+  while (*end1) end1++;
+  while (*end2) end2++;
+  while ((end1 > str) && (end2 > suffix) &&
+	 (*end1 == *end2)) {
+    end1--;
+    end2--;
+  }
+  return (*end1 == *end2);
+}
+  

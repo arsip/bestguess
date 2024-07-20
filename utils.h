@@ -26,6 +26,8 @@ char  *escape(const char *str);
 int split(const char *in, arglist *args);
 int split_unescape(const char *in, arglist *args);
 
+int ends_in(const char *str, const char *suffix);
+
 // For debugging: 
 void print_arglist(arglist *args);
 

@@ -21,6 +21,7 @@ static const char *progname = "bestguess";
 #include <unistd.h> 
 #include <inttypes.h>
 #include <math.h>
+#include <errno.h>
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -470,17 +471,18 @@ static int run(const char *cmd, struct rusage *usage) {
   int status;
   pid_t pid;
   FILE *f;
+  int use_shell = (shell && *shell);
 
   // In the error checks below, we can exit immediately on error,
   // because a warning will have already been issued
   arglist *args = new_arglist(MAXARGS);
   if (!args) exit(-1);		               
 
-  if (!shell || !*shell) {
-    if (split_unescape(cmd, args)) exit(-1);
-  } else {
+  if (use_shell) {
     if (split_unescape(shell, args)) exit(-1);
     add_arg(args, strdup(cmd));
+  } else {
+    if (split_unescape(cmd, args)) exit(-1);
   }
 
   if (DEBUG) {
@@ -501,15 +503,42 @@ static int run(const char *cmd, struct rusage *usage) {
       if (!f) bail("freopen failed on stdout");
     }
     execvp(args->args[0], args->args);
+    // The exec() functions return only if an error occurs, i.e. it
+    // could not launch args[0] (a command or the shell to run it)
+    abort();
   }
 
-  wait4(pid, &status, 0, usage);
+  pid_t err = wait4(pid, &status, 0, usage);
 
+  // Check to see if cmd/shell aborted or was killed
+  if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
+    fprintf(stderr, "Error: could not execute %s '%s'.\n",
+	    use_shell ? "shell" : "command",
+	    use_shell ? shell : cmd);
+    fflush(stderr);
+    exit(-1);  
+  }
+
+  // If we get here, we had a normal process exit, though the exit
+  // code might not be zero (and zero indicates success)
   if (!ignore_failure && WEXITSTATUS(status)) {
-    fprintf(stderr, "Command exited with non-zero exit code: %d. ", WEXITSTATUS(status));
-    fprintf(stderr, "Use the -i/--ignore-failure option to ignore non-zero exit codes.\n");
+
+    if (use_shell) 
+      fprintf(stderr, "Executing command under %s produced non-zero exit code %d.\n",
+	      args->args[0], WEXITSTATUS(status));
+    else
+      fprintf(stderr, "Executing command produced non-zero exit code %d.\n",
+	      WEXITSTATUS(status));
+
+    if (use_shell && !ends_in(shell, " -c"))
+      fprintf(stderr, "Note that shells commonly require the '-c' option to run a command.\n");
+    else
+      fprintf(stderr, "Use the -i/--ignore-failure option to ignore non-zero exit codes.\n");
+
+    fflush(stderr);
     exit(-1);
   }
+
   free_arglist(args);
   return WEXITSTATUS(status);
 }
@@ -519,11 +548,10 @@ static void print_graph(Summary *s, struct rusage *usagedata) {
   int bars;
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int maxbars = strlen(BAR) / bytesperbar;
-  int64_t scale = s->tmax / maxbars;
+  int64_t tmax = s->tmax;
   printf("0%*smax\n", maxbars - 3, "");
   for (int i = 0; i < runs; i++) {
-    bars = (int) (totaltime(&usagedata[i]) / scale - 1);
-    if (bars < 0) bars = 0;
+    bars = (int) (totaltime(&usagedata[i]) * maxbars / tmax);
     if (bars <= maxbars)
       printf("|%.*s\n", bars * bytesperbar, BAR);
     else
