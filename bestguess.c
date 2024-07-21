@@ -10,7 +10,6 @@
 const char *progversion = "0.1";
 const char *progname = "bestguess";
 
-#include "common.h"
 #include "csv.h"
 #include "stats.h"
 #include "utils.h"

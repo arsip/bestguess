@@ -8,9 +8,10 @@
 #define reports_h
 
 #include "bestguess.h"
+#include "stats.h"
 
-void print_command_summary(Summary *s);
-void print_graph(Summary *s, struct rusage *usagedata);
+void print_command_summary(summary *s);
+void print_graph(summary *s, struct rusage *usagedata);
 void print_overall_summary(const char *commands[],
 			   int64_t mediantimes[],
 			   int n);

@@ -85,7 +85,7 @@ void write_hf_header(FILE *f) {
   fflush(f);
 }
 
-void write_hf_line(FILE *f, Summary *s) {
+void write_hf_line(FILE *f, summary *s) {
   const double million = 1000.0 * 1000.0;
   // Command
   WRITEFMT(f, "%s", *(s->cmd) ? s->cmd : shell); SEP;

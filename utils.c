@@ -4,14 +4,13 @@
 // 
 //  COPYRIGHT (c) Jamie A. Jennings, 2024
 
+#include "utils.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
 #include <errno.h>
-#include "common.h"
-#include "utils.h"
 
-static void warning(const char *fmt, ...) {
+void warning(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     fprintf(stderr, "Warning: ");
@@ -20,6 +19,87 @@ static void warning(const char *fmt, ...) {
     fputc('\n', stderr);
     fflush(stderr);
 }
+
+__attribute__((noreturn))
+void bail(const char *msg) {
+  fputs(msg, stderr);
+  fflush(NULL);
+  exit(-1);
+}
+
+// -----------------------------------------------------------------------------
+// Accessors and comparators for rusage fields
+// -----------------------------------------------------------------------------
+
+int64_t rss(struct rusage *usage) {
+  return usage->ru_maxrss;
+}
+
+int64_t usertime(struct rusage *usage) {
+  return usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
+}
+
+int64_t systemtime(struct rusage *usage) {
+  return usage->ru_stime.tv_sec * 1000 * 1000 + usage->ru_stime.tv_usec;
+}
+
+int64_t totaltime(struct rusage *usage) {
+  return usertime(usage) + systemtime(usage);
+}
+
+int64_t vcsw(struct rusage *usage) {
+  return usage->ru_nvcsw;
+}
+
+int64_t icsw(struct rusage *usage) {
+  return usage->ru_nivcsw;
+}
+
+int64_t tcsw(struct rusage *usage) {
+  return vcsw(usage) + icsw(usage);
+}
+
+// The arg order for comparators passed to qsort_r differs between
+// linux and macos.
+#ifdef __linux__
+#define MAKE_COMPARATOR(accessor)					\
+  int compare_##accessor(const void *idx_ptr1,				\
+			 const void *idx_ptr2,				\
+			 void *context) {				\
+    struct rusage *usagedata = context;					\
+    const int idx1 = *((const int *)idx_ptr1);				\
+    const int idx2 = *((const int *)idx_ptr2);				\
+    if (accessor(&usagedata[idx1]) > accessor(&usagedata[idx2]))	\
+      return 1;								\
+    if (accessor(&usagedata[idx1]) < accessor(&usagedata[idx2]))	\
+      return -1;							\
+    return 0;								\
+  }
+#else
+#define MAKE_COMPARATOR(accessor)					\
+  int compare_##accessor(void *context,					\
+			 const void *idx_ptr1,				\
+			 const void *idx_ptr2) {			\
+    struct rusage *usagedata = context;					\
+    const int idx1 = *((const int *)idx_ptr1);				\
+    const int idx2 = *((const int *)idx_ptr2);				\
+    if (accessor(&usagedata[idx1]) > accessor(&usagedata[idx2]))	\
+      return 1;								\
+    if (accessor(&usagedata[idx1]) < accessor(&usagedata[idx2]))	\
+      return -1;							\
+    return 0;								\
+  }
+#endif
+
+MAKE_COMPARATOR(usertime)
+MAKE_COMPARATOR(systemtime)
+MAKE_COMPARATOR(totaltime)
+MAKE_COMPARATOR(rss)
+MAKE_COMPARATOR(tcsw)
+
+// -----------------------------------------------------------------------------
+// Parsing utilities
+// -----------------------------------------------------------------------------
 
 static int whitespacep(const char c) {
   return ((c == ' ') || (c == '\t') ||
@@ -74,6 +154,20 @@ void free_arglist(arglist *args) {
   free(args);
 }
 
+__attribute__((unused))
+void print_arglist(arglist *args) {
+  if (!args) {
+    printf("null arglist\n");
+    return;
+  }
+  for (size_t i = 0; i < args->next; i++)
+    printf("[%zu] %s\n", i, args->args[i]);
+}
+      
+// -----------------------------------------------------------------------------
+// Argument arrays
+// -----------------------------------------------------------------------------
+
 // Returns error indicator, 1 for error, 0 for success.
 int add_arg(arglist *args, char *newarg) {
   if (!args || !newarg) return 1;
@@ -100,6 +194,10 @@ arglist *new_arglist(size_t limit) {
   warning("Out of memory");
   return NULL;
 }
+
+// -----------------------------------------------------------------------------
+// Splitting a command line into an argument list
+// -----------------------------------------------------------------------------
 
 // Split at whitespace, respecting pairs of double and single quotes.
 // Returns error code: 1 for error, 0 for no error.
@@ -215,16 +313,6 @@ int split_unescape(const char *in, arglist *args) {
   return err;
 }
 
-__attribute__((unused))
-void print_arglist(arglist *args) {
-  if (!args) {
-    printf("null arglist\n");
-    return;
-  }
-  for (size_t i = 0; i < args->next; i++)
-    printf("[%zu] %s\n", i, args->args[i]);
-}
-      
 int ends_in(const char *str, const char *suffix) {
   if (!str || !suffix) return 0;
   const char *end1 = str;
@@ -238,6 +326,10 @@ int ends_in(const char *str, const char *suffix) {
   }
   return (*end1 == *end2);
 }
+
+// -----------------------------------------------------------------------------
+// Misc
+// -----------------------------------------------------------------------------
 
 FILE *maybe_open(const char *filename, const char *mode) {
   if (!filename) return NULL;

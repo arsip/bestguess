@@ -4,8 +4,7 @@
 // 
 //  Copyright (C) Jamie A. Jennings, 2024
 
-//#include <math.h>
-#include "common.h"
+#include "bestguess.h"
 #include "utils.h"
 #include "stats.h"
 
@@ -68,9 +67,20 @@ int64_t find_median(struct rusage *usagedata, int field) {
   }
 }
 
-Summary *summarize(char *cmd, struct rusage *usagedata) {
+static summary *new_summary(void) {
+  summary *s = calloc(1, sizeof(summary));
+  if (!s) bail("Out of memory");
+  return s;
+}
 
-  Summary *s = new_Summary();
+void free_summary(summary *s) {
+  free(s->cmd);
+  free(s);
+}
+
+summary *summarize(char *cmd, struct rusage *usagedata) {
+
+  summary *s = new_summary();
 
   s->cmd = escape(cmd);
   s->runs = runs;

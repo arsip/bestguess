@@ -4,16 +4,16 @@
 // 
 //  Copyright (C) Jamie A. Jennings, 2024
 
+#include "bestguess.h"
+#include "reports.h"
 #include <stdio.h>
 #include <string.h>
-#include "common.h"
-#include "reports.h"
 
 #define FMT "%6.1f %-3s"
 #define FMTs "%6.3f %-3s"
 #define IFMT "%6" PRId64
 
-void print_command_summary(Summary *s) {
+void print_command_summary(summary *s) {
   if (!brief_summary)
     printf("                      Median               Range\n");
 
@@ -72,7 +72,7 @@ void print_command_summary(Summary *s) {
 
 #define BAR "▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 
-void print_graph(Summary *s, struct rusage *usagedata) {
+void print_graph(summary *s, struct rusage *usagedata) {
   int bars;
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int maxbars = strlen(BAR) / bytesperbar;
@@ -104,7 +104,7 @@ void print_overall_summary(const char *commands[],
       fastest = mediantimes[i];
       best = i;
     }
-  printf("Summary\n");
+  printf("Best guess is\n");
   printf("  %s ran\n", *commands[best] ? commands[best] : "(empty)");
   for (int i = 0; i < n; i++) {
     if (i != best) {

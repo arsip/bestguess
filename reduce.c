@@ -4,7 +4,7 @@
 // 
 //  Copyright (C) Jamie A. Jennings, 2024
 
-#include "common.h"
+#include "bestguess.h"
 #include "utils.h"
 #include "reduce.h"
 

@@ -11,6 +11,7 @@
 #define _GNU_SOURCE
 
 #include <stdlib.h>
+#include <inttypes.h>
 
 extern const char *progversion;
 extern const char *progname;
@@ -78,6 +79,38 @@ enum Options {
   OPT_HELP,
 };
 
+// -----------------------------------------------------------------------------
+// Field accessors (rusage) and comparators 
+// -----------------------------------------------------------------------------
+
+int64_t rss(struct rusage *usage);
+int64_t usertime(struct rusage *usage);
+int64_t systemtime(struct rusage *usage);
+int64_t totaltime(struct rusage *usage);
+int64_t vcsw(struct rusage *usage);
+int64_t icsw(struct rusage *usage);
+int64_t tcsw(struct rusage *usage);
+
+// The arg order for comparators passed to qsort_r differs between
+// linux and macos.
+#ifdef __linux__
+typedef int (comparator)(const void *, const void *, void *);
+#else
+typedef int (comparator)(void *, const void *, const void *);
+#endif
+
+#define COMPARATOR(accessor) comparator compare_##accessor
+
+COMPARATOR(usertime);
+COMPARATOR(systemtime);
+COMPARATOR(totaltime);
+COMPARATOR(rss);
+COMPARATOR(tcsw);
+
+// -----------------------------------------------------------------------------
+// Output file (CSV)
+// -----------------------------------------------------------------------------
+     
 // This list is the order in which fields will print in the CSV output
 #define XFields(X)					    \
   X(F_CMD,      "Command",                      "\"%s\"")   \

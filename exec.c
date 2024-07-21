@@ -115,7 +115,7 @@ int64_t run_command(int num, char *cmd, FILE *output, FILE *hf_output) {
     if (output) write_line(output, cmd, code, &(usagedata[i]));
   }
 
-  Summary *s = summarize(cmd, usagedata);
+  summary *s = summarize(cmd, usagedata);
   if (!s) bail("ERROR: failed to generate summary statistics");
 
   // If raw data is going to an output file, we print a summary on the
@@ -132,7 +132,7 @@ int64_t run_command(int num, char *cmd, FILE *output, FILE *hf_output) {
 
   fflush(stdout);
   median = s->total;
-  free_Summary(s);
+  free_summary(s);
   free(usagedata);
   return median;
 }
