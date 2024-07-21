@@ -5,8 +5,7 @@
 //  MIT LICENSE 
 //  COPYRIGHT (C) Jamie A. Jennings, 2024
 
-#define _DEFAULT_SOURCE
-#define _GNU_SOURCE
+#include "bestguess.h"
 
 const char *progversion = "0.1";
 const char *progname = "bestguess";
@@ -19,7 +18,6 @@ const char *progname = "bestguess";
 #include "reduce.h"
 #include "optable.h"
 #include "reports.h"
-#include "bestguess.h"
 
 #include <stdio.h>
 #include <string.h>

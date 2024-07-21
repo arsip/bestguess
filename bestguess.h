@@ -7,6 +7,9 @@
 #ifndef bestguess_h
 #define bestguess_h
 
+#define _DEFAULT_SOURCE
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 
 extern const char *progversion;
