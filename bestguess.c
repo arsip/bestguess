@@ -35,6 +35,11 @@ char *output_filename = NULL;
 char *hf_filename = NULL;
 const char *shell = NULL;
 
+#define SECOND(a, b, c) b,
+const char *Headers[] = {XFields(SECOND) NULL};
+#define THIRD(a, b, c) c,
+const char *FieldFormats[] = {XFields(THIRD) NULL};
+
 #define HELP_WARMUP "Number of warmup runs"
 #define HELP_RUNS "Number of timed runs"
 #define HELP_OUTPUT "Write timing data to CSV <FILE> (use - for stdout)"

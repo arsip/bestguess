@@ -58,9 +58,9 @@ int64_t tcsw(struct rusage *usage) {
 // linux and macos.
 #ifdef __linux__
 #define MAKE_COMPARATOR(accessor)					\
-  static int compare_##accessor(const void *idx_ptr1,			\
-				const void *idx_ptr2,			\
-				void *context) {			\
+  int compare_##accessor(const void *idx_ptr1,				\
+			 const void *idx_ptr2,				\
+			 void *context) {				\
     struct rusage *usagedata = context;					\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\

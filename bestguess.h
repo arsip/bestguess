@@ -75,4 +75,27 @@ enum Options {
   OPT_HELP,
 };
 
+// This list is the order in which fields will print in the CSV output
+#define XFields(X)					    \
+  X(F_CMD,      "Command",                      "\"%s\"")   \
+  X(F_EXIT,     "Exit code",                    "%d")	    \
+  X(F_SHELL,    "Shell",                        "\"%s\"")   \
+  X(F_USER,     "User time (us)",               "%" PRId64) \
+  X(F_SYSTEM,   "System time (us)",             "%" PRId64) \
+  X(F_RSS,      "Max RSS (Bytes)",              "%ld")	    \
+  X(F_RECLAIMS, "Page Reclaims",                "%ld")	    \
+  X(F_FAULTS,   "Page Faults",                  "%ld")	    \
+  X(F_VCSW,     "Voluntary Context Switches",   "%ld")	    \
+  X(F_ICSW,     "Involuntary Context Switches", "%ld")	
+
+// Below are pseudo field names used only for computing summary
+// statistics.  They are never written to the raw data output file.
+#define F_TOTAL -1
+#define F_TCSW -2
+
+#define FIRST(a, b, c) a,
+enum FieldCodes {XFields(FIRST) F_LAST};
+extern const char *Headers[];
+extern const char *FieldFormats[];
+
 #endif

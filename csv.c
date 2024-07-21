@@ -6,6 +6,7 @@
 
 #include "csv.h"
 #include "utils.h"
+#include "bestguess.h"
 
 // -----------------------------------------------------------------------------
 // Output file (raw data, per timed run)
