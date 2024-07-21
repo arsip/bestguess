@@ -4,9 +4,12 @@
 // 
 //  COPYRIGHT (c) Jamie A. Jennings, 2024
 
-#include "utils.h"
+#include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <errno.h>
+#include "common.h"
+#include "utils.h"
 
 static void warning(const char *fmt, ...) {
     va_list ap;
@@ -231,4 +234,14 @@ int ends_in(const char *str, const char *suffix) {
   }
   return (*end1 == *end2);
 }
-  
+
+FILE *maybe_open(const char *filename, const char *mode) {
+  if (!filename) return NULL;
+  FILE *f = fopen(filename, mode);
+  if (!f) {
+    fprintf(stderr, "Cannot open file: %s\n", filename);
+    perror(progname);
+    exit(-1);
+  }
+  return f;
+}

@@ -4,7 +4,8 @@
 ##
 
 PROGRAM= bestguess
-OBJECTS= utils.o optable.o
+OBJECTS= common.o utils.o optable.o exec.o csv.o stats.o \
+         reports.o reduce.o
 
 default: debug
 

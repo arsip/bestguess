@@ -8,7 +8,7 @@
 #define utils_h
 
 #include <stdio.h>
-#include <stdlib.h>
+//#include <stdlib.h>
 
 typedef struct arglist {
   size_t max;
@@ -27,6 +27,8 @@ int split(const char *in, arglist *args);
 int split_unescape(const char *in, arglist *args);
 
 int ends_in(const char *str, const char *suffix);
+
+FILE *maybe_open(const char *filename, const char *mode);
 
 // For debugging: 
 void print_arglist(arglist *args);

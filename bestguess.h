@@ -7,7 +7,10 @@
 #ifndef bestguess_h
 #define bestguess_h
 
-#include "utils.h"
+#include <stdlib.h>
+
+static const char *progversion = "0.1";
+static const char *progname = "bestguess";
 
 // Change to non-zero to enable debugging output to stdout
 #define DEBUG 0
@@ -30,17 +33,46 @@
 // Change as desired
 #define PROCESS_DATA_COMMAND "reduce"
 
-#define bail(msg) do {				\
-    fprintf(stderr, "%s\n", msg);		\
-    fflush(NULL);				\
-    exit(-1);					\
-  } while (0)
-
 // qsort arg order differs between linux and macos
 #ifdef __linux__
   #define sort(base, n, sz, context, compare) qsort_r((base), (n), (sz), (compare), (context))
 #else
   #define sort qsort_r
 #endif
+
+// -----------------------------------------------------------------------------
+// Global configuration (based on CLI args)
+// -----------------------------------------------------------------------------
+
+extern int reducing_mode;
+extern int brief_summary;
+extern int show_graph;
+extern int runs;
+extern int warmups;
+extern int first_command;
+extern int show_output;
+extern int ignore_failure;
+extern int output_to_stdout;
+extern char *input_filename;
+extern char *output_filename;
+extern char *hf_filename;
+extern const char *shell;
+
+// The order of the options below is the order they will appear in the
+// printed help text.
+enum Options { 
+  OPT_WARMUP,
+  OPT_RUNS,
+  OPT_OUTPUT,
+  OPT_FILE,
+  OPT_BRIEF,
+  OPT_GRAPH,
+  OPT_SHOWOUTPUT,
+  OPT_IGNORE,
+  OPT_SHELL,
+  OPT_HFCSV,			// Hyperfine format CSV
+  OPT_VERSION,
+  OPT_HELP,
+};
 
 #endif
