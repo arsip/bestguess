@@ -207,9 +207,12 @@ char *escape(const char *str) {
 
 // Returns error code: 1 for error, 0 for no error.
 int split_unescape(const char *in, arglist *args) {
+  int err;
   char *unescaped = unescape(in);
   if (!unescaped) return 1;
-  return split(unescaped, args);
+  err = split(unescaped, args);
+  free(unescaped);
+  return err;
 }
 
 __attribute__((unused))
