@@ -4,10 +4,10 @@
 // 
 //  Copyright (C) Jamie A. Jennings, 2024
 
+#include "exec.h"
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h> 
-#include "exec.h"
 #include "csv.h"
 #include "stats.h"
 #include "reports.h"
