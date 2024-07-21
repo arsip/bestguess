@@ -133,6 +133,7 @@ int64_t run_command(int num, char *cmd, FILE *output, FILE *hf_output) {
   fflush(stdout);
   median = s->total;
   free_Summary(s);
+  free(usagedata);
   return median;
 }
 

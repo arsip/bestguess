@@ -70,6 +70,7 @@ static const char *read_arg(const char *p) {
 void free_arglist(arglist *args) {
   if (!args) return;
   for (size_t i = 0; i < args->next; i++) free(args->args[i]);
+  free(args->args);
   free(args);
 }
 
