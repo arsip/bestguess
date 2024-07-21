@@ -1,6 +1,6 @@
 //  -*- Mode: C; -*-                                                       
 // 
-//  stats.c
+//  stats.c  Summary statistics
 // 
 //  Copyright (C) Jamie A. Jennings, 2024
 
@@ -35,36 +35,86 @@
    :							\
    (accessor(&usagedata[indices[runs/2]])))		\
 
-static int64_t really_find_median(struct rusage *usagedata,
-				  int64_t (accessor)(struct rusage *),
-				  comparator compare) {
-  if (runs < 1) return 0;
-  int64_t result;
+static int64_t avg(int64_t a, int64_t b) {
+  return (a + b) / 2;
+}
+
+#define VALUEAT(i) (accessor(&usagedata[indices[i]]))
+#define WIDTH(i, j) (VALUEAT(j) - VALUEAT(i))
+
+// "Half sample" technique for mode estimation.  The base cases are
+// when number of samples, 𝑛, is 1, 2, or 3.  When 𝑛 > 3, there is a
+// recursive case that computes the mode of ℎ = 𝑛/2 samples.  To
+// choose which 𝑛/2 samples, we examine every interval [i, i+ℎ) to
+// find the one with the smallest width.  That sequence of samples is
+// the argument to the recursive call.
+//
+// See https://arxiv.org/abs/math/0505419
+//
+// Note that the data must be sorted, and for that we use 'indices'.
+//
+static int64_t estimate_mode(struct rusage *usagedata,
+			     int64_t (accessor)(struct rusage *),
+			     int *indices) {
+  // n = number of samples being examined
+  // h = size of "half sample" (floor of n/2)
+  // idx = start index of samples being examined
+  // limit = end index one beyond last sample being examined
+  int idx, limit, n, h;
+  int64_t wmin = 0;
+  idx = 0;
+  n = runs;
+  
+ tailcall:
+
+//   printf("Entering estimate_mode loop.\nData: ");
+//   for (int i = idx; i < idx+n; i++) printf("%" PRId64 " ", VALUEAT(i));
+//   puts("");
+
+  if (n == 1) {
+    return VALUEAT(idx);
+  } else if (n == 2) {
+    return avg(VALUEAT(idx), VALUEAT(idx+1));
+  } else if (n == 3) {
+    // Break a tie in favor of lower value
+    if (WIDTH(idx, idx+1) <= WIDTH(idx+1, idx+2))
+      return avg(VALUEAT(idx), VALUEAT(idx+1));
+    else
+      return avg(VALUEAT(idx+1), VALUEAT(idx+2));
+  }
+  h = n / 2;	     // floor
+  wmin = WIDTH(idx, idx+h);
+  // Search for half sample with smallest width
+  limit = idx+h;
+  for (int i = idx+1; i < limit; i++) {
+    // Break ties in favor of lower value
+    if (WIDTH(i, i+h) < wmin) {
+      wmin = WIDTH(i, i+h);
+      idx = i;
+    }
+  }
+  n = h+1;
+  goto tailcall;
+	
+}
+
+// Produce a statistical summary (stored in 's') of usagedata over all runs
+static void measure(struct rusage *usagedata,
+		    int64_t (accessor)(struct rusage *),
+		    comparator compare,
+		    measures *meas) {
+  // Note: 'meas' is filled with zeros on initial allocation
+  if (runs < 1) return;
   int *indices = malloc(runs * sizeof(int));
   if (!indices) bail("Out of memory");
   for (int i = 0; i < runs; i++) indices[i] = i;
   sort(indices, runs, sizeof(int), usagedata, compare);
-  result = MEDIAN_SELECT(accessor, indices, usagedata);
+  meas->median = MEDIAN_SELECT(accessor, indices, usagedata);
+  meas->min = accessor(&usagedata[indices[0]]);
+  meas->max = accessor(&usagedata[indices[runs - 1]]);
+  meas->mode = estimate_mode(usagedata, accessor, indices);
   free(indices);
-  return result;
-}
-
-int64_t find_median(struct rusage *usagedata, int field) {
-  switch (field) {
-    case F_RSS:
-      return really_find_median(usagedata, rss, compare_rss);
-    case F_USER:
-      return really_find_median(usagedata, usertime, compare_usertime);
-    case F_SYSTEM:
-      return really_find_median(usagedata, systemtime, compare_systemtime);
-    case F_TOTAL:
-      return really_find_median(usagedata, totaltime, compare_totaltime);
-    case F_TCSW:
-      return really_find_median(usagedata, tcsw, compare_tcsw);
-    default:
-      bail("ERROR: Unsupported field code (find median)");
-      return 0;			// To silence a warning
-  }
+  return;
 }
 
 static summary *new_summary(void) {
@@ -91,44 +141,11 @@ summary *summarize(char *cmd, struct rusage *usagedata) {
     return s;
   }
 
-  int64_t umin = INT64_MAX,   umax = 0;
-  int64_t smin = INT64_MAX,   smax = 0;
-  int64_t tmin = INT64_MAX,   tmax = 0;
-  int64_t rssmin = INT64_MAX, rssmax = 0;
-  int64_t cswmin = INT64_MAX, cswmax = 0;
-
-  // Find mins and maxes
-  for (int i = 0; i < runs; i++) {
-    if (usertime(&usagedata[i]) < umin) umin = usertime(&usagedata[i]);
-    if (systemtime(&usagedata[i]) < smin) smin = systemtime(&usagedata[i]);
-    if (totaltime(&usagedata[i]) < tmin) tmin = totaltime(&usagedata[i]);
-    if (rss(&usagedata[i]) < rssmin) rssmin = rss(&usagedata[i]);
-    if (tcsw(&usagedata[i]) < cswmin) cswmin = tcsw(&usagedata[i]);
-
-    if (usertime(&usagedata[i]) > umax) umax = usertime(&usagedata[i]);
-    if (systemtime(&usagedata[i]) > smax) smax = systemtime(&usagedata[i]);
-    if (totaltime(&usagedata[i]) > tmax) tmax = totaltime(&usagedata[i]);
-    if (rss(&usagedata[i]) > rssmax) rssmax = rss(&usagedata[i]);
-    if (tcsw(&usagedata[i]) > cswmax) cswmax = tcsw(&usagedata[i]);
-  }
-  
-  s->tmin = tmin;
-  s->tmax = tmax;
-  s->umin = umin;
-  s->umax = umax;
-  s->smin = smin;
-  s->smax = smax;
-  s->rssmin = rssmin;
-  s->rssmax = rssmax;
-  s->cswmin = cswmin;
-  s->cswmax = cswmax;
-
-  // Find medians
-  s->user = find_median(usagedata, F_USER);
-  s->system = find_median(usagedata, F_SYSTEM);
-  s->total = find_median(usagedata, F_TOTAL);
-  s->rss = find_median(usagedata, F_RSS);
-  s->csw = find_median(usagedata, F_TCSW);
+  measure(usagedata, totaltime, compare_totaltime, &s->total);
+  measure(usagedata, usertime, compare_usertime, &s->user);
+  measure(usagedata, systemtime, compare_systemtime, &s->system);
+  measure(usagedata, rss, compare_rss, &s->rss);
+  measure(usagedata, tcsw, compare_tcsw, &s->tcsw);
 
   return s;
 }

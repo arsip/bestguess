@@ -1,6 +1,6 @@
 //  -*- Mode: C; -*-                                                       
 // 
-//  stats.h
+//  stats.h  Summary statistics
 // 
 //  COPYRIGHT (c) Jamie A. Jennings, 2024
 
@@ -9,27 +9,25 @@
 
 #include "bestguess.h"
 
+// Min, max, and measures of central tendency
+typedef struct measures {
+  int64_t min;
+  int64_t max;
+  int64_t mode;
+  int64_t median;
+} measures;
+
+// Statistical summary of a set of runs of a single command
 typedef struct summary {
-  char   *cmd;
-  int     runs;
-  int64_t user;			// median
-  int64_t umin;
-  int64_t umax;
-  int64_t system;		// median
-  int64_t smin;
-  int64_t smax;
-  int64_t total;		// median
-  int64_t tmin;
-  int64_t tmax;
-  int64_t rss;			// median
-  int64_t rssmin;
-  int64_t rssmax;
-  int64_t csw;			// median
-  int64_t cswmin;
-  int64_t cswmax;
+  char     *cmd;
+  int       runs;
+  measures  user;
+  measures  system;
+  measures  total;
+  measures  rss;
+  measures  tcsw;
 } summary;
 
-int64_t find_median(struct rusage *usagedata, int field);
 summary *summarize(char *cmd, struct rusage *usagedata);
 void     free_summary(summary *s);
 

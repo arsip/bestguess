@@ -90,19 +90,19 @@ void write_hf_line(FILE *f, summary *s) {
   // Command
   WRITEFMT(f, "%s", *(s->cmd) ? s->cmd : shell); SEP;
   // Mean total time (really Median because it's more useful)
-  WRITEFMT(f, "%f", (double) s->total / million); SEP;
+  WRITEFMT(f, "%f", (double) s->total.median / million); SEP;
   // Stddev omitted until we know what to report for a log-normal distribution
   WRITEFMT(f, "%f", (double) 0.0); SEP;
   // Median total time (repeated to be compatible with hf format)
-  WRITEFMT(f, "%f", (double) s->total / million); SEP;
+  WRITEFMT(f, "%f", (double) s->total.median / million); SEP;
   // User time in seconds as double 
-  WRITEFMT(f, "%f", (double) s->user / million); SEP;
+  WRITEFMT(f, "%f", (double) s->user.median / million); SEP;
   // System time in seconds as double
-  WRITEFMT(f, "%f", (double) s->system / million); SEP;
+  WRITEFMT(f, "%f", (double) s->system.median / million); SEP;
   // Min total time in seconds as double 
-  WRITEFMT(f, "%f", (double) s->tmin / million); SEP;
+  WRITEFMT(f, "%f", (double) s->total.min / million); SEP;
   // Max total time in seconds as double
-  WRITEFMT(f, "%f", (double) s->tmax / million); NEWLINE;
+  WRITEFMT(f, "%f", (double) s->total.max / million); NEWLINE;
   fflush(f);
 }
 

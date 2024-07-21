@@ -131,7 +131,7 @@ int64_t run_command(int num, char *cmd, FILE *output, FILE *hf_output) {
   if (hf_filename) write_hf_line(hf_output, s);
 
   fflush(stdout);
-  median = s->total;
+  median = s->total.median;
   free_summary(s);
   free(usagedata);
   return median;
