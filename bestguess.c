@@ -8,6 +8,9 @@
 #define _DEFAULT_SOURCE
 #define _GNU_SOURCE
 
+const char *progversion = "0.1";
+const char *progname = "bestguess";
+
 #include "common.h"
 #include "csv.h"
 #include "stats.h"

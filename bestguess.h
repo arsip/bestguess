@@ -9,8 +9,8 @@
 
 #include <stdlib.h>
 
-static const char *progversion = "0.1";
-static const char *progname = "bestguess";
+extern const char *progversion;
+extern const char *progname;
 
 // Change to non-zero to enable debugging output to stdout
 #define DEBUG 0
