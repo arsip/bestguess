@@ -7,11 +7,11 @@
 #ifndef common_h
 #define common_h
 
+#include "bestguess.h"
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <inttypes.h>
-#include "bestguess.h"
 
 void bail(const char *msg);
 

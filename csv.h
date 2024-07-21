@@ -7,9 +7,9 @@
 #ifndef csv_h
 #define csv_h
 
-#include <stdio.h>
-#include "common.h"
 #include "bestguess.h"
+#include "common.h"
+#include <stdio.h>
 
 // Output file (raw data, per timed run)
 

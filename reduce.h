@@ -7,6 +7,8 @@
 #ifndef reduce_h
 #define reduce_h
 
+#include "bestguess.h"
+
 int reduce_data(void);
 
 #endif

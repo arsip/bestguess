@@ -7,8 +7,8 @@
 #ifndef utils_h
 #define utils_h
 
+#include "bestguess.h"
 #include <stdio.h>
-//#include <stdlib.h>
 
 typedef struct arglist {
   size_t max;
