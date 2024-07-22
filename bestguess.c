@@ -21,6 +21,7 @@ const char *progname = "bestguess";
 #include <stdio.h>
 #include <string.h>
 
+// Global state
 int reducing_mode = 0;
 int brief_summary = 0;
 int show_graph = 0;
@@ -35,10 +36,12 @@ char *output_filename = NULL;
 char *hf_filename = NULL;
 const char *shell = NULL;
 
-#define SECOND(a, b, c) b,
-const char *Headers[] = {XFields(SECOND) NULL};
-#define THIRD(a, b, c) c,
-const char *FieldFormats[] = {XFields(THIRD) NULL};
+#define SECOND(a, b, c, d) b,
+const accessor FieldAccessors[] = { RFieldDecls(SECOND) SFieldDecls(SECOND) NULL };
+#define THIRD(a, b, c, d) c,
+const char *Headers[] = { RFieldDecls(THIRD) SFieldDecls(THIRD) NULL };
+#define FOURTH(a, b, c, d) d,
+const char *FieldFormats[] = { RFieldDecls(FOURTH) RFieldDecls(FOURTH) NULL };
 
 #define HELP_WARMUP "Number of warmup runs"
 #define HELP_RUNS "Number of timed runs"

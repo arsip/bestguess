@@ -54,7 +54,7 @@ static int64_t avg(int64_t a, int64_t b) {
 // Note that the data must be sorted, and for that we use 'indices'.
 //
 static int64_t estimate_mode(struct rusage *usagedata,
-			     int64_t (accessor)(struct rusage *),
+			     int64_t (*accessor)(struct rusage *),
 			     int *indices) {
   // n = number of samples being examined
   // h = size of "half sample" (floor of n/2)
@@ -100,7 +100,7 @@ static int64_t estimate_mode(struct rusage *usagedata,
 
 // Produce a statistical summary (stored in 's') of usagedata over all runs
 static void measure(struct rusage *usagedata,
-		    int64_t (accessor)(struct rusage *),
+		    int64_t (*accessor)(struct rusage *),
 		    comparator compare,
 		    measures *meas) {
   // Note: 'meas' is filled with zeros on initial allocation
@@ -141,11 +141,11 @@ summary *summarize(char *cmd, struct rusage *usagedata) {
     return s;
   }
 
-  measure(usagedata, totaltime, compare_totaltime, &s->total);
-  measure(usagedata, usertime, compare_usertime, &s->user);
-  measure(usagedata, systemtime, compare_systemtime, &s->system);
-  measure(usagedata, rss, compare_rss, &s->rss);
-  measure(usagedata, tcsw, compare_tcsw, &s->tcsw);
+  measure(usagedata, Rtotal, compare_Rtotal, &s->total);
+  measure(usagedata, Ruser, compare_Ruser, &s->user);
+  measure(usagedata, Rsys, compare_Rsys, &s->system);
+  measure(usagedata, Rrss, compare_Rrss, &s->rss);
+  measure(usagedata, Rtcsw, compare_Rtcsw, &s->tcsw);
 
   return s;
 }

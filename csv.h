@@ -16,7 +16,12 @@
 void write_header(FILE *f);
 void write_line(FILE *f, const char *cmd, int code, struct rusage *usage);
 
-// Hyperfine-format file
+// Summary statistics file
+
+void write_stat_header(FILE *f);
+void write_stat_line(FILE *f, summary *s);
+
+// Hyperfine-format file (also a summary)
 
 void write_hf_header(FILE *f);
 void write_hf_line(FILE *f, summary *s);
