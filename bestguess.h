@@ -84,12 +84,55 @@ enum Options {
 // Complete list of fields to write to output files of any kind
 // -----------------------------------------------------------------------------
      
-typedef union accessor {
-  const char *(*get_string)(summary *);
-  int         (*get_int)(summary *);
-  int64_t     (*get_usage)(struct rusage *);
-  int64_t     (*get_stat)(summary *);
-} accessor;
+typedef enum fieldtype {
+  FT_summary_string,
+  FT_summary_int,
+  FT_summary_stat,
+  FT_rusage_i64
+};
+
+// typedef union accessor {
+//   const char *(*get_string)(summary *);
+//   int         (*get_int)(summary *);
+//   int64_t     (*get_stat)(summary *);
+//   int64_t     (*get_usage)(struct rusage *);
+// } accessor;
+// typedef union field_datum {
+//   const char *str;
+//   int64_t     num;
+// };
+
+int string_typep(int fieldcode) {
+  return (fieldcode == F_CMD) || (fieldcode == F_SHELL);
+}
+
+static const char *get_string_field(int fieldcode, void *record) {
+  summary *s = (summary *) record;
+  switch (fieldcode) {
+    case F_CMD:
+      return *(s->cmd) ? escape(s->cmd) : escape(shell);
+    case F_SHELL:
+      return s->shell ? escape(s->shell) : NULL;
+    default:
+      bail("Incorrect field code for get_string_field");
+  }
+}
+
+static int64_t get_int_field(int fieldcode, void *record) {
+  summary *s = (summary *) record;
+  struct rusage *r = (struct rusage *) record;
+  if (fieldcode < F_R)
+    return 
+
+  switch (fieldcode) {
+    case F_CMD:
+      return *(s->cmd) ? escape(s->cmd) : escape(shell);
+    case F_SHELL:
+      return s->shell ? escape(s->shell) : NULL;
+    default:
+      bail("Incorrect field code for get_string_field");
+  }
+}
 
 #define RFieldDecls(X)						    \
   X(F_USER,      Ruser,      "User time (us)",          "%" PRId64) \
@@ -152,7 +195,7 @@ typedef union accessor {
 
 #define FIRST(a, b, c, d) a,
 enum FieldCodes {RFieldDecls(FIRST) SFieldDecls(FIRST)};
-extern const accessor FieldAccessors[];
+extern accessor *FieldAccessors[];
 extern const char *FieldHeaders[];
 extern const char *FieldFormats[];
 

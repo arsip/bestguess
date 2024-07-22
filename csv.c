@@ -98,15 +98,26 @@ void write_stat_header(FILE *f) {
 }
 
 // TODO: cmd accessor returning this: *(s->cmd) ? s->cmd : shell
-// TODO: Put accessors into Field list
+
+#define WRITEFIELD(f, fieldcode, record) do {				\
+    if (string_typep(fieldcode))					\
+      WRITEFMT(f, FieldFormats[fieldcode],				\
+	       get_string_field(fieldcode, record));			\
+    else								\
+      WRITEFMT(f, FieldFormats[fieldcode],				\
+	       get_int_field(fieldcode, record));			\
+  } while (0)
 
 void write_stat_line(FILE *f, summary *s) {
   int i = 0;
-//   while (stats[i+1] != F_END) {
-//     WRITESEP(f, stats[i], accessors[i]( TODO ));
-//     i++;
-//   }
-//   WRITELN(f, stats[i], accessors[i]( TODO ) );
+  int64_t n;
+  const char *str;
+  WRITEFIELD(f, stats[0], s); SEP;
+  while (stats[i] != F_END) {
+    WRITEFIELD(f, stats[i], s); SEP;
+    i++;
+  }
+  NEWLINE;
   fflush(f);
 }
 

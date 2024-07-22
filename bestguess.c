@@ -37,7 +37,7 @@ char *hf_filename = NULL;
 const char *shell = NULL;
 
 #define SECOND(a, b, c, d) b,
-const accessor FieldAccessors[] = { RFieldDecls(SECOND) SFieldDecls(SECOND) NULL };
+accessor *FieldAccessors[] = { RFieldDecls(SECOND) SFieldDecls(SECOND) NULL };
 #define THIRD(a, b, c, d) c,
 const char *Headers[] = { RFieldDecls(THIRD) SFieldDecls(THIRD) NULL };
 #define FOURTH(a, b, c, d) d,
