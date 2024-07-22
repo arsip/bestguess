@@ -12,9 +12,9 @@
 // -----------------------------------------------------------------------------
 
 void write_header(FILE *f) {
-  for (int i = 0; i < (F_LAST - 1); i++)
-    fprintf(f, "%s,", Headers[i]);
-  fprintf(f, "%s\n", Headers[F_LAST - 1]);
+  for (int i = 0; i < (F_END - 1); i++)
+    fprintf(f, "%s,", FieldHeaders[i]);
+  fprintf(f, "%s\n", FieldHeaders[F_END - 1]);
   fflush(f);
 }
 
@@ -45,21 +45,21 @@ void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   if (shell_cmd) WRITESEP(f, F_SHELL, shell_cmd);
   else SEP;
   // User time in microseconds
-  WRITESEP(f, F_USER, usertime(usage));
+  WRITESEP(f, F_USER, Ruser(usage));
   // System time in microseconds
-  WRITESEP(f, F_SYSTEM, systemtime(usage));
+  WRITESEP(f, F_SYS, Rsys(usage));
   // Max RSS in kibibytes
   // ru_maxrss (since Linux 2.6.32) This is the maximum resident set size used (in kilobytes).
   // When the above was written, a kilobyte meant 1024 bytes.
-  WRITESEP(f, F_RSS, usage->ru_maxrss);
+  WRITESEP(f, F_RSS, Rrss);
   // Page reclaims (count):
   // The number of page faults serviced without any I/O activity; here
   // I/O activity is avoided by “reclaiming” a page frame from the
   // list of pages awaiting reallocation.
-  WRITESEP(f, F_RECLAIMS, usage->ru_minflt);
+  WRITESEP(f, F_PGREC, Rpgrec);
   // Page faults (count):
   // The number of page faults serviced that required I/O activity.
-  WRITESEP(f, F_FAULTS, usage->ru_majflt);
+  WRITESEP(f, F_PGFLT, usage->ru_majflt);
   // Voluntary context switches:
   // The number of times a context switch resulted due to a process
   // voluntarily giving up the processor before its time slice was
@@ -74,6 +74,40 @@ void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   fflush(f);
   free(escaped_cmd);
   free(shell_cmd);
+}
+
+// -----------------------------------------------------------------------------
+// Summary statistics file
+// -----------------------------------------------------------------------------
+
+const enum FieldCodes stats[] = {F_CMD,
+				 F_EXIT,
+				 F_SHELL,
+				 F_END};
+
+
+// Assumes at least one field code in 'stats' before F_END
+void write_stat_header(FILE *f) {
+  int i = 0;
+  while (stats[i+1] != F_END) {
+    fprintf(f, "%s,", FieldHeaders[stats[i]]);
+    i++;
+  }
+  fprintf(f, "%s\n", FieldHeaders[stats[i]]);
+  fflush(f);
+}
+
+// TODO: cmd accessor returning this: *(s->cmd) ? s->cmd : shell
+// TODO: Put accessors into Field list
+
+void write_stat_line(FILE *f, summary *s) {
+  int i = 0;
+//   while (stats[i+1] != F_END) {
+//     WRITESEP(f, stats[i], accessors[i]( TODO ));
+//     i++;
+//   }
+//   WRITELN(f, stats[i], accessors[i]( TODO ) );
+  fflush(f);
 }
 
 // -----------------------------------------------------------------------------
@@ -105,7 +139,3 @@ void write_hf_line(FILE *f, summary *s) {
   WRITEFMT(f, "%f", (double) s->total.max / million); NEWLINE;
   fflush(f);
 }
-
-
-
-
