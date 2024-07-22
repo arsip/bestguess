@@ -31,21 +31,33 @@ void bail(const char *msg) {
 // Accessors and comparators for rusage fields
 // -----------------------------------------------------------------------------
 
-#define MAKE_RACCESSOR(name, exp)		\
-  int64_t name(struct rusage *u) {		\
-    return exp;					\
-  }
+int64_t rss(struct rusage *usage) {
+  return usage->ru_maxrss;
+}
 
-MAKE_RACCESSOR(Ruser, u->ru_utime.tv_sec * 1000000 + u->ru_utime.tv_usec);
-MAKE_RACCESSOR(Rsys, u->ru_stime.tv_sec * 1000000 + u->ru_stime.tv_usec);
-MAKE_RACCESSOR(Rtotal, Ruser(u) + Rsys(u));
-MAKE_RACCESSOR(Rrss,   u->ru_maxrss);
-MAKE_RACCESSOR(Rvcsw,  u->ru_nvcsw);
-MAKE_RACCESSOR(Ricsw,  u->ru_nivcsw);
-MAKE_RACCESSOR(Rtcsw,  Rvcsw(u) + Ricsw(u));
-MAKE_RACCESSOR(Rpgrec, u->ru_minflt);
-MAKE_RACCESSOR(Rpgflt, u->ru_majflt);
+int64_t usertime(struct rusage *usage) {
+  return usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
+}
 
+int64_t systemtime(struct rusage *usage) {
+  return usage->ru_stime.tv_sec * 1000 * 1000 + usage->ru_stime.tv_usec;
+}
+
+int64_t totaltime(struct rusage *usage) {
+  return usertime(usage) + systemtime(usage);
+}
+
+int64_t vcsw(struct rusage *usage) {
+  return usage->ru_nvcsw;
+}
+
+int64_t icsw(struct rusage *usage) {
+  return usage->ru_nivcsw;
+}
+
+int64_t tcsw(struct rusage *usage) {
+  return vcsw(usage) + icsw(usage);
+}
 
 // The arg order for comparators passed to qsort_r differs between
 // linux and macos.
@@ -79,11 +91,11 @@ MAKE_RACCESSOR(Rpgflt, u->ru_majflt);
   }
 #endif
 
-MAKE_COMPARATOR(Ruser)
-MAKE_COMPARATOR(Rsys)
-MAKE_COMPARATOR(Rtotal)
-MAKE_COMPARATOR(Rrss)
-MAKE_COMPARATOR(Rtcsw)
+MAKE_COMPARATOR(usertime)
+MAKE_COMPARATOR(systemtime)
+MAKE_COMPARATOR(totaltime)
+MAKE_COMPARATOR(rss)
+MAKE_COMPARATOR(tcsw)
 
 // -----------------------------------------------------------------------------
 // Parsing utilities

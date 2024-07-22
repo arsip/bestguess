@@ -20,9 +20,7 @@ typedef struct measures {
 // Statistical summary of a set of runs of a single command
 typedef struct summary {
   char     *cmd;
-  char     *shell;
   int       runs;
-  int       code;
   measures  user;
   measures  system;
   measures  total;

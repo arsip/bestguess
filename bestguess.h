@@ -12,7 +12,6 @@
 
 #include <stdlib.h>
 #include <inttypes.h>
-#include "stats.h"
 
 extern const char *progversion;
 extern const char *progname;
@@ -81,79 +80,58 @@ enum Options {
 };
 
 // -----------------------------------------------------------------------------
-// Complete list of fields to write to output files of any kind
+// Field accessors (rusage) and comparators 
+// -----------------------------------------------------------------------------
+
+int64_t rss(struct rusage *usage);
+int64_t usertime(struct rusage *usage);
+int64_t systemtime(struct rusage *usage);
+int64_t totaltime(struct rusage *usage);
+int64_t vcsw(struct rusage *usage);
+int64_t icsw(struct rusage *usage);
+int64_t tcsw(struct rusage *usage);
+
+// The arg order for comparators passed to qsort_r differs between
+// linux and macos.
+#ifdef __linux__
+typedef int (comparator)(const void *, const void *, void *);
+#else
+typedef int (comparator)(void *, const void *, const void *);
+#endif
+
+#define COMPARATOR(accessor) comparator compare_##accessor
+
+COMPARATOR(usertime);
+COMPARATOR(systemtime);
+COMPARATOR(totaltime);
+COMPARATOR(rss);
+COMPARATOR(tcsw);
+
+// -----------------------------------------------------------------------------
+// Output file (CSV)
 // -----------------------------------------------------------------------------
      
-typedef union accessor {
-  const char *(*get_string)(summary *);
-  int         (*get_int)(summary *);
-  int64_t     (*get_usage)(struct rusage *);
-  int64_t     (*get_stat)(summary *);
-} accessor;
+// This list is the order in which fields will print in the CSV output
+#define XFields(X)					    \
+  X(F_CMD,      "Command",                      "\"%s\"")   \
+  X(F_EXIT,     "Exit code",                    "%d")	    \
+  X(F_SHELL,    "Shell",                        "\"%s\"")   \
+  X(F_USER,     "User time (us)",               "%" PRId64) \
+  X(F_SYSTEM,   "System time (us)",             "%" PRId64) \
+  X(F_RSS,      "Max RSS (Bytes)",              "%ld")	    \
+  X(F_RECLAIMS, "Page Reclaims",                "%ld")	    \
+  X(F_FAULTS,   "Page Faults",                  "%ld")	    \
+  X(F_VCSW,     "Voluntary Context Switches",   "%ld")	    \
+  X(F_ICSW,     "Involuntary Context Switches", "%ld")	
 
-#define RFieldDecls(X)						    \
-  X(F_USER,      Ruser,      "User time (us)",          "%" PRId64) \
-  X(F_SYS,       Rsys,       "System time (us)",        "%" PRId64) \
-  X(F_TOTAL,     Rtotal,     "Total time (us)",         "%" PRId64) \
-  X(F_RSS,       Rrss,       "Max RSS (Bytes)",         "%ld")      \
-  X(F_PGREC,     Rpgrec,     "Page Reclaims",           "%ld")	    \
-  X(F_PGFLT,     Rpgflt,     "Page Faults",             "%ld")	    \
-  X(F_VCSW,      Rvcsw,      "Vol Ctx Sw",              "%ld")	    \
-  X(F_ICSW,      Ricsw,      "Total Ctx Sw",            "%ld")      \
-  X(F_TCSW,      Rtcsw,      "Total Ctx Sw",            "%ld")      \
-  X(F_R,         NULL,       "Sentinel",                NULL)
+// Below are pseudo field names used only for computing summary
+// statistics.  They are never written to the raw data output file.
+#define F_TOTAL -1
+#define F_TCSW -2
 
-#define SFieldDecls(X)						    \
-  X(F_CMD = F_R, Scommand,   "Command",                 "\"%s\"")   \
-  X(F_EXIT,      Scode,      "Exit code",               "%d")       \
-  X(F_SHELL,     Sshell,     "Shell",                   "\"%s\"")   \
-       								    \
-  X(F_USERMED,   Susermed,   "User time median (us)",   "%" PRId64) \
-  X(F_USERMODE,  Susermode,  "User time mode (us)",     "%" PRId64) \
-  X(F_USERMIN,   Susermin,   "User time min (us)",      "%" PRId64) \
-  X(F_USERMAX,   Susermax,   "User time max (us)",      "%" PRId64) \
-       								    \
-  X(F_SYSMED,    Ssysmed,    "System time median (us)", "%" PRId64) \
-  X(F_SYSMODE,   Ssysmode,   "System time mode (us)",   "%" PRId64) \
-  X(F_SYSMIN,    Ssysmin,    "System time min (us)",    "%" PRId64) \
-  X(F_SYSMAX,    Ssysmax,    "System time max (us)",    "%" PRId64) \
-  								    \
-  X(F_TOTALMED,  Stotalmed,  "Total time median (us)",  "%" PRId64) \
-  X(F_TOTALMODE, Stotalmode, "Total time mode (us)",    "%" PRId64) \
-  X(F_TOTALMIN,  Stotalmin,  "Total time min (us)",     "%" PRId64) \
-  X(F_TOTALMAX,  Stotalmax,  "Total time max (us)",     "%" PRId64) \
-  								    \
-  X(F_RSSMED,    Srssmed,    "Max RSS median (Bytes)",  "%ld")      \
-  X(F_RSSMODE,   Srssmode,   "Max RSS mode (Bytes)",    "%ld")      \
-  X(F_RSSMIN,    Srssmin,    "Max RSS min (Bytes)",     "%ld")      \
-  X(F_RSSMAX,    Srssmax,    "Max RSS max (Bytes)",     "%ld")      \
-  								    \
-  X(F_PGRECMED,  Spgrecmed,  "Page Reclaims median",    "%ld")	    \
-  X(F_PGRECMODE, Spgrecmode, "Page Reclaims mode",      "%ld")	    \
-  X(F_PGRECMIN,  Spgrecmin,  "Page Reclaims min",       "%ld")	    \
-  X(F_PGRECMAX,  Spgrecmax,  "Page Reclaims max",       "%ld")	    \
-								    \
-  X(F_PGFLTMED,  Spgfltmed,  "Page Faults median",      "%ld")	    \
-  X(F_PGFLTMODE, Spgfltmode, "Page Faults mode",        "%ld")	    \
-  X(F_PGFLTMIN,  Spgfltmin,  "Page Faults min",         "%ld")	    \
-  X(F_PGFLTMAX,  Spgfltmax,  "Page Faults max",         "%ld")	    \
-								    \
-  X(F_VCSWMED,   Svcswmed,   "Vol Cts Sw median",       "%ld")      \
-  X(F_VCSWMODE,  Svcswmode,  "Vol Cts Sw mode",         "%ld")	    \
-  X(F_VCSWMIN,   Svcswmin,   "Vol Cts Sw min",          "%ld")      \
-  X(F_VCSWMAX,   Svcswmax,   "Vol Cts Sw max",          "%ld")      \
-								    \
-  X(F_ICSWMED,   Sicswmed,   "Invol Cts Sw median",     "%ld")	    \
-  X(F_ICSWMODE,  Sicswmode,  "Invol Cts Sw mode",       "%ld")	    \
-  X(F_ICSWMIN,   Sicswmin,   "Invol Cts Sw min",        "%ld")      \
-  X(F_ICSWMAX,   Sicswmax,   "Invol Cts Sw max",        "%ld")      \
-  X(F_END,       NULL,       "Sentinel",                NULL)       
-
-
-#define FIRST(a, b, c, d) a,
-enum FieldCodes {RFieldDecls(FIRST) SFieldDecls(FIRST)};
-extern const accessor FieldAccessors[];
-extern const char *FieldHeaders[];
+#define FIRST(a, b, c) a,
+enum FieldCodes {XFields(FIRST) F_LAST};
+extern const char *Headers[];
 extern const char *FieldFormats[];
 
 #endif
