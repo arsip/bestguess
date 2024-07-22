@@ -6,7 +6,6 @@
 
 #include "bestguess.h"
 #include "reports.h"
-#include "utils.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -79,12 +78,12 @@ void print_graph(summary *s, struct rusage *usagedata) {
   int64_t tmax = s->total.max;
   printf("0%*smax\n", maxbars - 3, "");
   for (int i = 0; i < runs; i++) {
-    bars = (int) (Rtotal(&usagedata[i]) * maxbars / tmax);
+    bars = (int) (totaltime(&usagedata[i]) * maxbars / tmax);
     if (bars <= maxbars)
       printf("|%.*s\n", bars * bytesperbar, BAR);
     else
       printf("|time exceeds plot size: %" PRId64 " us\n",
-	     Rtotal(&usagedata[i]));
+	     totaltime(&usagedata[i]));
   }
   fflush(stdout);
 }
