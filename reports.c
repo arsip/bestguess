@@ -12,10 +12,9 @@
 
 #define FMT "%6.1f %-3s"
 #define FMTs "%6.3f %-3s"
-#define IFMT "%7" PRId64
-#define LABEL "  %-18s"
-#define SHORTLABEL "  %-17s"
-#define GAP "     "
+#define IFMT "%6" PRId64
+#define LABEL "    %-16s "
+#define GAP "   "
 
 void print_command_summary(summary *s) {
   printf(LABEL "    Mode " GAP "   Median " GAP "          Range\n", "");
@@ -64,7 +63,7 @@ void print_command_summary(summary *s) {
 	   (double) s->rss.min / (1024.0 * 1024.0), "MiB",
 	   (double) s->rss.max / (1024.0 * 1024.0), "MiB");
 
-    printf(SHORTLABEL IFMT " ct" GAP IFMT " ct" GAP IFMT " ct  -" IFMT " ct\n",
+    printf(LABEL IFMT " ct " GAP IFMT " ct " GAP IFMT " ct  - " IFMT " ct\n",
 	   "Context switches",
 	   s->tcsw.mode, s->tcsw.median, s->tcsw.min, s->tcsw.max);
   }
@@ -83,7 +82,7 @@ void print_graph(summary *s, struct rusage *usagedata) {
   for (int i = 0; i < runs; i++) {
     bars = (int) (totaltime(&usagedata[i]) * maxbars / tmax);
     if (bars <= maxbars)
-      printf("|%.*s%*s|\n", bars * bytesperbar, BAR, maxbars - bars, "");
+      printf("|%.*s\n", bars * bytesperbar, BAR);
     else
       printf("|time exceeds plot size: %" PRId64 " us\n",
 	     totaltime(&usagedata[i]));
