@@ -27,6 +27,8 @@ typedef struct summary {
   measures  system;
   measures  total;
   measures  rss;
+  measures  vcsw;
+  measures  icsw;
   measures  tcsw;
 } summary;
 

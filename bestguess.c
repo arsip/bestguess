@@ -92,12 +92,12 @@ static int bad_option_value(const char *val, int n) {
 }
 
 #define SCANINT(val, intvar, posvar, desc) do {			\
-    if (bad_option_value(val, n)) exit(-1);			\
+    if (bad_option_value(val, n)) bail("Exiting");		\
     int scancount = sscanf(val, "%d%n", &(intvar), &(posvar));	\
     if ((scancount != 1) || (posvar != (int) strlen(val))) {	\
       fprintf(stderr, "Failed to get %s from '%s'\n",		\
 	      desc, val);					\
-      exit(-1);							\
+      bail("Exiting");						\
     }								\
   } while (0)
 
@@ -123,20 +123,20 @@ static int process_args(int argc, char **argv) {
 	continue;
       }
       fprintf(stderr, "Error: invalid option/switch '%s'\n", argv[i]);
-      exit(-1);
+      bail("Exiting");
     }
     if (first_command) {
       fprintf(stderr, "Error: options found after first command '%s'\n",
 	      argv[first_command]);
-      exit(-1);
+      bail("Exiting"); 
     }
     switch (n) {
       case OPT_BRIEF:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	brief_summary = 1;
 	break;
       case OPT_GRAPH:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	show_graph = 1;
 	break;
       case OPT_WARMUP:
@@ -146,7 +146,7 @@ static int process_args(int argc, char **argv) {
 	SCANINT(val, runs, posn, "number of runs");
 	break;
       case OPT_OUTPUT:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	if (strcmp(val, "-") == 0) {
 	  output_to_stdout = 1;
 	} else {
@@ -155,40 +155,40 @@ static int process_args(int argc, char **argv) {
 	}
 	break;
       case OPT_FILE:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	input_filename = strdup(val);
 	break;
       case OPT_SHOWOUTPUT:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	show_output = 1;
 	break;
       case OPT_IGNORE:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	ignore_failure = 1;
 	break;
       case OPT_SHELL:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	shell = val;
 	break;
       case OPT_HFCSV:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	hf_filename = strdup(val);
 	break;
       case OPT_CSV:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	csv_filename = strdup(val);
 	break;
       case OPT_VERSION:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	return n;
 	break;
       case OPT_HELP:
-	if (bad_option_value(val, n)) exit(-1);
+	if (bad_option_value(val, n)) bail("Exiting");
 	return n;
 	break;
       default:
 	fprintf(stderr, "Error: invalid option index %d\n", n);
-	exit(-1);
+	bail("Exiting");
     }
   }
   return -1;

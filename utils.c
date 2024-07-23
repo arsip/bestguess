@@ -95,6 +95,8 @@ MAKE_COMPARATOR(usertime)
 MAKE_COMPARATOR(systemtime)
 MAKE_COMPARATOR(totaltime)
 MAKE_COMPARATOR(rss)
+MAKE_COMPARATOR(vcsw)
+MAKE_COMPARATOR(icsw)
 MAKE_COMPARATOR(tcsw)
 
 // -----------------------------------------------------------------------------
@@ -256,8 +258,7 @@ static int unescape_char(const char *p) {
 }
 
 // Very simple unescaping, because it's not clear we need more.  The
-// escape char is backslash '\' and we examine the char that follows,
-// changing \\, \", \', \n, \r, \t, and otherwise dropping the '\'.
+// escape char is backslash '\'.
 char *unescape(const char *str) {
   if (!str) return NULL;
   int chr, i = 0;
@@ -275,15 +276,17 @@ char *unescape(const char *str) {
 	result[i++] = *str;
       else
 	result[i++] = chr;
+      str++;
     } else {
-      result[i++] = *str;
-    }
-    str++;
+      // *str is not backslash
+      result[i++] = *str++;
+    } 
   }
   result[i] = '\0';
   return result;
 }
 	
+// We use "" to escape ", because that is more common in CSV files than \".
 char *escape(const char *str) {
   if (!str) return NULL;
   int chr, i = 0;
@@ -294,7 +297,7 @@ char *escape(const char *str) {
       // No escape needed
       result[i++] = *str;
     } else {
-      result[i++] = '\\';
+      result[i++] = (*str == '"') ? '"' : '\\';
       result[i++] = chr;
     }
     str++;

@@ -5,17 +5,20 @@
 //  Copyright (C) Jamie A. Jennings, 2024
 
 #include "bestguess.h"
+#include "utils.h"
 #include "reports.h"
 #include <stdio.h>
 #include <string.h>
 
 #define FMT "%6.1f %-3s"
 #define FMTs "%6.3f %-3s"
-#define IFMT "%6" PRId64
-#define LABEL "  %-16s"
+#define IFMT "%7" PRId64
+#define LABEL "  %-18s"
+#define SHORTLABEL "  %-17s"
+#define GAP "     "
 
 void print_command_summary(summary *s) {
-  printf("                      Mode       Median               Range\n");
+  printf(LABEL "    Mode " GAP "   Median " GAP "          Range\n", "");
 
   if (runs < 1) {
     printf("    No data (number of timed runs was %d)\n", runs);
@@ -27,11 +30,11 @@ void print_command_summary(summary *s) {
   
   // Decide on which time unit to use for printing the summary
   if (s->total.max > (1000 * 1000)) {
-    timefmt = LABEL FMTs "  " FMTs "     " FMTs " - " FMTs "\n",
+    timefmt = LABEL FMTs GAP FMTs GAP FMTs " - " FMTs "\n",
     units = "s";
     divisor = 1000.0 * 1000.0;
   } else {
-    timefmt = LABEL FMT "  " FMT "     " FMT " - " FMT "\n",
+    timefmt = LABEL FMT GAP FMT GAP FMT " - " FMT "\n",
     units = "ms";
     divisor = 1000.0;
   }
@@ -61,7 +64,7 @@ void print_command_summary(summary *s) {
 	   (double) s->rss.min / (1024.0 * 1024.0), "MiB",
 	   (double) s->rss.max / (1024.0 * 1024.0), "MiB");
 
-    printf(LABEL IFMT " count" IFMT " cnt     " IFMT " cnt - " IFMT " cnt\n",
+    printf(SHORTLABEL IFMT " ct" GAP IFMT " ct" GAP IFMT " ct  -" IFMT " ct\n",
 	   "Context switches",
 	   s->tcsw.mode, s->tcsw.median, s->tcsw.min, s->tcsw.max);
   }
@@ -76,11 +79,11 @@ void print_graph(summary *s, struct rusage *usagedata) {
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int maxbars = strlen(BAR) / bytesperbar;
   int64_t tmax = s->total.max;
-  printf("0%*smax\n", maxbars - 3, "");
+  printf("0%*smax\n", maxbars - 1, "");
   for (int i = 0; i < runs; i++) {
     bars = (int) (totaltime(&usagedata[i]) * maxbars / tmax);
     if (bars <= maxbars)
-      printf("|%.*s\n", bars * bytesperbar, BAR);
+      printf("|%.*s%*s|\n", bars * bytesperbar, BAR, maxbars - bars, "");
     else
       printf("|time exceeds plot size: %" PRId64 " us\n",
 	     totaltime(&usagedata[i]));

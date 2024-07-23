@@ -23,18 +23,19 @@ static int run(const char *cmd, struct rusage *usage) {
   // In the error checks below, we can exit immediately on error,
   // because a warning will have already been issued
   arglist *args = new_arglist(MAXARGS);
-  if (!args) exit(-1);		               
+  if (!args) bail("Exiting");		               
 
   if (use_shell) {
-    if (split_unescape(shell, args)) exit(-1);
+    if (split_unescape(shell, args)) bail("Exiting");
     add_arg(args, strdup(cmd));
   } else {
-    if (split_unescape(cmd, args)) exit(-1);
+    if (split_unescape(cmd, args)) bail("Exiting");
   }
 
   if (DEBUG) {
     printf("Arguments to pass to exec:\n");
     print_arglist(args);
+    fflush(NULL);
   }
 
   // Goin' for a ride!

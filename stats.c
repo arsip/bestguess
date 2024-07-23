@@ -149,6 +149,8 @@ summary *summarize(char *cmd, int fail_count, struct rusage *usagedata) {
   measure(usagedata, usertime, compare_usertime, &s->user);
   measure(usagedata, systemtime, compare_systemtime, &s->system);
   measure(usagedata, rss, compare_rss, &s->rss);
+  measure(usagedata, vcsw, compare_vcsw, &s->vcsw);
+  measure(usagedata, icsw, compare_icsw, &s->icsw);
   measure(usagedata, tcsw, compare_tcsw, &s->tcsw);
 
   return s;
