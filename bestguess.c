@@ -32,6 +32,7 @@ int ignore_failure = 0;
 int output_to_stdout = 0;
 char *input_filename = NULL;
 char *output_filename = NULL;
+char *csv_filename = NULL;
 char *hf_filename = NULL;
 const char *shell = NULL;
 
@@ -49,7 +50,8 @@ const char *FieldFormats[] = {XFields(THIRD) NULL};
 #define HELP_SHOWOUTPUT "Show output of commands as they run"
 #define HELP_IGNORE "Ignore non-zero exit codes"
 #define HELP_SHELL "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands"
-#define HELP_HFCSV "Write Hyperfine-style CSV summary to <FILE>"
+#define HELP_CSV "Write statistical summary to CSV <FILE>"
+#define HELP_HFCSV "Write Hyperfine-style summary to CSV <FILE>"
 
 static void init_options(void) {
   optable_add(OPT_WARMUP,     "w",  "warmup",         1, HELP_WARMUP);
@@ -61,6 +63,7 @@ static void init_options(void) {
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, HELP_SHOWOUTPUT);
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, HELP_IGNORE);
   optable_add(OPT_SHELL,      "S",  "shell",          1, HELP_SHELL);
+  optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
@@ -170,6 +173,10 @@ static int process_args(int argc, char **argv) {
       case OPT_HFCSV:
 	if (bad_option_value(val, n)) exit(-1);
 	hf_filename = strdup(val);
+	break;
+      case OPT_CSV:
+	if (bad_option_value(val, n)) exit(-1);
+	csv_filename = strdup(val);
 	break;
       case OPT_VERSION:
 	if (bad_option_value(val, n)) exit(-1);

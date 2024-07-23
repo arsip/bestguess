@@ -59,6 +59,7 @@ extern int ignore_failure;
 extern int output_to_stdout;
 extern char *input_filename;
 extern char *output_filename;
+extern char *csv_filename;
 extern char *hf_filename;
 extern const char *shell;
 
@@ -74,6 +75,7 @@ enum Options {
   OPT_SHOWOUTPUT,
   OPT_IGNORE,
   OPT_SHELL,
+  OPT_CSV,			// BestGuess format CSV
   OPT_HFCSV,			// Hyperfine format CSV
   OPT_VERSION,
   OPT_HELP,

@@ -103,7 +103,7 @@ void print_overall_summary(const char *commands[],
       fastest = mediantimes[i];
       best = i;
     }
-  printf("Best guess is\n");
+  printf("Best guess is that...\n");
   printf("  %s ran\n", *commands[best] ? commands[best] : "(empty)");
   for (int i = 0; i < n; i++) {
     if (i != best) {

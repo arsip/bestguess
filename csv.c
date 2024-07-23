@@ -38,7 +38,7 @@ void write_header(FILE *f) {
 
 void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   char *escaped_cmd = escape(cmd);
-  char *shell_cmd = shell ? escape(shell) : NULL;
+  char *shell_cmd = escape(shell);
 
   WRITESEP(f, F_CMD,   escaped_cmd);
   WRITESEP(f, F_EXIT,  code);
@@ -75,6 +75,32 @@ void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   free(escaped_cmd);
   free(shell_cmd);
 }
+
+// -----------------------------------------------------------------------------
+// Summary statistics file
+// -----------------------------------------------------------------------------
+
+void write_summary_header(FILE *f) {
+  WRITEFMT(f, "%s,", "Command");
+  WRITEFMT(f, "%s,", "Shell");
+
+
+  WRITEFMT(f, "%s\n", "Failed");
+  fflush(f);
+}
+
+void write_summary_line(FILE *f, summary *s) {
+  char *escaped_cmd = escape(s->cmd);
+  char *shell_cmd = escape(shell);
+  WRITESEP(f, F_CMD, escaped_cmd);
+  if (shell) WRITESEP(f, F_SHELL, shell_cmd);
+  else SEP;
+  WRITELN(f, F_EXIT, s->fail_count);
+  fflush(f);
+  free(escaped_cmd);
+  free(shell_cmd);
+}
+
 
 // -----------------------------------------------------------------------------
 // Hyperfine-format file

@@ -7,6 +7,7 @@
 #include "bestguess.h"
 #include "utils.h"
 #include "stats.h"
+#include <string.h>
 
 /* 
    Note: For a log-normal distribution, the geometric mean is the
@@ -125,19 +126,22 @@ static summary *new_summary(void) {
 
 void free_summary(summary *s) {
   free(s->cmd);
+  free(s->shell);
   free(s);
 }
 
-summary *summarize(char *cmd, struct rusage *usagedata) {
+summary *summarize(char *cmd, int fail_count, struct rusage *usagedata) {
 
   summary *s = new_summary();
 
-  s->cmd = escape(cmd);
+  s->cmd = strdup(cmd);
+  s->shell = shell ? strdup(shell) : NULL;
   s->runs = runs;
+  s->fail_count = fail_count;
 
   if (runs < 1) {
     // No data to process, and 's' contains all zeros in the numeric
-    // fields except for number of runs
+    // fields except for number of runs as set above
     return s;
   }
 
