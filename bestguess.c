@@ -210,7 +210,7 @@ int main(int argc, char *argv[]) {
   immediate = process_args(argc, argv);
   
   if (immediate == OPT_VERSION) {
-    printf("%s: %s\n", progname, progversion);
+    printf("%s %s\n", progname, progversion);
     exit(0);
   } else if (immediate == OPT_HELP) {
     optable_printhelp(progname);
