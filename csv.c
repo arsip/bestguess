@@ -38,7 +38,7 @@ void write_header(FILE *f) {
 
 void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   char *escaped_cmd = escape(cmd);
-  char *shell_cmd = shell ? escape(shell) : NULL;
+  char *shell_cmd = escape(shell);
 
   WRITESEP(f, F_CMD,   escaped_cmd);
   WRITESEP(f, F_EXIT,  code);
@@ -75,6 +75,90 @@ void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   free(escaped_cmd);
   free(shell_cmd);
 }
+
+// -----------------------------------------------------------------------------
+// Summary statistics file
+// -----------------------------------------------------------------------------
+
+void write_summary_header(FILE *f) {
+  WRITEFMT(f, "%s,", "Command");
+  WRITEFMT(f, "%s,", "Shell");
+  WRITEFMT(f, "%s,", "Runs (ct)");
+  WRITEFMT(f, "%s,", "Failed (ct)");
+  WRITEFMT(f, "%s,", "User min (us)");
+  WRITEFMT(f, "%s,", "User max (us)");
+  WRITEFMT(f, "%s,", "User median (us)");
+  WRITEFMT(f, "%s,", "User mode (us)");
+  WRITEFMT(f, "%s,", "System min (us)");
+  WRITEFMT(f, "%s,", "System max (us)");
+  WRITEFMT(f, "%s,", "System median (us)");
+  WRITEFMT(f, "%s,", "System mode (us)");
+  WRITEFMT(f, "%s,", "Total min (us)");
+  WRITEFMT(f, "%s,", "Total max (us)");
+  WRITEFMT(f, "%s,", "Total median (us)");
+  WRITEFMT(f, "%s,", "Total mode (us)");
+  WRITEFMT(f, "%s,", "Max RSS min (bytes)");
+  WRITEFMT(f, "%s,", "Max RSS max (bytes)");
+  WRITEFMT(f, "%s,", "Max RSS median (bytes)");
+  WRITEFMT(f, "%s,", "Max RSS mode (bytes)");
+  WRITEFMT(f, "%s,", "Vol Ctx Sw min (ct)");
+  WRITEFMT(f, "%s,", "Vol Ctx Sw max (ct)");
+  WRITEFMT(f, "%s,", "Vol Ctx Sw median (ct)");
+  WRITEFMT(f, "%s,", "Vol Ctx Sw mode (us)");
+  WRITEFMT(f, "%s,", "Invol Ctx Sw min (ct)");
+  WRITEFMT(f, "%s,", "Invol Ctx Sw max (ct)");
+  WRITEFMT(f, "%s,", "Invol Ctx Sw median (ct)");
+  WRITEFMT(f, "%s,", "Invol Ctx Sw mode (ct)");
+  WRITEFMT(f, "%s,", "Total Ctx Sw min (ct)");
+  WRITEFMT(f, "%s,", "Total Ctx Sw max (ct)");
+  WRITEFMT(f, "%s,", "Total Ctx Sw median (ct)");
+  WRITEFMT(f, "%s\n", "Total Ctx Sw mode (ct)");
+  fflush(f);
+}
+
+void write_summary_line(FILE *f, summary *s) {
+  char *escaped_cmd = escape(s->cmd);
+  char *shell_cmd = escape(shell);
+  WRITESEP(f, F_CMD, escaped_cmd);
+  if (shell)
+    WRITESEP(f, F_SHELL, shell_cmd);
+  else
+    SEP;
+  WRITEFMT(f, "%d,", s->runs);
+  WRITEFMT(f, "%d,", s->fail_count);
+  WRITESEP(f, F_USER, s->user.min);
+  WRITESEP(f, F_USER, s->user.max);
+  WRITESEP(f, F_USER, s->user.median);
+  WRITESEP(f, F_USER, s->user.mode);
+  WRITESEP(f, F_SYSTEM, s->system.min);
+  WRITESEP(f, F_SYSTEM, s->system.max);
+  WRITESEP(f, F_SYSTEM, s->system.median);
+  WRITESEP(f, F_SYSTEM, s->system.mode);
+  WRITESEP(f, F_TOTAL, s->total.min);
+  WRITESEP(f, F_TOTAL, s->total.max);
+  WRITESEP(f, F_TOTAL, s->total.median);
+  WRITESEP(f, F_TOTAL, s->total.mode);
+  WRITESEP(f, F_RSS, s->rss.min);
+  WRITESEP(f, F_RSS, s->rss.max);
+  WRITESEP(f, F_RSS, s->rss.median);
+  WRITESEP(f, F_RSS, s->rss.mode);
+  WRITESEP(f, F_VCSW, s->vcsw.min);
+  WRITESEP(f, F_VCSW, s->vcsw.max);
+  WRITESEP(f, F_VCSW, s->vcsw.median);
+  WRITESEP(f, F_VCSW, s->vcsw.mode);
+  WRITESEP(f, F_ICSW, s->icsw.min);
+  WRITESEP(f, F_ICSW, s->icsw.max);
+  WRITESEP(f, F_ICSW, s->icsw.median);
+  WRITESEP(f, F_ICSW, s->icsw.mode);
+  WRITESEP(f, F_TCSW, s->tcsw.min);
+  WRITESEP(f, F_TCSW, s->tcsw.max);
+  WRITESEP(f, F_TCSW, s->tcsw.median);
+  WRITELN(f,  F_TCSW, s->tcsw.mode);
+  fflush(f);
+  free(escaped_cmd);
+  free(shell_cmd);
+}
+
 
 // -----------------------------------------------------------------------------
 // Hyperfine-format file

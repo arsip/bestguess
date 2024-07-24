@@ -20,15 +20,19 @@ typedef struct measures {
 // Statistical summary of a set of runs of a single command
 typedef struct summary {
   char     *cmd;
+  char     *shell;
   int       runs;
+  int       fail_count;
   measures  user;
   measures  system;
   measures  total;
   measures  rss;
+  measures  vcsw;
+  measures  icsw;
   measures  tcsw;
 } summary;
 
-summary *summarize(char *cmd, struct rusage *usagedata);
+summary *summarize(char *cmd, int fail_count, struct rusage *usagedata);
 void     free_summary(summary *s);
 
 

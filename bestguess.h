@@ -59,6 +59,7 @@ extern int ignore_failure;
 extern int output_to_stdout;
 extern char *input_filename;
 extern char *output_filename;
+extern char *csv_filename;
 extern char *hf_filename;
 extern const char *shell;
 
@@ -74,60 +75,29 @@ enum Options {
   OPT_SHOWOUTPUT,
   OPT_IGNORE,
   OPT_SHELL,
+  OPT_CSV,			// BestGuess format CSV
   OPT_HFCSV,			// Hyperfine format CSV
   OPT_VERSION,
   OPT_HELP,
 };
 
 // -----------------------------------------------------------------------------
-// Field accessors (rusage) and comparators 
-// -----------------------------------------------------------------------------
-
-int64_t rss(struct rusage *usage);
-int64_t usertime(struct rusage *usage);
-int64_t systemtime(struct rusage *usage);
-int64_t totaltime(struct rusage *usage);
-int64_t vcsw(struct rusage *usage);
-int64_t icsw(struct rusage *usage);
-int64_t tcsw(struct rusage *usage);
-
-// The arg order for comparators passed to qsort_r differs between
-// linux and macos.
-#ifdef __linux__
-typedef int (comparator)(const void *, const void *, void *);
-#else
-typedef int (comparator)(void *, const void *, const void *);
-#endif
-
-#define COMPARATOR(accessor) comparator compare_##accessor
-
-COMPARATOR(usertime);
-COMPARATOR(systemtime);
-COMPARATOR(totaltime);
-COMPARATOR(rss);
-COMPARATOR(tcsw);
-
-// -----------------------------------------------------------------------------
 // Output file (CSV)
 // -----------------------------------------------------------------------------
      
-// This list is the order in which fields will print in the CSV output
 #define XFields(X)					    \
   X(F_CMD,      "Command",                      "\"%s\"")   \
   X(F_EXIT,     "Exit code",                    "%d")	    \
   X(F_SHELL,    "Shell",                        "\"%s\"")   \
   X(F_USER,     "User time (us)",               "%" PRId64) \
   X(F_SYSTEM,   "System time (us)",             "%" PRId64) \
+  X(F_TOTAL,    "Total time (us)",             " %" PRId64) \
   X(F_RSS,      "Max RSS (Bytes)",              "%ld")	    \
   X(F_RECLAIMS, "Page Reclaims",                "%ld")	    \
   X(F_FAULTS,   "Page Faults",                  "%ld")	    \
   X(F_VCSW,     "Voluntary Context Switches",   "%ld")	    \
-  X(F_ICSW,     "Involuntary Context Switches", "%ld")	
-
-// Below are pseudo field names used only for computing summary
-// statistics.  They are never written to the raw data output file.
-#define F_TOTAL -1
-#define F_TCSW -2
+  X(F_ICSW,     "Involuntary Context Switches", "%ld")      \
+  X(F_TCSW,     "Total Context Switches",       "%ld")	
 
 #define FIRST(a, b, c) a,
 enum FieldCodes {XFields(FIRST) F_LAST};

@@ -23,18 +23,19 @@ static int run(const char *cmd, struct rusage *usage) {
   // In the error checks below, we can exit immediately on error,
   // because a warning will have already been issued
   arglist *args = new_arglist(MAXARGS);
-  if (!args) exit(-1);		               
+  if (!args) bail("Exiting");		               
 
   if (use_shell) {
-    if (split_unescape(shell, args)) exit(-1);
+    if (split_unescape(shell, args)) bail("Exiting");
     add_arg(args, strdup(cmd));
   } else {
-    if (split_unescape(cmd, args)) exit(-1);
+    if (split_unescape(cmd, args)) bail("Exiting");
   }
 
   if (DEBUG) {
     printf("Arguments to pass to exec:\n");
     print_arglist(args);
+    fflush(NULL);
   }
 
   // Goin' for a ride!
@@ -91,8 +92,9 @@ static int run(const char *cmd, struct rusage *usage) {
 }
 
 // Returns median total runtime for 'cmd'
-int64_t run_command(int num, char *cmd, FILE *output, FILE *hf_output) {
-  int code;
+int64_t run_command(int num, char *cmd,
+		    FILE *output, FILE *csv_output, FILE *hf_output) {
+  int code, fail_count = 0;
   int64_t median;
   struct rusage *usagedata = malloc(runs * sizeof(struct rusage));
   if (!usagedata) bail("Out of memory");
@@ -104,18 +106,20 @@ int64_t run_command(int num, char *cmd, FILE *output, FILE *hf_output) {
 
   for (int i = 0; i < warmups; i++) {
     code = run(cmd, &(usagedata[0]));
+    fail_count += (code != 0);
   }
 
-  if (!output_to_stdout) {
-    fflush(stdout);
-  }
+//   if (!output_to_stdout) {
+//     fflush(stdout);
+//   }
 
   for (int i = 0; i < runs; i++) {
     code = run(cmd, &(usagedata[i]));
+    fail_count += (code != 0);
     if (output) write_line(output, cmd, code, &(usagedata[i]));
   }
 
-  summary *s = summarize(cmd, usagedata);
+  summary *s = summarize(cmd, fail_count, usagedata);
   if (!s) bail("ERROR: failed to generate summary statistics");
 
   // If raw data is going to an output file, we print a summary on the
@@ -127,6 +131,8 @@ int64_t run_command(int num, char *cmd, FILE *output, FILE *hf_output) {
     printf("\n");
   }
 
+  // If exporting CSV file of summary stats, write that line of data
+  if (csv_filename) write_summary_line(csv_output, s);
   // If exporting in Hyperfine CSV format, write that line of data
   if (hf_filename) write_hf_line(hf_output, s);
 
@@ -142,7 +148,7 @@ void run_all_commands(int argc, char **argv) {
   char buf[MAXCMDLEN];
   int64_t mediantimes[MAXCMDS];
   const char *commands[MAXCMDLEN];
-  FILE *input = NULL, *output = NULL, *hf_output = NULL;
+  FILE *input = NULL, *output = NULL, *csv_output = NULL, *hf_output = NULL;
 
   if (!output_to_stdout && !output_filename && !brief_summary) {
     printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n",
@@ -157,6 +163,7 @@ void run_all_commands(int argc, char **argv) {
   }
 
   input = maybe_open(input_filename, "r");
+  csv_output = maybe_open(csv_filename, "w");
   hf_output = maybe_open(hf_filename, "w");
 
   if (output_to_stdout)
@@ -165,11 +172,12 @@ void run_all_commands(int argc, char **argv) {
     output = maybe_open(output_filename, "w");
 
   if (output) write_header(output);
+  if (csv_output) write_summary_header(csv_output);
   if (hf_output) write_hf_header(hf_output);
 
   for (int k = first_command; k < argc; k++) {
     commands[n] = argv[k];
-    mediantimes[n] = run_command(n, argv[k], output, hf_output);
+    mediantimes[n] = run_command(n, argv[k], output, csv_output, hf_output);
     if (++n == MAXCMDS) goto toomany;
   }
 
@@ -177,7 +185,7 @@ void run_all_commands(int argc, char **argv) {
   if (input)
     while ((cmd = fgets(buf, MAXCMDLEN, input))) {
       commands[n] = cmd;
-      mediantimes[n] = run_command(n, cmd, output, hf_output);
+      mediantimes[n] = run_command(n, cmd, output, csv_output, hf_output);
       if (++n == MAXCMDS) goto toomany;
     }
   
@@ -185,8 +193,9 @@ void run_all_commands(int argc, char **argv) {
     print_overall_summary(commands, mediantimes, n);
 
   if (output) fclose(output);
-  if (input) fclose(input);
+  if (csv_output) fclose(csv_output);
   if (hf_output) fclose(hf_output);
+  if (input) fclose(input);
   return;
 
  toomany:
