@@ -173,8 +173,8 @@ matter the goal of benchmarking.
   - The Hyperfine runtime measurement includes the time needed for those Rust
     routines, plus the time to `fork()` and `exec()` (on Unix).  Also, any
     context switches in the parent process before the fork and after the wait
-    have the potential to pollute CPU caches and its branch predictor, making
-    the (timed) code that runs afterward take more cycles.
+    have the potential to pollute CPU caches and other components, making the
+    (timed) code that runs afterward take more cycles.
   - Example: When timing a very fast command, like `ls -l`, BestGuess reports
     the runtime range as _2.4 ms - 3.5 ms_ on my machine with 1000
     runs.  Hyperfine reports _5.2 ms … 10.1 ms_.  This is a significant
@@ -237,6 +237,11 @@ operating system's report about processor time expended on our program.  The
 time that elapses when our program is not actually running is not included.
 Why, then, do we get such an interesting distribution of runtimes?
   
+- A treatise on sources of interference will have to wait.  And, it's been done.
+  Below we mention data and instruction caches as well as the branch predictor.
+  There are also clock speed variations, loop buffers, and other CPU features
+  that can slow down the resumption of a process that has been suspended.
+
 - Interference in the form of cache pollution and branch misprediction can make
   runtimes longer.  In most modern CPUs, each core has a private data cache,
   instruction cache, and branch predictor.  These are not usually under program
