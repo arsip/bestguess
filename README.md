@@ -63,12 +63,14 @@ Key changes from Hyperfine:
 	* Others, like the ones that automate parameter generations, are not in
       plan.  BestGuess can read commands from a file, and we think it's easier
       to generate a command file with the desired parameters.
-  * `-S`, `--shell <CMD>`: Default is none. If used, supply the entire shell
-    command, e.g. `/bin/bash -c`.
-  * `-o`, `--output <FILE>`	(added by BestGuess)
-  * `-i`, `--input <FILE>`	(added by BestGuess)
-  * `-b`, `--brief`         (added by BestGuess)
-  * `-g`, `--graph`         (added by BestGuess)
+  * One option works a little differently.
+	* `-S`, `--shell <CMD>` For BestGuess, the default is none.  And when used,
+	  it must be the entire shell command, e.g. `/bin/bash -c`.
+  * Some options are _new_ because they support unique BestGuess features.
+    * `-o`, `--output <FILE>` (save data for individual executions)
+    * `-i`, `--input <FILE>` (read commands, or more commands, from a file)
+    * `-b`, `--brief` (print a brief instead of full summary to the terminal)
+    * `-g`, `--graph` (cheap terminal bar graph of individual total runtimes)
 
 **Shell usage:** For BestGuess, the default is to _not_ use a shell at all.  If
 you supply a shell, you will need to give the entire command including the `-c`
@@ -96,8 +98,8 @@ data allows multiple kinds of analysis to be done, either immediately or in the
 future. 
 
 Note that Hyperfine will export the raw timing data only in JSON format.  We
-find more tools, from command line tools to spreadsheets, are able to process
-CSV data and thus prefer it.
+find that many more tools, from command line tools to spreadsheets, are able to
+process CSV data, so we prefer it.
 
 **Summary statistics:** BestGuess prints summary statistics to the terminal,
 provided the raw data output is not directed there.  Since median values appear
@@ -118,39 +120,53 @@ command, the worse it performs.
 
 ### Summary to terminal, no raw data output
 
+Here, the empty command provides a good measure of shell startup time.  The 95th
+and 99th percentile figures are not available because the number of runs is too
+small.  You need at least 20 runs to get 95th and at least 100 runs to get 99th
+percentile numbers.  These are of interest because they summarize statistically
+what the "long tail" of high runtimes looks like.
+
+Note that the Mode value may be the most relevant, as it is the "typical"
+runtime.  The figures in the box represent the range from minimum (at left)
+through median (the 50th percentile) to the 95th, 99th, and maximum
+measurements.
+
 ```shell
 $ bestguess -r=10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
 Use -o <FILE> or --output <FILE> to write raw data to a file.
 A single dash '-' instead of a file name prints to stdout.
 
 Command 1: (empty)
-                      Median               Range
-  Total time          1.4 ms         1.3 ms  -    2.0 ms 
-  User time           0.5 ms         0.7 ms  -    0.5 ms 
-  System time         0.8 ms         1.4 ms  -    0.9 ms 
-  Max RSS             1.7 MiB        1.7 MiB -    1.7 MiB
-  Context switches      2 count        2 cnt -      2 cnt
+                          Mode   ┌── Min ── Median ── 95th ─── 99th ──── Max ──┐
+  Total time (ms)          2.0   │   1.7      2.0       -        -       2.7   │
+  User time (ms)           0.6   │   0.6      0.7       -        -       1.0   │
+  System time (ms)         1.3   │   1.1      1.3       -        -       1.8   │
+  Max RSS (MiB)            1.7   │   1.7      1.7       -        -       1.7   │
+  Context switches (ct)      2   │     2        2       -        -         3   │
+                                 └─────────────────────────────────────────────┘
 
 Command 2: ls -l
-                      Median               Range
-  Total time          2.5 ms         2.2 ms  -    3.6 ms 
-  User time           0.8 ms         1.3 ms  -    0.9 ms 
-  System time         1.4 ms         2.3 ms  -    1.5 ms 
-  Max RSS             1.7 MiB        2.0 MiB -    1.8 MiB
-  Context switches     15 count       15 cnt -     16 cnt
+                          Mode   ┌── Min ── Median ── 95th ─── 99th ──── Max ──┐
+  Total time (ms)          2.5   │   2.5      3.0       -        -       6.0   │
+  User time (ms)           1.0   │   1.0      1.2       -        -       1.8   │
+  System time (ms)         1.5   │   1.5      1.8       -        -       4.2   │
+  Max RSS (MiB)            1.9   │   1.8      1.9       -        -       1.9   │
+  Context switches (ct)     15   │    15       15       -        -        24   │
+                                 └─────────────────────────────────────────────┘
 
 Command 3: ps Aux
-                      Median               Range
-  Total time         42.9 ms        42.7 ms  -   44.5 ms 
-  User time          10.3 ms        10.5 ms  -   10.3 ms 
-  System time        32.4 ms        34.0 ms  -   32.6 ms 
-  Max RSS             2.7 MiB        3.2 MiB -    3.0 MiB
-  Context switches     14 count       14 cnt -     18 cnt
+                          Mode   ┌── Min ── Median ── 95th ─── 99th ──── Max ──┐
+  Total time (ms)         43.4   │  43.4     44.0       -        -      45.8   │
+  User time (ms)          10.5   │  10.5     10.6       -        -      11.0   │
+  System time (ms)        32.9   │  32.8     33.3       -        -      35.0   │
+  Max RSS (MiB)            3.0   │   2.8      3.1       -        -       3.2   │
+  Context switches (ct)     14   │    14       14       -        -        17   │
+                                 └─────────────────────────────────────────────┘
 
-Summary
-   ran
-    1.79 times faster than ls -l
-   30.87 times faster than ps Aux
+Best guess is:
+  (empty) ran
+    1.48 times faster than ls -l
+   21.76 times faster than ps Aux
 $ 
 ```
 
@@ -159,18 +175,21 @@ $
 ```shell
 $ bestguess -b -r=10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
 Command 1: (empty)
-  Median time         2.0 ms         1.7 ms  -    3.2 ms 
+                          Mode       Min    Median     Max
+  Total time (ms)          2.3       1.8      2.2      4.1
 
 Command 2: ls -l
-  Median time         3.0 ms         2.5 ms  -    4.0 ms 
+                          Mode       Min    Median     Max
+  Total time (ms)          2.7       2.7      3.2      4.3
 
 Command 3: ps Aux
-  Median time        42.7 ms        42.6 ms  -   44.8 ms 
+                          Mode       Min    Median     Max
+  Total time (ms)         43.3      43.3     43.6     45.1
 
-Summary
-   ran
-    1.48 times faster than ls -l
-   21.14 times faster than ps Aux
+Best guess is:
+  (empty) ran
+    1.44 times faster than ls -l
+   19.68 times faster than ps Aux
 $ 
 ```
 

@@ -148,25 +148,26 @@ void print_graph(summary *s, struct rusage *usagedata) {
 }
 
 void print_overall_summary(const char *commands[],
-			   int64_t mediantimes[],
+			   int64_t modes[],
 			   int n) {
 
   if ((n < 2) || (runs < 1)) return;
 
   int best = 0;
-  int64_t fastest = mediantimes[best];
+  int64_t fastest = modes[best];
   double factor;
   
   for (int i = 1; i < n; i++)
-    if (mediantimes[i] < fastest) {
-      fastest = mediantimes[i];
+    if (modes[i] < fastest) {
+      fastest = modes[i];
       best = i;
     }
+
   printf("Best guess is:\n");
   printf("  %s ran\n", *commands[best] ? commands[best] : "(empty)");
   for (int i = 0; i < n; i++) {
     if (i != best) {
-      factor = (double) mediantimes[i] / (double) fastest;
+      factor = (double) modes[i] / (double) fastest;
       printf("  %6.2f times faster than %s\n", factor, commands[i]);
     }
   }

@@ -91,11 +91,11 @@ static int run(const char *cmd, struct rusage *usage) {
   return WEXITSTATUS(status);
 }
 
-// Returns median total runtime for 'cmd'
+// Returns modal total runtime for 'cmd'
 int64_t run_command(int num, char *cmd,
 		    FILE *output, FILE *csv_output, FILE *hf_output) {
   int code, fail_count = 0;
-  int64_t median;
+  int64_t mode;
   struct rusage *usagedata = malloc(runs * sizeof(struct rusage));
   if (!usagedata) bail("Out of memory");
 
@@ -108,10 +108,6 @@ int64_t run_command(int num, char *cmd,
     code = run(cmd, &(usagedata[0]));
     fail_count += (code != 0);
   }
-
-//   if (!output_to_stdout) {
-//     fflush(stdout);
-//   }
 
   for (int i = 0; i < runs; i++) {
     code = run(cmd, &(usagedata[i]));
@@ -137,16 +133,16 @@ int64_t run_command(int num, char *cmd,
   if (hf_filename) write_hf_line(hf_output, s);
 
   fflush(stdout);
-  median = s->total.median;
+  mode = s->total.mode;
   free_summary(s);
   free(usagedata);
-  return median;
+  return mode;
 }
 
 void run_all_commands(int argc, char **argv) {
   int n = 0;
   char buf[MAXCMDLEN];
-  int64_t mediantimes[MAXCMDS];
+  int64_t modes[MAXCMDS];
   const char *commands[MAXCMDLEN];
   FILE *input = NULL, *output = NULL, *csv_output = NULL, *hf_output = NULL;
 
@@ -177,7 +173,7 @@ void run_all_commands(int argc, char **argv) {
 
   for (int k = first_command; k < argc; k++) {
     commands[n] = argv[k];
-    mediantimes[n] = run_command(n, argv[k], output, csv_output, hf_output);
+    modes[n] = run_command(n, argv[k], output, csv_output, hf_output);
     if (++n == MAXCMDS) goto toomany;
   }
 
@@ -185,12 +181,12 @@ void run_all_commands(int argc, char **argv) {
   if (input)
     while ((cmd = fgets(buf, MAXCMDLEN, input))) {
       commands[n] = cmd;
-      mediantimes[n] = run_command(n, cmd, output, csv_output, hf_output);
+      modes[n] = run_command(n, cmd, output, csv_output, hf_output);
       if (++n == MAXCMDS) goto toomany;
     }
   
   if (!output_to_stdout)
-    print_overall_summary(commands, mediantimes, n);
+    print_overall_summary(commands, modes, n);
 
   if (output) fclose(output);
   if (csv_output) fclose(csv_output);
