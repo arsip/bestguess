@@ -9,6 +9,7 @@
 
 #include "bestguess.h"
 #include <stdio.h>
+#include <sys/resource.h>
 
 typedef struct arglist {
   size_t max;
