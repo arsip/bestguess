@@ -14,58 +14,70 @@
 #define FMTs "%6.3f %-3s"
 #define IFMT "%6" PRId64
 #define LABEL "    %-16s "
-#define GAP "   "
+#define GAP "  "
 
 void print_command_summary(summary *s) {
-  printf(LABEL "    Mode " GAP "   Median " GAP "          Range\n", "");
+  printf(LABEL "    Mode " GAP "   Median " GAP GAP "        Range      "
+	 GAP GAP GAP "   95th   " GAP "   99th   \n", "");
 
   if (runs < 1) {
-    printf("    No data (number of timed runs was %d)\n", runs);
+    printf("  No data (number of timed runs was %d)\n", runs);
     return;
   }
 
-  const char *units, *timefmt;
+  const char *units, *fmt;
   double divisor;
   
   // Decide on which time unit to use for printing the summary
   if (s->total.max > (1000 * 1000)) {
-    timefmt = LABEL FMTs GAP FMTs GAP FMTs " - " FMTs "\n",
+    fmt = LABEL FMTs GAP FMTs GAP FMTs " - " FMTs GAP FMTs GAP FMTs"\n",
     units = "s";
     divisor = 1000.0 * 1000.0;
   } else {
-    timefmt = LABEL FMT GAP FMT GAP FMT " - " FMT "\n",
+    fmt = LABEL FMT GAP FMT GAP FMT " - " FMT GAP FMT GAP FMT "\n",
     units = "ms";
     divisor = 1000.0;
   }
 
-  printf(timefmt, "Total time",
+  printf(fmt, "Total time",
 	 (double)(s->total.mode / divisor), units,
 	 (double)(s->total.median / divisor), units,
 	 (double)(s->total.min / divisor), units,
-	 (double)(s->total.max / divisor), units);
+	 (double)(s->total.max / divisor), units,
+	 (double)(s->total.pct95 / divisor), units,
+	 (double)(s->total.pct99 / divisor), units);
 
   if (!brief_summary) {
-    printf(timefmt, "User time",
+    printf(fmt, "User time",
 	   (double)(s->user.mode / divisor), units,
 	   (double)(s->user.median / divisor), units,
 	   (double)(s->user.min / divisor), units,
-	   (double)(s->user.max / divisor), units);
+	   (double)(s->user.max / divisor), units,
+	   (double)(s->user.pct95 / divisor), units,
+	   (double)(s->user.pct99 / divisor), units);
 
-    printf(timefmt, "System time",
+    printf(fmt, "System time",
 	   (double)(s->system.mode / divisor), units,
 	   (double)(s->system.median / divisor), units,
 	   (double)(s->system.min / divisor), units,
-	   (double)(s->system.max / divisor), units);
+	   (double)(s->system.max / divisor), units,
+	   (double)(s->system.pct95 / divisor), units,
+	   (double)(s->system.pct99 / divisor), units);
 
-    printf(timefmt, "Max RSS",
+    printf(fmt, "Max RSS",
 	   (double) s->rss.mode / (1024.0 * 1024.0), "MiB",
 	   (double) s->rss.median / (1024.0 * 1024.0), "MiB",
 	   (double) s->rss.min / (1024.0 * 1024.0), "MiB",
-	   (double) s->rss.max / (1024.0 * 1024.0), "MiB");
+	   (double) s->rss.max / (1024.0 * 1024.0), "MiB",
+	   (double) s->rss.pct95 / (1024.0 * 1024.0), "MiB",
+	   (double) s->rss.pct99 / (1024.0 * 1024.0), "MiB");
 
-    printf(LABEL IFMT " ct " GAP IFMT " ct " GAP IFMT " ct  - " IFMT " ct\n",
+    printf(LABEL IFMT " ct " GAP IFMT " ct " GAP IFMT " ct  - " IFMT " ct "
+	   GAP IFMT " ct " GAP IFMT "ct \n",
 	   "Context switches",
-	   s->tcsw.mode, s->tcsw.median, s->tcsw.min, s->tcsw.max);
+	   s->tcsw.mode, s->tcsw.median,
+	   s->tcsw.min, s->tcsw.max,
+	   s->tcsw.pct95, s->tcsw.pct99);
   }
 
   fflush(stdout);

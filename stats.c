@@ -67,11 +67,6 @@ static int64_t estimate_mode(struct rusage *usagedata,
   n = runs;
   
  tailcall:
-
-//   printf("Entering estimate_mode loop.\nData: ");
-//   for (int i = idx; i < idx+n; i++) printf("%" PRId64 " ", VALUEAT(i));
-//   puts("");
-
   if (n == 1) {
     return VALUEAT(idx);
   } else if (n == 2) {
@@ -96,7 +91,19 @@ static int64_t estimate_mode(struct rusage *usagedata,
   }
   n = h+1;
   goto tailcall;
-	
+}
+
+static int64_t percentile(int pct,
+			  struct rusage *usagedata,
+			  int64_t (accessor)(struct rusage *),
+			  int *indices) {
+  if (pct < 90) bail("Error: refuse to calculate percentiles less than 90");
+  if (pct > 99) bail("Error: unable to calculate percentiles greater than 99");
+  // Number of samples needed for a percentile calculation
+  int samples = 100 / (100 - pct);
+  if (runs < samples) return 0;
+  int idx = runs - (runs / samples);
+  return accessor(&usagedata[indices[idx]]);
 }
 
 // Produce a statistical summary (stored in 's') of usagedata over all runs
@@ -114,6 +121,8 @@ static void measure(struct rusage *usagedata,
   meas->min = accessor(&usagedata[indices[0]]);
   meas->max = accessor(&usagedata[indices[runs - 1]]);
   meas->mode = estimate_mode(usagedata, accessor, indices);
+  meas->pct95 = percentile(95, usagedata, accessor, indices);
+  meas->pct99 = percentile(99, usagedata, accessor, indices);
   free(indices);
   return;
 }

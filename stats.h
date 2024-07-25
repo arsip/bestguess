@@ -15,6 +15,8 @@ typedef struct measures {
   int64_t max;
   int64_t mode;
   int64_t median;
+  int64_t pct95;
+  int64_t pct99;
 } measures;
 
 // Statistical summary of a set of runs of a single command
