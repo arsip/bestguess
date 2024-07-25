@@ -93,6 +93,7 @@ static int64_t estimate_mode(struct rusage *usagedata,
   goto tailcall;
 }
 
+// Returns -1 when there are insufficient samples
 static int64_t percentile(int pct,
 			  struct rusage *usagedata,
 			  int64_t (accessor)(struct rusage *),
@@ -101,7 +102,7 @@ static int64_t percentile(int pct,
   if (pct > 99) bail("Error: unable to calculate percentiles greater than 99");
   // Number of samples needed for a percentile calculation
   int samples = 100 / (100 - pct);
-  if (runs < samples) return 0;
+  if (runs < samples) return -1;
   int idx = runs - (runs / samples);
   return accessor(&usagedata[indices[idx]]);
 }

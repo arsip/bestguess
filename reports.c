@@ -16,11 +16,39 @@
 #define LABEL "  %-22s"
 #define GAP   "   "
 #define DASH  "───"
+#define ENDLINE "   │\n"
+
+#define PRINT_(fmt_s, fmt_ms, field) do {				\
+    if ((field) < 0)							\
+      printf("%6s", "   - ");						\
+    else								\
+      printf(sec ? fmt_s : fmt_ms, field);				\
+  } while (0)
+
+#define PRINTTIME(field) do {					\
+    PRINT_(FMTs, FMT, (double)((field) / divisor));		\
+    printf(GAP);						\
+  } while (0)
+
+#define PRINTTIMENL(field) do {					\
+    PRINT_(FMTs, FMT, (double)((field) / divisor));		\
+    printf(ENDLINE);						\
+  } while (0)
+
+#define PRINTINT(field) do {					\
+    PRINT_(IFMT, IFMT, field);					\
+    printf(GAP);						\
+  } while (0)
+
+#define PRINTINTNL(field) do {					\
+    PRINT_(IFMT, IFMT, field);					\
+    printf(ENDLINE);						\
+  } while (0)
 
 void print_command_summary(summary *s) {
   if (brief_summary)
     printf(LABEL "  Mode" GAP
-	   "    Min    Median     Max   \n", "");
+	   "│   Min    Median     Max" ENDLINE, "");
   else
     printf(LABEL "  Mode" GAP
 	   "┌── Min ── Median ── 95th ─── 99th ──── Max ──┐\n", "");
@@ -31,69 +59,87 @@ void print_command_summary(summary *s) {
   }
 
   int sec = 0;
-  const char *fmt;
+  const char *fmt1;
   double divisor;
   
   // Decide on which time unit to use for printing the summary
   if (s->total.max > (1000 * 1000)) {
-    if (brief_summary)
-      //          Mode         Min     Median    Max
-      fmt = LABEL FMTs GAP "│" FMTs GAP FMTs GAP FMTs "   │\n";
-    else
-      //          Mode         Min     Median    95th     99th     Max
-      fmt = LABEL FMTs GAP "│" FMTs GAP FMTs GAP FMTs GAP FMTs GAP FMTs "   │\n";
+    //           Mode         Min     Median  
+    fmt1 = LABEL FMTs GAP "│" FMTs GAP FMTs GAP;
+    //         95th     99th     Max
+    //fmt2full = FMTs GAP FMTs GAP FMTs ENDLINE;
+    //         Max
+    //fmt2brief = FMTs ENDLINE;
     sec = 1;
     divisor = 1000.0 * 1000.0;
-  } else {
-    if (brief_summary)
-      //          Mode        Min   Median    Max
-      fmt = LABEL FMT GAP "│" FMT GAP FMT GAP FMT  "   │\n";
-    else
-      //          Mode        Min    Median    95th     99th     Max
-      fmt = LABEL FMT GAP "│" FMT GAP FMT  GAP FMT  GAP FMT  GAP FMT  "   │\n";
+    } else {
+    //           Mode        Min   Median 
+    fmt1 = LABEL FMT GAP "│" FMT GAP FMT GAP;
+    //         95th    99th    Max
+    //fmt2full = FMT GAP FMT GAP FMT ENDLINE;
+    //          Max
+    //fmt2brief = FMT ENDLINE;
     divisor = 1000.0;
-  }
+  } // Should we print seconds or milliseconds?
 
-  printf(fmt, sec ? "Total time (sec)" : "Total time (ms)",
+  printf(fmt1, sec ? "Total time (sec)" : "Total time (ms)",
 	 (double)(s->total.mode / divisor),
 	 (double)(s->total.min / divisor),
-	 (double)(s->total.median / divisor),
-	 (double)(s->total.pct95 / divisor),
-	 (double)(s->total.pct99 / divisor),
-	 (double)(s->total.max / divisor));
+	 (double)(s->total.median / divisor));
 
   if (!brief_summary) {
-    printf(fmt, sec ? "User time (sec)" : "User time (ms)",
-	   (double)(s->user.mode / divisor), 
-	   (double)(s->user.min / divisor), 
-	   (double)(s->user.median / divisor), 
-	   (double)(s->user.pct95 / divisor), 
-	   (double)(s->user.pct99 / divisor), 
-	   (double)(s->user.max / divisor));
-
-    printf(fmt, sec ? "System time (sec)" : "System time (ms)",
-	   (double)(s->system.mode / divisor), 
-	   (double)(s->system.min / divisor), 
-	   (double)(s->system.median / divisor), 
-	   (double)(s->system.pct95 / divisor), 
-	   (double)(s->system.pct99 / divisor), 
-	   (double)(s->system.max / divisor));
-
-    printf(fmt, "Max RSS (MiB)", 
-	   (double) s->rss.mode / (1024.0 * 1024.0),
-	   (double) s->rss.min / (1024.0 * 1024.0),
-	   (double) s->rss.median / (1024.0 * 1024.0),
-	   (double) s->rss.pct95 / (1024.0 * 1024.0),
-	   (double) s->rss.pct99 / (1024.0 * 1024.0),
-	   (double) s->rss.max / (1024.0 * 1024.0));
-
-    printf(LABEL IFMT GAP "│" IFMT GAP IFMT GAP IFMT GAP IFMT GAP IFMT "   │\n",
-	   "Context switches (ct)",
-	   s->tcsw.mode, s->tcsw.min, s->tcsw.median,
-	   s->tcsw.pct95, s->tcsw.pct99, s->tcsw.max);
-
-    printf(LABEL GAP "      └─────────────────────────────────────────────┘\n", "");
+    PRINTTIME(s->total.pct95);
+    PRINTTIME(s->total.pct99);
   }
+  PRINTTIMENL(s->total.max);
+
+  printf(fmt1, sec ? "User time (sec)" : "User time (ms)",
+	 (double)(s->user.mode / divisor), 
+	 (double)(s->user.min / divisor), 
+	 (double)(s->user.median / divisor));
+
+  if (!brief_summary) {
+    PRINTTIME(s->user.pct95);
+    PRINTTIME(s->user.pct99);
+  }
+  PRINTTIMENL(s->user.max);
+
+  printf(fmt1, sec ? "System time (sec)" : "System time (ms)",
+	 (double)(s->system.mode / divisor), 
+	 (double)(s->system.min / divisor), 
+	 (double)(s->system.median / divisor));
+
+  if (!brief_summary) {
+    PRINTTIME(s->system.pct95);
+    PRINTTIME(s->system.pct99);
+  }
+  PRINTTIMENL(s->system.max);
+
+  divisor = 1024.0 * 1024.0;
+  printf(fmt1, "Max RSS (MiB)", 
+	 (double) s->rss.mode / divisor,
+	 (double) s->rss.min / divisor,
+	 (double) s->rss.median / divisor);
+
+  // Misusing PRINTTIME because it does the right thing
+  if (!brief_summary) {
+    PRINTTIME(s->rss.pct95);
+    PRINTTIME(s->rss.pct99);
+  }
+  PRINTTIMENL(s->rss.max);
+
+  printf(LABEL IFMT GAP "│" IFMT GAP IFMT GAP,
+	 "Context switches (ct)",
+	 s->tcsw.mode, s->tcsw.min, s->tcsw.median);
+	   
+  if (!brief_summary) {
+    PRINTINT(s->tcsw.pct95);
+    PRINTINT(s->tcsw.pct99);
+  }
+  PRINTINTNL(s->tcsw.max);
+
+  if (!brief_summary)
+    printf(LABEL GAP "      └─────────────────────────────────────────────┘\n", "");
 
   fflush(stdout);
 }
