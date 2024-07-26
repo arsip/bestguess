@@ -11,19 +11,33 @@
 #include <string.h>
 
 #define FMT "%6.1f"
-#define FMTs "%6.3f"
+#define FMTs "%6.2f"
 #define IFMT "%6" PRId64
-#define LABEL "  %-22s"
+#define LABEL "  %12s "
 #define GAP   "   "
-#define DASH  "───"
-#define ENDLINE "   │\n"
-#define BARFMT "%s"
+#define UNITS 1
+#define NOUNITS 0
+
+#define LEFTBAR do {					\
+    printf("%s", brief_summary ? "  " : "│ ");		\
+  } while (0)
+
+#define RIGHTBAR do {					\
+    printf("%s", brief_summary ? "\n" : "   │\n");	\
+  } while (0)
 
 #define PRINT_(fmt_s, fmt_ms, field) do {				\
-    if ((field) < 0)							\
+    if ((field) < 0) 							\
       printf("%6s", "   - ");						\
-    else								\
+    else 								\
       printf(sec ? fmt_s : fmt_ms, field);				\
+  } while (0)
+
+#define PRINTMODE(field) do {					\
+    PRINT_(FMTs, FMT, (double)((field) / divisor));		\
+    printf(" %-3s", units);					\
+    printf(GAP);						\
+    LEFTBAR;							\
   } while (0)
 
 #define PRINTTIME(field) do {					\
@@ -33,21 +47,18 @@
 
 #define PRINTTIMENL(field) do {					\
     PRINT_(FMTs, FMT, (double)((field) / divisor));		\
-    printf(brief_summary ? "\n" : ENDLINE);			\
+    RIGHTBAR;							\
   } while (0)
 
-#define PRINTINT(field) do {					\
-    PRINT_(IFMT, IFMT, field);					\
-    printf(GAP);						\
-  } while (0)
-
-#define PRINTINTNL(field) do {					\
-    PRINT_(IFMT, IFMT, field);					\
-    printf(brief_summary ? "\n" : ENDLINE);			\
-  } while (0)
-
-#define MAYBEBAR do {				\
-    printf("%s", brief_summary ? " " : "│");	\
+#define PRINTCOUNT(field, showunits) do {			\
+    if ((field) < 0)						\
+      printf("%6s", "   - ");					\
+    else if (divisor == 1) {					\
+      printf("%6" PRId64, (field));				\
+    } else {							\
+      printf(FMTs, (double)((field) / divisor));		\
+    }								\
+    if (showunits) printf(" %-3s", units);			\
   } while (0)
 
 void print_command_summary(summary *s) {
@@ -57,23 +68,24 @@ void print_command_summary(summary *s) {
   }
 
   if (brief_summary)
-    printf(LABEL "  Mode" GAP "    Min    Median     Max\n", "");
+    printf(LABEL "    Mode" GAP "       Min    Median     Max\n", "");
   else
-    printf(LABEL "  Mode" GAP
-	   "┌── Min ── Median ── 95th ─── 99th ──── Max ──┐\n", "");
+    printf(LABEL "    Mode" GAP "  ┌    Min    Median    95th     99th      Max   ┐\n", "");
 
 
   int sec = 1;
   double divisor = 1000 * 1000;
+  const char *units = "s";
   
   // Decide on which time unit to use for printing the summary
-  if (s->total.max <= divisor) {
+  if (s->total.max < divisor) {
     sec = 0;
     divisor = 1000.0;
+    units = "ms";
   }
 
-  printf(LABEL, sec ? "Total time (sec)" : "Total time (ms)");
-  PRINTTIME(s->total.mode); MAYBEBAR;
+  printf(LABEL, "Total time");
+  PRINTMODE(s->total.mode);
   PRINTTIME(s->total.min);
   PRINTTIME(s->total.median);
 
@@ -84,8 +96,8 @@ void print_command_summary(summary *s) {
   PRINTTIMENL(s->total.max);
 
   if (!brief_summary) {
-    printf(LABEL, sec ? "User time (sec)" : "User time (ms)");
-    PRINTTIME(s->user.mode); MAYBEBAR;
+    printf(LABEL, "User time");
+    PRINTMODE(s->user.mode);
     PRINTTIME(s->user.min);
     PRINTTIME(s->user.median);
 
@@ -93,8 +105,8 @@ void print_command_summary(summary *s) {
     PRINTTIME(s->user.pct99);
     PRINTTIMENL(s->user.max);
 
-    printf(LABEL, sec ? "System time (sec)" : "System time (ms)");
-    PRINTTIME(s->system.mode); MAYBEBAR;
+    printf(LABEL, "System time");
+    PRINTMODE(s->system.mode);
     PRINTTIME(s->system.min);
     PRINTTIME(s->system.median);
 
@@ -103,8 +115,9 @@ void print_command_summary(summary *s) {
     PRINTTIMENL(s->system.max);
 
     divisor = 1024.0 * 1024.0;
-    printf(LABEL, "Max RSS (MiB)");
-    PRINTTIME(s->rss.mode); MAYBEBAR;
+    units = "MiB";
+    printf(LABEL, "Max RSS");
+    PRINTMODE(s->rss.mode);
     PRINTTIME(s->rss.min);
     PRINTTIME(s->rss.median);
 
@@ -113,16 +126,28 @@ void print_command_summary(summary *s) {
     PRINTTIME(s->rss.pct99);
     PRINTTIMENL(s->rss.max);
 
-    printf(LABEL, "Context switches (ct)");
-    PRINTINT(s->tcsw.mode); MAYBEBAR;
-    PRINTINT(s->tcsw.min);
-    PRINTINT(s->tcsw.median);
+    divisor = 1000;
+    units = "Kct";
+    if (s->tcsw.max < 10000) {
+      units = "ct";
+      divisor = 1;
+    } 
+    printf(LABEL, "Context sw");
+    PRINTCOUNT(s->tcsw.mode, UNITS);
+    printf(GAP);
+    printf("└ ");
+    PRINTCOUNT(s->tcsw.min, NOUNITS);
+    printf(GAP);
+    PRINTCOUNT(s->tcsw.median, NOUNITS);
+    printf(GAP);
 	   
-    PRINTINT(s->tcsw.pct95);
-    PRINTINT(s->tcsw.pct99);
-    PRINTINTNL(s->tcsw.max);
+    PRINTCOUNT(s->tcsw.pct95, NOUNITS);
+    printf(GAP);
+    PRINTCOUNT(s->tcsw.pct99, NOUNITS);
+    printf(GAP);
+    PRINTCOUNT(s->tcsw.max, NOUNITS);
+    printf("   ┘\n");
 
-    printf(LABEL GAP "      └─────────────────────────────────────────────┘\n", "");
   } // if not brief_summary
 
   fflush(stdout);
@@ -139,9 +164,9 @@ void print_graph(summary *s, struct rusage *usagedata) {
   for (int i = 0; i < runs; i++) {
     bars = (int) (totaltime(&usagedata[i]) * maxbars / tmax);
     if (bars <= maxbars)
-      printf("|%.*s\n", bars * bytesperbar, BAR);
+      printf("│%.*s\n", bars * bytesperbar, BAR);
     else
-      printf("|time exceeds plot size: %" PRId64 " us\n",
+      printf("│time exceeds plot size: %" PRId64 " us\n",
 	     totaltime(&usagedata[i]));
   }
   fflush(stdout);

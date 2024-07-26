@@ -76,6 +76,7 @@ Key changes from Hyperfine:
 you supply a shell, you will need to give the entire command including the `-c`
 that most shells require.  Rationale: BestGuess should not supply a missing `-c`
 shell argument.  It doesn't know what shell you are using or how to invoke it.
+You may be launching a program with `/usr/bin/env` or some other utility.
 
 **Shell startup time:** If you want to measure shell startup time, supply the
 `-S` option and use `""` (empty string) for one of the commands.  This starts
