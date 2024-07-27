@@ -179,8 +179,8 @@ void write_summary_line(FILE *f, summary *s) {
   WRITESEP(f, F_TCSW, s->tcsw.min);
   WRITESEP(f, F_TCSW, s->tcsw.max);
   WRITESEP(f, F_TCSW, s->tcsw.median);
-  WRITESEP(f,  F_TCSW, s->tcsw.mode);
-  WRITESEP(f,  F_TCSW, s->tcsw.pct95);
+  WRITESEP(f, F_TCSW, s->tcsw.mode);
+  WRITESEP(f, F_TCSW, s->tcsw.pct95);
   WRITELN(f,  F_TCSW, s->tcsw.pct99);
   fflush(f);
   free(escaped_cmd);
@@ -192,8 +192,13 @@ void write_summary_line(FILE *f, summary *s) {
 // Hyperfine-format file
 // -----------------------------------------------------------------------------
 
+// Differences:
+// - Mean has been replaced by mode for total time
+// - User and System times are also the modal values
+// - Stddev is omitted and -1.0 provided in its place
+
 void write_hf_header(FILE *f) {
-  fprintf(f, "command,mean,stddev,median,user,system,min,max\n");
+  fprintf(f, "command,mode,stddev,median,user,system,min,max\n");
   fflush(f);
 }
 
@@ -201,16 +206,17 @@ void write_hf_line(FILE *f, summary *s) {
   const double million = 1000.0 * 1000.0;
   // Command
   WRITEFMT(f, "%s", *(s->cmd) ? s->cmd : shell); SEP;
-  // Mean total time (really Median because it's more useful)
-  WRITEFMT(f, "%f", (double) s->total.median / million); SEP;
-  // Stddev omitted until we know what to report for a log-normal distribution
-  WRITEFMT(f, "%f", (double) 0.0); SEP;
-  // Median total time (repeated to be compatible with hf format)
-  WRITEFMT(f, "%f", (double) s->total.median / million); SEP;
+  // Mode total time (written to the mean field because mean is useless)
+  WRITEFMT(f, "%f", (double) s->total.mode / million); SEP;
+  // Stddev omitted til we get an appropriate variance measure for
+  // long-tailed (skewed) multi-modal distributions
+  WRITEFMT(f, "%f", (double) -1.0); SEP;
+  // Mode total time (repeated to be compatible with hf format)
+  WRITEFMT(f, "%f", (double) s->total.mode / million); SEP;
   // User time in seconds as double 
-  WRITEFMT(f, "%f", (double) s->user.median / million); SEP;
+  WRITEFMT(f, "%f", (double) s->user.mode / million); SEP;
   // System time in seconds as double
-  WRITEFMT(f, "%f", (double) s->system.median / million); SEP;
+  WRITEFMT(f, "%f", (double) s->system.mode / million); SEP;
   // Min total time in seconds as double 
   WRITEFMT(f, "%f", (double) s->total.min / million); SEP;
   // Max total time in seconds as double
