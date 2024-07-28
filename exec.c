@@ -171,15 +171,19 @@ void run_all_commands(int argc, char **argv) {
   if (csv_output) write_summary_header(csv_output);
   if (hf_output) write_hf_header(hf_output);
 
-  for (int k = first_command; k < argc; k++) {
-    commands[n] = argv[k];
-    modes[n] = run_command(n, argv[k], output, csv_output, hf_output);
-    if (++n == MAXCMDS) goto toomany;
+  if (first_command > 0) {
+    for (int k = first_command; k < argc; k++) {
+      commands[n] = argv[k];
+      modes[n] = run_command(n, argv[k], output, csv_output, hf_output);
+      if (++n == MAXCMDS) goto toomany;
+    }
   }
 
   char *cmd = NULL;
   if (input)
     while ((cmd = fgets(buf, MAXCMDLEN, input))) {
+      size_t len = strlen(cmd);
+      if ((len > 0) && (cmd[len-1] == '\n')) cmd[len-1] = '\0';
       commands[n] = cmd;
       modes[n] = run_command(n, cmd, output, csv_output, hf_output);
       if (++n == MAXCMDS) goto toomany;
