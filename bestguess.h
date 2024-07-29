@@ -91,7 +91,7 @@ enum Options {
   X(F_SHELL,    "Shell",                        "\"%s\"")   \
   X(F_USER,     "User time (us)",               "%" PRId64) \
   X(F_SYSTEM,   "System time (us)",             "%" PRId64) \
-  X(F_TOTAL,    "Total time (us)",             " %" PRId64) \
+  X(F_TOTAL,    "Total time (us)",              "%" PRId64) \
   X(F_RSS,      "Max RSS (Bytes)",              "%ld")	    \
   X(F_RECLAIMS, "Page Reclaims",                "%ld")	    \
   X(F_FAULTS,   "Page Faults",                  "%ld")	    \
