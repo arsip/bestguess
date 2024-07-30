@@ -184,7 +184,7 @@ void run_all_commands(int argc, char **argv) {
 
   if (config.first_command > 0) {
     for (int k = config.first_command; k < argc; k++) {
-      commands[n] = argv[k];
+      commands[n] = strndup(argv[k], MAXCMDLEN);
       modes[n] = run_command(n, argv[k], output, csv_output, hf_output);
       if (++n == MAXCMDS) goto toomany;
     }
