@@ -21,20 +21,23 @@ const char *progname = "bestguess";
 #include <stdio.h>
 #include <string.h>
 
-int reducing_mode = 0;
-int brief_summary = 0;
-int show_graph = 0;
-int runs = 1;
-int warmups = 0;
-int first_command = 0;
-int show_output = 0;
-int ignore_failure = 0;
-int output_to_stdout = 0;
-char *input_filename = NULL;
-char *output_filename = NULL;
-char *csv_filename = NULL;
-char *hf_filename = NULL;
-const char *shell = NULL;
+Config config = {
+  .reducing_mode = 0,
+  .brief_summary = 0,
+  .show_graph = 0,
+  .runs = 1,
+  .warmups = 0,
+  .first_command = 0,
+  .show_output = 0,
+  .ignore_failure = 0,
+  .output_to_stdout = 0,
+  .input_filename = NULL,
+  .output_filename = NULL,
+  .csv_filename = NULL,
+  .hf_filename = NULL,
+  .shell = NULL,
+  .groups = 0
+};
 
 #define SECOND(a, b, c) b,
 const char *Headers[] = {XFields(SECOND) NULL};
@@ -45,6 +48,7 @@ const char *FieldFormats[] = {XFields(THIRD) NULL};
 #define HELP_RUNS "Number of timed runs"
 #define HELP_OUTPUT "Write timing data to CSV <FILE> (use - for stdout)"
 #define HELP_FILE "Read commands/data from <FILE>"
+#define HELP_GROUPS "Blank lines in the input file delimit groups"
 #define HELP_BRIEF "Brief performance summary (shows only total time)"
 #define HELP_GRAPH "Show graph of total time for each iteration"
 #define HELP_SHOWOUTPUT "Show output of commands as they run"
@@ -58,6 +62,7 @@ static void init_options(void) {
   optable_add(OPT_RUNS,       "r",  "runs",           1, HELP_RUNS);
   optable_add(OPT_OUTPUT,     "o",  "output",         1, HELP_OUTPUT);
   optable_add(OPT_FILE,       "f",  "file",           1, HELP_FILE);
+  optable_add(OPT_GROUPS,     NULL, "groups",         0, HELP_GROUPS);
   optable_add(OPT_BRIEF,      "b",  "brief",          0, HELP_BRIEF);
   optable_add(OPT_GRAPH,      "g",  "graph",          0, HELP_GRAPH);
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, HELP_SHOWOUTPUT);
@@ -116,67 +121,71 @@ static int process_args(int argc, char **argv) {
 	// Command argument, not an option or switch
 	if ((i == 1) && (strcmp(val, PROCESS_DATA_COMMAND) == 0)) {
 	  if (DEBUG) printf("*** Reducing mode ***\n");
-	  reducing_mode = 1;
+	  config.reducing_mode = 1;
 	  continue;
 	}
-	if (!first_command) first_command = i;
+	if (!config.first_command) config.first_command = i;
 	continue;
       }
       fprintf(stderr, "Error: invalid option/switch '%s'\n", argv[i]);
       bail("Exiting");
     }
-    if (first_command) {
+    if (config.first_command) {
       fprintf(stderr, "Error: options found after first command '%s'\n",
-	      argv[first_command]);
+	      argv[config.first_command]);
       bail("Exiting"); 
     }
     switch (n) {
       case OPT_BRIEF:
 	if (bad_option_value(val, n)) bail("Exiting");
-	brief_summary = 1;
+	config.brief_summary = 1;
 	break;
       case OPT_GRAPH:
 	if (bad_option_value(val, n)) bail("Exiting");
-	show_graph = 1;
+	config.show_graph = 1;
 	break;
       case OPT_WARMUP:
-	SCANINT(val, warmups, posn, "number of warmups");
+	SCANINT(val, config.warmups, posn, "number of warmups");
 	break;
       case OPT_RUNS:
-	SCANINT(val, runs, posn, "number of runs");
+	SCANINT(val, config.runs, posn, "number of runs");
 	break;
       case OPT_OUTPUT:
 	if (bad_option_value(val, n)) bail("Exiting");
 	if (strcmp(val, "-") == 0) {
-	  output_to_stdout = 1;
+	  config.output_to_stdout = 1;
 	} else {
-	  output_filename = strdup(val);
-	  output_to_stdout = 0;
+	  config.output_filename = strdup(val);
+	  config.output_to_stdout = 0;
 	}
 	break;
       case OPT_FILE:
 	if (bad_option_value(val, n)) bail("Exiting");
-	input_filename = strdup(val);
+	config.input_filename = strdup(val);
+	break;
+      case OPT_GROUPS:
+	if (bad_option_value(val, n)) bail("Exiting");
+	config.groups = 1;
 	break;
       case OPT_SHOWOUTPUT:
 	if (bad_option_value(val, n)) bail("Exiting");
-	show_output = 1;
+	config.show_output = 1;
 	break;
       case OPT_IGNORE:
 	if (bad_option_value(val, n)) bail("Exiting");
-	ignore_failure = 1;
+	config.ignore_failure = 1;
 	break;
       case OPT_SHELL:
 	if (bad_option_value(val, n)) bail("Exiting");
-	shell = val;
+	config.shell = val;
 	break;
       case OPT_HFCSV:
 	if (bad_option_value(val, n)) bail("Exiting");
-	hf_filename = strdup(val);
+	config.hf_filename = strdup(val);
 	break;
       case OPT_CSV:
 	if (bad_option_value(val, n)) bail("Exiting");
-	csv_filename = strdup(val);
+	config.csv_filename = strdup(val);
 	break;
       case OPT_VERSION:
 	if (bad_option_value(val, n)) bail("Exiting");
@@ -217,7 +226,7 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
 
-  if (reducing_mode) {
+  if (config.reducing_mode) {
     code = reduce_data();
     exit(code);
   } else {

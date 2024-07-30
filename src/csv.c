@@ -38,7 +38,7 @@ void write_header(FILE *f) {
 
 void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   char *escaped_cmd = escape(cmd);
-  char *shell_cmd = escape(shell);
+  char *shell_cmd = escape(config.shell);
 
   WRITESEP(F_CMD, escaped_cmd);
   WRITESEP(F_EXIT, code);
@@ -139,9 +139,9 @@ void write_summary_header(FILE *f) {
 
 void write_summary_line(FILE *f, summary *s) {
   char *escaped_cmd = escape(s->cmd);
-  char *shell_cmd = escape(shell);
+  char *shell_cmd = escape(config.shell);
   WRITESEP(F_CMD, escaped_cmd);
-  if (shell)
+  if (config.shell)
     WRITESEP(F_SHELL, shell_cmd);
   else
     SEP;
@@ -211,7 +211,7 @@ void write_hf_header(FILE *f) {
 void write_hf_line(FILE *f, summary *s) {
   const double million = 1000.0 * 1000.0;
   // Command
-  WRITEFMT("%s", *(s->cmd) ? s->cmd : shell); SEP;
+  WRITEFMT("%s", *(s->cmd) ? s->cmd : config.shell); SEP;
   // Mode total time (written to the mean field because mean is useless)
   WRITEFMT("%f", (double) s->total.mode / million); SEP;
   // Stddev omitted til we get an appropriate variance measure for

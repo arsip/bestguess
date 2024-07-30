@@ -48,20 +48,25 @@ extern const char *progname;
 // Global configuration (based on CLI args)
 // -----------------------------------------------------------------------------
 
-extern int reducing_mode;
-extern int brief_summary;
-extern int show_graph;
-extern int runs;
-extern int warmups;
-extern int first_command;
-extern int show_output;
-extern int ignore_failure;
-extern int output_to_stdout;
-extern char *input_filename;
-extern char *output_filename;
-extern char *csv_filename;
-extern char *hf_filename;
-extern const char *shell;
+typedef struct Config {
+  int reducing_mode;
+  int brief_summary;
+  int show_graph;
+  int runs;
+  int warmups;
+  int first_command;
+  int show_output;
+  int ignore_failure;
+  int output_to_stdout;
+  char *input_filename;
+  char *output_filename;
+  char *csv_filename;
+  char *hf_filename;
+  const char *shell;
+  int groups;
+} Config;
+
+extern Config config;
 
 // The order of the options below is the order they will appear in the
 // printed help text.
@@ -70,6 +75,7 @@ enum Options {
   OPT_RUNS,
   OPT_OUTPUT,
   OPT_FILE,
+  OPT_GROUPS,
   OPT_BRIEF,
   OPT_GRAPH,
   OPT_SHOWOUTPUT,

@@ -18,7 +18,7 @@ static int run(const char *cmd, struct rusage *usage) {
   int status;
   pid_t pid;
   FILE *f;
-  int use_shell = (shell && *shell);
+  int use_shell = (config.shell && *config.shell);
 
   // In the error checks below, we can exit immediately on error,
   // because a warning will have already been issued
@@ -26,7 +26,7 @@ static int run(const char *cmd, struct rusage *usage) {
   if (!args) bail("Exiting");		               
 
   if (use_shell) {
-    if (split_unescape(shell, args)) bail("Exiting");
+    if (split_unescape(config.shell, args)) bail("Exiting");
     add_arg(args, strdup(cmd));
   } else {
     if (split_unescape(cmd, args)) bail("Exiting");
@@ -42,7 +42,7 @@ static int run(const char *cmd, struct rusage *usage) {
   pid = fork();
 
   if (pid == 0) {
-    if (!show_output) {
+    if (!config.show_output) {
       f = freopen("/dev/null", "r", stdin);
       if (!f) bail("freopen failed on stdin");
       f = freopen("/dev/null", "w", stderr);
@@ -60,16 +60,27 @@ static int run(const char *cmd, struct rusage *usage) {
 
   // Check to see if cmd/shell aborted or was killed
   if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
-    fprintf(stderr, "Error: could not execute %s '%s'.\n",
+    fprintf(stderr, "Error: Could not execute %s '%s'.\n",
 	    use_shell ? "shell" : "command",
-	    use_shell ? shell : cmd);
+	    use_shell ? config.shell : cmd);
+    if (!config.shell) {
+      fprintf(stderr, "\nHint: No shell option specified.  Use -%s or --%s to specify a shell.\n",
+	      optable_shortname(OPT_SHELL), optable_longname(OPT_SHELL));
+      fprintf(stderr, "      An empty command run in a shell will measure shell startup.\n");
+    }
+    if (config.input_filename) {
+      fprintf(stderr, "\nHint: Commands are being read from file '%s'.  Blank lines\n",
+	      config.input_filename);
+      fprintf(stderr, "      are read as empty commands unless option --%s is given.\n",
+	      optable_longname(OPT_GROUPS));
+    }
     fflush(stderr);
     exit(-1);  
   }
 
   // If we get here, we had a normal process exit, though the exit
   // code might not be zero (and zero indicates success)
-  if (!ignore_failure && WEXITSTATUS(status)) {
+  if (!config.ignore_failure && WEXITSTATUS(status)) {
 
     if (use_shell) 
       fprintf(stderr, "Executing command under %s produced non-zero exit code %d.\n",
@@ -78,7 +89,7 @@ static int run(const char *cmd, struct rusage *usage) {
       fprintf(stderr, "Executing command produced non-zero exit code %d.\n",
 	      WEXITSTATUS(status));
 
-    if (use_shell && !ends_in(shell, " -c"))
+    if (use_shell && !ends_in(config.shell, " -c"))
       fprintf(stderr, "Note that shells commonly require the '-c' option to run a command.\n");
     else
       fprintf(stderr, "Use the -i/--ignore-failure option to ignore non-zero exit codes.\n");
@@ -96,20 +107,20 @@ int64_t run_command(int num, char *cmd,
 		    FILE *output, FILE *csv_output, FILE *hf_output) {
   int code, fail_count = 0;
   int64_t mode;
-  struct rusage *usagedata = malloc(runs * sizeof(struct rusage));
+  struct rusage *usagedata = malloc(config.runs * sizeof(struct rusage));
   if (!usagedata) bail("Out of memory");
 
-  if (!output_to_stdout) {
+  if (!config.output_to_stdout) {
     printf("Command %d: %s\n", num+1, *cmd ? cmd : "(empty)");
     fflush(stdout);
   }
 
-  for (int i = 0; i < warmups; i++) {
+  for (int i = 0; i < config.warmups; i++) {
     code = run(cmd, &(usagedata[0]));
     fail_count += (code != 0);
   }
 
-  for (int i = 0; i < runs; i++) {
+  for (int i = 0; i < config.runs; i++) {
     code = run(cmd, &(usagedata[i]));
     fail_count += (code != 0);
     if (output) write_line(output, cmd, code, &(usagedata[i]));
@@ -121,16 +132,16 @@ int64_t run_command(int num, char *cmd,
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
-  if (!output_to_stdout) {
+  if (!config.output_to_stdout) {
     print_command_summary(s);
-    if (show_graph) print_graph(s, usagedata);
+    if (config.show_graph) print_graph(s, usagedata);
     printf("\n");
   }
 
   // If exporting CSV file of summary stats, write that line of data
-  if (csv_filename) write_summary_line(csv_output, s);
+  if (config.csv_filename) write_summary_line(csv_output, s);
   // If exporting in Hyperfine CSV format, write that line of data
-  if (hf_filename) write_hf_line(hf_output, s);
+  if (config.hf_filename) write_hf_line(hf_output, s);
 
   fflush(stdout);
   mode = s->total.mode;
@@ -143,36 +154,36 @@ void run_all_commands(int argc, char **argv) {
   int n = 0;
   char buf[MAXCMDLEN];
   int64_t modes[MAXCMDS];
-  const char *commands[MAXCMDLEN];
+  char *commands[MAXCMDLEN];
   FILE *input = NULL, *output = NULL, *csv_output = NULL, *hf_output = NULL;
 
-  if (!output_to_stdout && !output_filename && !brief_summary) {
+  if (!config.output_to_stdout && !config.output_filename && !config.brief_summary) {
     printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
     printf("A single dash '-' instead of a file name prints to stdout.\n\n");
     fflush(stdout);
   }
 
-  if (output_filename && (*output_filename == '-')) {
-    printf("Warning: Output filename '%s' begins with a dash\n\n", output_filename);
+  if (config.output_filename && (*config.output_filename == '-')) {
+    printf("Warning: Output filename '%s' begins with a dash\n\n", config.output_filename);
     fflush(stdout);
   }
 
-  input = maybe_open(input_filename, "r");
-  csv_output = maybe_open(csv_filename, "w");
-  hf_output = maybe_open(hf_filename, "w");
+  input = maybe_open(config.input_filename, "r");
+  csv_output = maybe_open(config.csv_filename, "w");
+  hf_output = maybe_open(config.hf_filename, "w");
 
-  if (output_to_stdout)
+  if (config.output_to_stdout)
     output = stdout;
   else
-    output = maybe_open(output_filename, "w");
+    output = maybe_open(config.output_filename, "w");
 
   if (output) write_header(output);
   if (csv_output) write_summary_header(csv_output);
   if (hf_output) write_hf_header(hf_output);
 
-  if (first_command > 0) {
-    for (int k = first_command; k < argc; k++) {
+  if (config.first_command > 0) {
+    for (int k = config.first_command; k < argc; k++) {
       commands[n] = argv[k];
       modes[n] = run_command(n, argv[k], output, csv_output, hf_output);
       if (++n == MAXCMDS) goto toomany;
@@ -180,26 +191,39 @@ void run_all_commands(int argc, char **argv) {
   }
 
   char *cmd = NULL;
+  int group_start = 0;
   if (input)
     while ((cmd = fgets(buf, MAXCMDLEN, input))) {
       size_t len = strlen(cmd);
       if ((len > 0) && (cmd[len-1] == '\n')) cmd[len-1] = '\0';
-      commands[n] = cmd;
-      modes[n] = run_command(n, cmd, output, csv_output, hf_output);
-      if (++n == MAXCMDS) goto toomany;
-    }
-  
-  if (!output_to_stdout)
-    print_overall_summary(commands, modes, n);
+      if ((!*cmd) && config.groups) {
+	// Blank line in input file AND groups option is set
+	if (!config.output_to_stdout) {
+	  if (group_start == n) continue; // multiple blank lines
+	  print_overall_summary(commands, modes, group_start, n);
+	  group_start = n;
+	  puts("");
+	}
+      } else {
+	// Regular command, which may be blank
+	commands[n] = strndup(cmd, MAXCMDLEN);
+	modes[n] = run_command(n, cmd, output, csv_output, hf_output);
+	if (++n == MAXCMDS) goto toomany;
+      }
+    } // while
+
+  if (!config.output_to_stdout)
+    print_overall_summary(commands, modes, group_start, n);
 
   if (output) fclose(output);
   if (csv_output) fclose(csv_output);
   if (hf_output) fclose(hf_output);
   if (input) fclose(input);
+
+  for (int i = 0; i < n; i++) free(commands[i]);
   return;
 
  toomany:
-  printf("ERROR: Number of commands exceeds configured maximum of %d\n",
-	 MAXCMDS);
+  printf("ERROR: Number of commands exceeds maximum of %d\n", MAXCMDS);
   bail("Exiting...");
 }

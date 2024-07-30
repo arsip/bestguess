@@ -19,11 +19,11 @@
 #define NOUNITS 0
 
 #define LEFTBAR do {					\
-    printf("%s", brief_summary ? "  " : "│ ");		\
+    printf("%s", config.brief_summary ? "  " : "│ ");		\
   } while (0)
 
 #define RIGHTBAR do {					\
-    printf("%s", brief_summary ? "\n" : "   │\n");	\
+    printf("%s", config.brief_summary ? "\n" : "   │\n");	\
   } while (0)
 
 #define PRINT_(fmt_s, fmt_ms, field) do {				\
@@ -62,12 +62,12 @@
   } while (0)
 
 void print_command_summary(summary *s) {
-  if (runs < 1) {
-    printf("\n  No data (number of timed runs was %d)\n", runs);
+  if (config.runs < 1) {
+    printf("\n  No data (number of timed runs was %d)\n", config.runs);
     return;
   }
 
-  if (brief_summary)
+  if (config.brief_summary)
     printf(LABEL "    Mode" GAP "       Min    Median     Max\n", "");
   else
     printf(LABEL "    Mode" GAP "  ┌    Min    Median    95th     99th      Max   ┐\n", "");
@@ -89,13 +89,13 @@ void print_command_summary(summary *s) {
   PRINTTIME(s->total.min);
   PRINTTIME(s->total.median);
 
-  if (!brief_summary) {
+  if (!config.brief_summary) {
     PRINTTIME(s->total.pct95);
     PRINTTIME(s->total.pct99);
   }
   PRINTTIMENL(s->total.max);
 
-  if (!brief_summary) {
+  if (!config.brief_summary) {
     printf(LABEL, "User time");
     PRINTMODE(s->user.mode);
     PRINTTIME(s->user.min);
@@ -161,7 +161,7 @@ void print_graph(summary *s, struct rusage *usagedata) {
   int maxbars = strlen(BAR) / bytesperbar;
   int64_t tmax = s->total.max;
   printf("0%*smax\n", maxbars - 1, "");
-  for (int i = 0; i < runs; i++) {
+  for (int i = 0; i < config.runs; i++) {
     bars = (int) (totaltime(&usagedata[i]) * maxbars / tmax);
     if (bars <= maxbars)
       printf("│%.*s\n", bars * bytesperbar, BAR);
@@ -172,28 +172,34 @@ void print_graph(summary *s, struct rusage *usagedata) {
   fflush(stdout);
 }
 
-void print_overall_summary(const char *commands[],
+void print_overall_summary(char *commands[],
 			   int64_t modes[],
-			   int n) {
+			   int start,
+			   int end) {
 
-  if ((n < 2) || (runs < 1)) return;
+  if (config.runs < 1) return;
+  if ((end - start) < 2) {
+    printf("Command group contains only one command\n");
+    return;
+  }
 
-  int best = 0;
+  int best = start;
   int64_t fastest = modes[best];
   double factor;
   
-  for (int i = 1; i < n; i++)
+  for (int i = start; i < end; i++)
     if (modes[i] < fastest) {
       fastest = modes[i];
       best = i;
     }
 
-  printf("Best guess is:\n");
+  printf("Best guess is\n");
   printf("  %s ran\n", *commands[best] ? commands[best] : "(empty)");
-  for (int i = 0; i < n; i++) {
+  for (int i = start; i < end; i++) {
     if (i != best) {
       factor = (double) modes[i] / (double) fastest;
-      printf("  %6.2f times faster than %s\n", factor, commands[i]);
+      printf("  %6.2f times faster than %s\n",
+	     factor, *commands[i] ? commands[i] : "(empty)");
     }
   }
 

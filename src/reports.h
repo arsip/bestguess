@@ -12,8 +12,9 @@
 
 void print_command_summary(summary *s);
 void print_graph(summary *s, struct rusage *usagedata);
-void print_overall_summary(const char *commands[],
-			   int64_t mediantimes[],
-			   int n);
+void print_overall_summary(char *commands[],
+			   int64_t modes[],
+			   int start,
+			   int end);
 
 #endif
