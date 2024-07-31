@@ -59,7 +59,8 @@ These Hyperfine options are effectively the same in BestGuess:
 Key changes from Hyperfine:
 
   * Many options are _not_ supported.
-    * Some, like _prepare_ and _conclude_ are planned.
+    * Some are planned, like _prepare_ and _conclude_ and the ability to
+      randomize the environment size.
 	* Others, like the ones that automate parameter generations, are not in
       plan.  BestGuess can read commands from a file, and we think it's easier
       to generate a command file with the desired parameters.
@@ -314,8 +315,15 @@ As expected, `ls` is slower to execute, presumably due to the extra cost of
 finding `ls` in the PATH.
 
 The BestGuess measurements confirm that indeed `ls` is slower than `/bin/ls`,
-though we see a somewhat larger difference between the two commands.  More
-important, perhaps, is that the absolute run times are smaller:
+though we see a somewhat larger difference between the two commands.
+
+Especially when measuring short duration commands, specifying the full
+executable path for all commands will level the playing field.  (However,
+configuring programs to run much longer than 1ms would seem to be a good
+practice.)
+
+Interestingly, the absolute run times reported by BestGuess are smaller than
+those reported by Hyperfine:
 
 ```
 $ bestguess -w=3 -r=10 "ls -l" "/bin/ls -l"
@@ -344,15 +352,41 @@ Best guess is
 $ 
 ```
 
-Since neither program is using a shell to run these commands, we can only
-suppose that BestGuess provides a more accurate measurement.  The reported times
-are smaller, they are right from the OS, and they do not include execution of
-any BestGuess code.
+Neither program is using a shell to run these commands, so there is no shell
+startup time to account for.  It is unclear why there is a difference in the
+measurements.
 
-Especially when measuring short duration commands, specifying the full
-executable path for all commands will level the playing field.  (However,
-configuring programs to run much longer than 1ms would seem to be a good
-practice.)
+In a development build of BestGuess, we called `getrusage()` on RUSAGE_CHILDREN
+before spawning the child process and after waiting for its termination -- the
+same technique used by Hyperfine.  (Note: We can only get meaningful user and
+system times this way, not memory usage or context switch counts.)  We found
+that the time measurements match those returned by `wait4()` to the microsecond.
+
+We have accounted (in testing) for the obvious differences between Hyperfine and
+BestGuess as follows:
+1. How `getrusage()` is used: two calls bracketing `waitpid()` versus no calls
+   by using `wait4()`.  We see identical measurements.
+2. Optimizations around `/dev/null`:  Many libraries skip the work of formatting
+   output when the destination is `/dev/null`.  In our tests, we ensured that
+   the commands we measured sent their outputs to files.
+3. Shell usage: Unlike the results shown above, where no shell is used, we used
+   `-S "/bin/bash -c"` for both Hyperfine and BestGuess in order to get output
+   redirection. 
+
+Two obvious remaining differences between BestGuess and Hyperfine need
+examining.  First, Hyperfine represents user and system times with floating
+point, in units of seconds.  BestGuess follows the best practice of using
+integer arithmetic for its internal representations, in this case in units of
+microseconds as reported by `getrusage()`.  Second, Hyperfine uses a Rust crate
+(library) that wraps the work of spawning a child process.  Is it possible that
+some aspect of the way `std::process` performs fork/exec (in the Unix case)
+accrues extra time to the child process?  It seems unlikely, but perhaps setting
+up pipes to communicate with the child process measurably affects the startup
+time for the child.  In Hyperfine, the output from the child process is
+collected even when that output is to be discarded.
+
+This remains an open area of investigation.
+
 
 ### You can measure the shell startup time
 

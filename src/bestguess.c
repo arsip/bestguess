@@ -36,7 +36,7 @@ Config config = {
   .csv_filename = NULL,
   .hf_filename = NULL,
   .shell = NULL,
-  .groups = 0
+  .groups = 0,
 };
 
 #define SECOND(a, b, c) b,
