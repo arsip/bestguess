@@ -193,7 +193,7 @@ void print_overall_summary(char *commands[],
       best = i;
     }
 
-  printf("Best guess is\n");
+  printf("Best guess is:\n");
   printf("  %s ran\n", *commands[best] ? commands[best] : "(empty)");
   for (int i = start; i < end; i++) {
     if (i != best) {

@@ -17,11 +17,11 @@ help:
 	@echo "  tags    Rebuilds tag files e.g. for Emacs"
 	@echo "  config  Print important configuration settings"
 
-debug: clean
+debug: 
 	@echo "NOTE: Building in debug mode"; \
 	$(MAKE) RELEASE_MODE=false $(PROGRAM)
 
-release: clean
+release: 
 	@echo "NOTE: Building in RELEASE MODE"; \
 	$(MAKE) RELEASE_MODE=true $(PROGRAM)
 
@@ -79,7 +79,6 @@ deps:
 	$(CC) -MM *.c >>Makefile.depends
 
 clean:
-	-rm -f $(PROGRAM)
 	-rm -f *.o *.gcda *.gcov *.gcno
 
 tags TAGS: *.[ch]
