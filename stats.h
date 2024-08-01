@@ -8,6 +8,7 @@
 #define stats_h
 
 #include "bestguess.h"
+#include <sys/resource.h>
 
 // Min, max, and measures of central tendency
 typedef struct measures {
