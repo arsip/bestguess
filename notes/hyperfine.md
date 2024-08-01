@@ -176,12 +176,26 @@ matter the goal of benchmarking.
   - Another potential source of error is the use of floating point math in
     Hyperfine to represent user and system times internally in units of seconds.
     But could this account for the somewhat large differences we are seeing?
-  - The Rust `std::process` crate sets up bidirectional pipes to each spawned
-    child process.  It seems unlikely, but perhaps setting up pipes to
-    communicate with the child process measurably affects the startup time for
-    the child.  In Hyperfine, the output from the child process is collected
-    even when that output is to be discarded.
-  - These areas need more investigation.
+    Probably not.
+  - Is it possible that the way the Rust `std::process` library performs
+    fork/exec (in the Unix case) accrues extra time to the child process?  It
+    seems unlikely, but (1) any work done after `fork()` but before `exec()`
+    will be attributed to the child process, and (2) Rust appears to set up
+    pipes to communicate with the child process, which is example of such work.
+    In Hyperfine, the output from the child process is collected even when that
+    output is to be discarded.  Could these actions explain the longer runtimes
+    for the child process in the Hyperfine/Rust case compared with BestGuess/C?
+  - Looks like Rust provides a very generic and robust interface to process
+    control (fork/exec/spawn).  For benchmarking, this has an unfortunate
+    effect, because a certain amount of work is done after `fork` but before
+    `exec`.  See `do_exec`
+    [here](https://doc.rust-lang.org/1.73.0/src/std/sys/unix/process/process_unix.rs.html#303-407). 
+  - It seems likely that the steps taken before the `exec` system call in
+    `sys::process` could take measurable time, at least on Unix.   But why would
+    the extra time reported by Hyperfine vary from about 4 ms on `ls -l` to over
+    20 ms on `ps Aux`?
+  - This remains an open area of investigation.
+
 
 - **Measure of central tendency** To characterize a distribution using a single
   number, we choose a measure such as one of the many forms of mean, or the
@@ -268,7 +282,7 @@ Why, then, do we get such an interesting distribution of runtimes?
 
 ## Further investigation
 
-A thorough investigation is needed into these topics.  An illuminating example
+More work is needed on the topics outlined in this note.  An illuminating example
 follows, in which `ls -l` is measured by both BestGuess and Hyperfine without
 using a shell.  Note that 10,000 runs were executed.
 

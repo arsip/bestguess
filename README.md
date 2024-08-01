@@ -373,19 +373,15 @@ BestGuess as follows:
    `-S "/bin/bash -c"` for both Hyperfine and BestGuess in order to get output
    redirection. 
 
-Two obvious remaining differences between BestGuess and Hyperfine need
+Some obvious remaining differences between BestGuess and Hyperfine need
 examining.  First, Hyperfine represents user and system times with floating
 point, in units of seconds.  BestGuess follows the best practice of using
 integer arithmetic for its internal representations, in this case in units of
 microseconds as reported by `getrusage()`.  Second, Hyperfine uses a Rust crate
-(library) that wraps the work of spawning a child process.  Is it possible that
-some aspect of the way `std::process` performs fork/exec (in the Unix case)
-accrues extra time to the child process?  It seems unlikely, but perhaps setting
-up pipes to communicate with the child process measurably affects the startup
-time for the child.  In Hyperfine, the output from the child process is
-collected even when that output is to be discarded.
-
-This remains an open area of investigation.
+(library) that wraps the work of spawning a child process.  Perhaps after
+calling `fork()` (on Unix), the Rust library does some non-trivial work before
+calling `exec()`.  That work would accrue resources to the child process.  See
+[these notes](notes/hyperfine.md) for more.
 
 
 ### You can measure the shell startup time
