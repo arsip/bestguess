@@ -1,6 +1,7 @@
 **/*~
 **/*.o
 **/*.dSYM
+**/.DS_Store
 TAGS
 bestguess
-optiontest
+test/optiontest

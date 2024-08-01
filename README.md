@@ -59,7 +59,8 @@ These Hyperfine options are effectively the same in BestGuess:
 Key changes from Hyperfine:
 
   * Many options are _not_ supported.
-    * Some, like _prepare_ and _conclude_ are planned.
+    * Some are planned, like _prepare_ and _conclude_ and the ability to
+      randomize the environment size.
 	* Others, like the ones that automate parameter generations, are not in
       plan.  BestGuess can read commands from a file, and we think it's easier
       to generate a command file with the desired parameters.
@@ -70,7 +71,8 @@ Key changes from Hyperfine:
     * `-o`, `--output <FILE>` (save data for individual executions)
     * `-i`, `--input <FILE>` (read commands, or more commands, from a file)
     * `-b`, `--brief` (print a brief instead of full summary to the terminal)
-    * `-g`, `--graph` (cheap terminal bar graph of individual total runtimes)
+    * `-f`, `--file` (read additional commands from a file)
+    * `--groups` (summarize commands from file in groups separated by blank lines)
 
 **Shell usage:** For BestGuess, the default is to _not_ use a shell at all.  If
 you supply a shell, you will need to give the entire command including the `-c`
@@ -128,46 +130,44 @@ percentile numbers.  These are of interest because they summarize statistically
 what the "long tail" of high runtimes looks like.
 
 Note that the Mode value may be the most relevant, as it is the "typical"
-runtime.  The figures in the box represent the range from minimum (at left)
-through median (the 50th percentile) to the 95th, 99th, and maximum
+runtime.  The figures to the right represent the range from minimum (0th
+percentile) through median (50th percentile) to the 95th, 99th, and maximum
 measurements.
 
 ```shell
+
 $ bestguess -r=10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
 Use -o <FILE> or --output <FILE> to write raw data to a file.
 A single dash '-' instead of a file name prints to stdout.
 
 Command 1: (empty)
-                          Mode   ┌── Min ── Median ── 95th ─── 99th ──── Max ──┐
-  Total time (ms)          2.0   │   1.7      2.0       -        -       2.7   │
-  User time (ms)           0.6   │   0.6      0.7       -        -       1.0   │
-  System time (ms)         1.3   │   1.1      1.3       -        -       1.8   │
-  Max RSS (MiB)            1.7   │   1.7      1.7       -        -       1.7   │
-  Context switches (ct)      2   │     2        2       -        -         3   │
-                                 └─────────────────────────────────────────────┘
+                   Mode     ┌    Min    Median    95th     99th      Max   ┐
+    Total time    1.7 ms    │    1.6      1.7       -        -       2.0   │
+     User time    0.5 ms    │    0.5      0.5       -        -       0.5   │
+   System time    1.2 ms    │    1.1      1.2       -        -       1.4   │
+       Max RSS    1.7 MiB   │    1.7      1.7       -        -       1.7   │
+    Context sw      3 ct    └      2        3       -        -         6   ┘
 
 Command 2: ls -l
-                          Mode   ┌── Min ── Median ── 95th ─── 99th ──── Max ──┐
-  Total time (ms)          2.5   │   2.5      3.0       -        -       6.0   │
-  User time (ms)           1.0   │   1.0      1.2       -        -       1.8   │
-  System time (ms)         1.5   │   1.5      1.8       -        -       4.2   │
-  Max RSS (MiB)            1.9   │   1.8      1.9       -        -       1.9   │
-  Context switches (ct)     15   │    15       15       -        -        24   │
-                                 └─────────────────────────────────────────────┘
+                   Mode     ┌    Min    Median    95th     99th      Max   ┐
+    Total time    2.9 ms    │    2.9      3.0       -        -       3.1   │
+     User time    0.9 ms    │    0.9      0.9       -        -       1.0   │
+   System time    2.0 ms    │    2.0      2.0       -        -       2.1   │
+       Max RSS    1.8 MiB   │    1.8      1.9       -        -       2.0   │
+    Context sw     16 ct    └     15       16       -        -        16   ┘
 
 Command 3: ps Aux
-                          Mode   ┌── Min ── Median ── 95th ─── 99th ──── Max ──┐
-  Total time (ms)         43.4   │  43.4     44.0       -        -      45.8   │
-  User time (ms)          10.5   │  10.5     10.6       -        -      11.0   │
-  System time (ms)        32.9   │  32.8     33.3       -        -      35.0   │
-  Max RSS (MiB)            3.0   │   2.8      3.1       -        -       3.2   │
-  Context switches (ct)     14   │    14       14       -        -        17   │
-                                 └─────────────────────────────────────────────┘
+                   Mode     ┌    Min    Median    95th     99th      Max   ┐
+    Total time   41.5 ms    │   41.4     41.5       -        -      42.4   │
+     User time   10.3 ms    │   10.3     10.3       -        -      10.4   │
+   System time   31.2 ms    │   31.0     31.2       -        -      31.9   │
+       Max RSS    3.0 MiB   │    3.0      3.0       -        -       3.2   │
+    Context sw     15 ct    └     15       15       -        -        15   ┘
 
-Best guess is:
+Best guess is
   (empty) ran
-    1.48 times faster than ls -l
-   21.76 times faster than ps Aux
+    1.75 times faster than ls -l
+   24.61 times faster than ps Aux
 $ 
 ```
 
@@ -176,45 +176,45 @@ $
 ```shell
 $ bestguess -b -r=10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
 Command 1: (empty)
-                          Mode       Min    Median     Max
-  Total time (ms)          2.3       1.8      2.2      4.1
+                   Mode          Min    Median     Max
+    Total time    1.7 ms         1.7      1.7      2.0
 
 Command 2: ls -l
-                          Mode       Min    Median     Max
-  Total time (ms)          2.7       2.7      3.2      4.3
+                   Mode          Min    Median     Max
+    Total time    3.0 ms         2.9      3.0      3.1
 
 Command 3: ps Aux
-                          Mode       Min    Median     Max
-  Total time (ms)         43.3      43.3     43.6     45.1
+                   Mode          Min    Median     Max
+    Total time   41.3 ms        40.9     41.3     42.8
 
-Best guess is:
+Best guess is
   (empty) ran
-    1.44 times faster than ls -l
-   19.68 times faster than ps Aux
+    1.75 times faster than ls -l
+   24.33 times faster than ps Aux
 $ 
 ```
 
 ### Raw data output to terminal
 
-Run 3 commands without using a shell, doing 5 warmup runs and 10 timed runs.
-Output, in CSV format, will be printed to the terminal because the output
-filename was given as `-`:
+Run 3 commands without using a shell, with 2 warmup runs and 3 timed runs.  The
+first command is blank, and gives a measure of shell startup time.  The
+measurements for each individual timed run, in CSV format, are printed to the
+terminal because the output filename was given as `-`:
 
 ```shell
-$ bestguess -o - -r=2 -S "/bin/bash -c" "" "ls -l" "ps Aux"
-Command,Exit code,Shell,User time (us),System time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches
-"",0,"/bin/bash -c",703,1420,1769472,228,3,0,2
-"",0,"/bin/bash -c",679,1208,1769472,228,3,0,2
-"ls -l",0,"/bin/bash -c",1646,2812,1916928,393,3,0,15
-"ls -l",0,"/bin/bash -c",1467,2415,1835008,388,3,0,15
-"ps Aux",0,"/bin/bash -c",13412,41285,3817472,1143,4,0,14
-"ps Aux",0,"/bin/bash -c",10617,33690,3145728,1107,4,0,14
+$ bestguess -o - -w=2 -r=3 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+Command,Exit code,Shell,User time (us),System time (us),Total time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches,Total Context Switches
+"",0,"/bin/bash -c",542,1167,1769472,484,3,0,3
+"",0,"/bin/bash -c",499,1147,1769472,486,3,0,3
+"",0,"/bin/bash -c",518,1247,1769472,486,3,0,3
+"ls -l",0,"/bin/bash -c",968,1990,1933312,655,3,0,16
+"ls -l",0,"/bin/bash -c",924,2005,1916928,654,3,0,16
+"ls -l",0,"/bin/bash -c",979,2062,1933312,656,3,0,16
+"ps Aux",0,"/bin/bash -c",10220,30905,3145728,1364,4,0,15
+"ps Aux",0,"/bin/bash -c",10250,31378,3178496,1366,4,0,15
+"ps Aux",0,"/bin/bash -c",10319,32026,3178496,1366,4,0,15
 $ 
 ```
-
-These option names are the same ones used by Hyperfine, and can be shortened to
-`-w` and `-r`, respectively.
-
 
 ### Raw data output to file
 
@@ -222,40 +222,66 @@ Change to using `-o <FILE>` and you'll see summary statistics printed on the
 terminal, and the raw timing data saved to the named file:
 
 ```shell
-$ bestguess -o /tmp/data.csv -r=2 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+$ bestguess -o /tmp/data.csv -w=2 -r=3 -S "/bin/bash -c" "" "ls -l" "ps Aux"
 Command 1: (empty)
-                      Median               Range
-  Total time          2.8 ms         2.5 ms  -    3.2 ms 
-  User time           0.9 ms         1.1 ms  -    1.0 ms 
-  System time         1.6 ms         2.0 ms  -    1.8 ms 
-  Max RSS             1.7 MiB        1.7 MiB -    1.7 MiB
-  Context switches      2 count        2 cnt -      2 cnt
+                   Mode     ┌    Min    Median    95th     99th      Max   ┐
+    Total time    1.7 ms    │    1.6      1.7       -        -       1.7   │
+     User time    0.5 ms    │    0.5      0.5       -        -       0.5   │
+   System time    1.1 ms    │    1.1      1.2       -        -       1.2   │
+       Max RSS    1.7 MiB   │    1.7      1.7       -        -       1.7   │
+    Context sw      2 ct    └      2        2       -        -         3   ┘
 
 Command 2: ls -l
-                      Median               Range
-  Total time          5.3 ms         4.8 ms  -    5.8 ms 
-  User time           1.8 ms         2.1 ms  -    2.0 ms 
-  System time         3.0 ms         3.7 ms  -    3.3 ms 
-  Max RSS             1.7 MiB        1.8 MiB -    1.7 MiB
-  Context switches     15 count       15 cnt -     15 cnt
+                   Mode     ┌    Min    Median    95th     99th      Max   ┐
+    Total time    2.9 ms    │    2.9      3.0       -        -       3.0   │
+     User time    1.0 ms    │    0.9      0.9       -        -       1.0   │
+   System time    2.0 ms    │    2.0      2.0       -        -       2.1   │
+       Max RSS    1.8 MiB   │    1.8      1.8       -        -       1.8   │
+    Context sw     16 ct    └     15       16       -        -        16   ┘
 
 Command 3: ps Aux
-                      Median               Range
-  Total time         52.4 ms        44.1 ms  -   60.6 ms 
-  User time          10.6 ms        14.9 ms  -   12.8 ms 
-  System time        33.5 ms        45.7 ms  -   39.6 ms 
-  Max RSS             2.8 MiB        3.5 MiB -    3.1 MiB
-  Context switches     14 count       14 cnt -     14 cnt
+                   Mode     ┌    Min    Median    95th     99th      Max   ┐
+    Total time   41.7 ms    │   41.7     41.8       -        -      42.1   │
+     User time   10.4 ms    │   10.4     10.4       -        -      10.4   │
+   System time   31.4 ms    │   31.3     31.4       -        -      31.7   │
+       Max RSS    3.0 MiB   │    3.0      3.0       -        -       3.2   │
+    Context sw     15 ct    └     14       15       -        -        15   ┘
 
-Summary
-   ran
-    1.88 times faster than ls -l
-   18.58 times faster than ps Aux
+Best guess is
+  (empty) ran
+    1.71 times faster than ls -l
+   24.22 times faster than ps Aux
 $ 
 ```
 
-Note that the BestGuess option `--hyperfine-csv` writes summary statistics to a
-CSV file in the same format used by Hyperfine.
+### Summary statistics to file
+
+The BestGuess option `--export-csv <FILE>` writes detailed summary statistics to
+`<FILE>`.  Important measurements include: 
+
+  * total time (microseconds)
+  * user time (microseconds)
+  * system time (microseconds)
+  * maximum resident set size (bytes)
+  * voluntary context switches (count)
+  * involuntary context switches (count)
+  * total context switches (count)
+  
+For each of the measures above, there is a column for:
+
+  * mode
+  * minimum
+  * median
+  * 95th percentile, provided there were at least 20 runs
+  * 99th percentile, provided there were at least 100 runs
+  * maximum
+
+Note that the BestGuess option `--hyperfine-csv <FILE>` writes summary statistics to a
+CSV file in the same format used by Hyperfine, but with these differences:
+
+1. The `mean` quantity has been replaced by the `mode` for total, user, and
+   system times.
+2. The standard deviation figure is omitted. 
 
 
 ## Measuring with BestGuess
@@ -266,32 +292,97 @@ As with Hyperfine, you can give BestGuess an ordinary command like `ls -l`.  The
 _execvp()_ system call can run this command without a shell by searching the
 PATH for the executable.  That cost is included in the system time measured.
 
-E.g. `hyperfine -r 3 -S none "ls -l" "/bin/ls -l"` reports:
-
-	Summary
-	  /bin/ls -l ran
-		1.48 ± 0.43 times faster than ls -l
-
-The output of BestGuess shows a similar performance difference (see below) where
-the mean time for `/bin/ls -l` is 1.43 times faster than `ls -l`.
-
-The time difference is around 1ms on my machine.  Especially when measuring
-short duration commands, specifying the full executable path for all commands
-will level the playing field.  (However, configuring programs to run much longer
-than 1ms would seem to be a good practice.)
-
+For example, on my laptop, Hyperfine reports these times comparing `ls` with
+`/bin/ls`:
 
 ```shell
-$ bestguess -o - -r 3 "ls -l" "/bin/ls -l"
-Command,Exit code,Shell,User time (us),System time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches
-"ls -l",0,,1727,4565,1835008,234,0,0,14
-"ls -l",0,,1332,3389,1949696,241,0,0,15
-"ls -l",0,,1203,2898,1867776,237,0,0,14
-"/bin/ls -l",0,,1037,1723,1916928,240,0,0,14
-"/bin/ls -l",0,,988,1706,1818624,233,0,0,14
-"/bin/ls -l",0,,838,1443,1818624,233,0,0,14
+$ hyperfine --style=basic -w=3 -r=10 -S none "ls -l" "/bin/ls -l"
+Benchmark 1: ls -l
+  Time (mean ± σ):       6.2 ms ±   0.8 ms    [User: 2.1 ms, System: 1.7 ms]
+  Range (min … max):     5.5 ms …   7.8 ms    10 runs
+ 
+Benchmark 2: /bin/ls -l
+  Time (mean ± σ):       5.0 ms ±   0.2 ms    [User: 1.9 ms, System: 1.5 ms]
+  Range (min … max):     4.9 ms …   5.5 ms    10 runs
+ 
+Summary
+  /bin/ls -l ran
+    1.22 ± 0.16 times faster than ls -l
 $ 
 ```
+
+As expected, `ls` is slower to execute, presumably due to the extra cost of
+finding `ls` in the PATH.
+
+The BestGuess measurements confirm that indeed `ls` is slower than `/bin/ls`,
+though we see a somewhat larger difference between the two commands.
+
+Especially when measuring short duration commands, specifying the full
+executable path for all commands will level the playing field.  (However,
+configuring programs to run much longer than 1ms would seem to be a good
+practice.)
+
+Interestingly, the absolute run times reported by BestGuess are smaller than
+those reported by Hyperfine:
+
+```
+$ bestguess -w=3 -r=10 "ls -l" "/bin/ls -l"
+Use -o <FILE> or --output <FILE> to write raw data to a file.
+A single dash '-' instead of a file name prints to stdout.
+
+Command 1: ls -l
+                   Mode     ┌    Min    Median    95th     99th      Max   ┐
+    Total time    4.6 ms    │    2.7      4.6       -        -       4.7   │
+     User time    0.6 ms    │    0.6      0.6       -        -       0.7   │
+   System time    4.0 ms    │    2.1      3.9       -        -       4.0   │
+       Max RSS    1.8 MiB   │    1.6      1.8       -        -       2.0   │
+    Context sw     19 ct    └     19       20       -        -        22   ┘
+
+Command 2: /bin/ls -l
+                   Mode     ┌    Min    Median    95th     99th      Max   ┐
+    Total time    2.1 ms    │    2.0      2.1       -        -       2.4   │
+     User time    0.6 ms    │    0.6      0.6       -        -       0.7   │
+   System time    1.5 ms    │    1.4      1.5       -        -       1.7   │
+       Max RSS    2.0 MiB   │    1.6      1.8       -        -       2.0   │
+    Context sw     15 ct    └     15       15       -        -        15   ┘
+
+Best guess is
+  /bin/ls -l ran
+    2.20 times faster than ls -l
+$ 
+```
+
+Neither program is using a shell to run these commands, so there is no shell
+startup time to account for.  It is unclear why there is a difference in the
+measurements.
+
+In a development build of BestGuess, we called `getrusage()` on RUSAGE_CHILDREN
+before spawning the child process and after waiting for its termination -- the
+same technique used by Hyperfine.  (Note: We can only get meaningful user and
+system times this way, not memory usage or context switch counts.)  We found
+that the time measurements match those returned by `wait4()` to the microsecond.
+
+We have accounted (in testing) for the obvious differences between Hyperfine and
+BestGuess as follows:
+1. How `getrusage()` is used: two calls bracketing `waitpid()` versus no calls
+   by using `wait4()`.  We see identical measurements.
+2. Optimizations around `/dev/null`:  Many libraries skip the work of formatting
+   output when the destination is `/dev/null`.  In our tests, we ensured that
+   the commands we measured sent their outputs to files.
+3. Shell usage: Unlike the results shown above, where no shell is used, we used
+   `-S "/bin/bash -c"` for both Hyperfine and BestGuess in order to get output
+   redirection. 
+
+Some obvious remaining differences between BestGuess and Hyperfine need
+examining.  First, Hyperfine represents user and system times with floating
+point, in units of seconds.  BestGuess follows the best practice of using
+integer arithmetic for its internal representations, in this case in units of
+microseconds as reported by `getrusage()`.  Second, Hyperfine uses a Rust crate
+(library) that wraps the work of spawning a child process.  Perhaps after
+calling `fork()` (on Unix), the Rust library does some non-trivial work before
+calling `exec()`.  That work would accrue resources to the child process.  See
+[these notes](notes/hyperfine.md) for more.
+
 
 ### You can measure the shell startup time
 
@@ -304,19 +395,24 @@ except the command is empty.
 On my machine, as shown by the data below, it takes about 1.8ms to launch bash,
 only to have it see no command and exit.
 
-Setting aside that this is a small amount of data for a short duration command,
-it might be reasonable to subtract the bash startup time from the runtime of the
-other commands (`ls -l` in the example below).
+Setting aside that this is a small set of measurements (and for a short duration
+command), in general we might subtract the bash startup time from the runtime of
+the other commands to obtain an estimate of the net runtime.
 
 ```shell
-$ bestguess -o - -r 3 -S "/bin/bash -c" "" "ls -l"
-Command,Exit code,Shell,User time (us),System time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches
-"",0,"/bin/bash -c",1299,2511,1769472,228,3,0,4
-"",0,"/bin/bash -c",971,1748,1769472,230,3,0,2
-"",0,"/bin/bash -c",866,1587,1769472,230,3,0,2
-"ls -l",0,"/bin/bash -c",2034,3582,1949696,397,3,0,15
-"ls -l",0,"/bin/bash -c",1805,3050,1835008,390,3,0,15
-"ls -l",0,"/bin/bash -c",1608,2772,1835008,393,3,0,15
+
+$ bestguess -b -w 3 -r 3 -S "/bin/bash -c" "" "ls -l"
+Command 1: (empty)
+                   Mode          Min    Median     Max
+    Total time    1.7 ms         1.7      1.7      1.7
+
+Command 2: ls -l
+                   Mode          Min    Median     Max
+    Total time    3.0 ms         2.9      3.0      3.0
+
+Best guess is
+  (empty) ran
+    1.75 times faster than ls -l
 $ 
 ```
 
@@ -329,80 +425,59 @@ The bar is scaled to the maximum time needed for any iteration of command.  The
 chart, therefore, is meant to show variation between iterations of the same
 command.  Iteration 0 prints first.
 
-In the example below, we see lots of variation in execution time of `ps`, and we
-get a sense of how many warmup runs would be useful -- at least one, perhaps 3
-or even 5.
+In the example below, we see modest variation in the execution times of `ls`,
+and we get a sense of how many warmup runs would be useful -- at least one, but
+perhaps a few more.
 
-By contrast, the variation across iterations of `find` was much less.  And only
-the first iteration appears worse than the others, though perhaps the difference
-is not significant.
+The variation in execution times of `find` is quite small.  And the first
+iteration is no slower than the others.
 
 ```shell
-$ bestguess -g -i -r=10 -S "/bin/bash -c" "ps Aux" "find /usr \"*.dylib\"" "ls -l"
+$ bestguess -g -i -r=10 -S "/bin/bash -c" "ls -lh" "find /usr/local \"*.dylib\""
 Use -o <FILE> or --output <FILE> to write raw data to a file.
 A single dash '-' instead of a file name prints to stdout.
 
-Command 1: ps Aux
-                      Median               Range
-  Total time          2.9 ms         2.1 ms  -    3.9 ms 
-  User time           0.0 ms         2.6 ms  -    1.6 ms 
-  System time         0.0 ms         3.2 ms  -    1.1 ms 
-  Max RSS             0.0 MiB        0.0 MiB -    0.0 MiB
-  Context switches      1 count        1 cnt -      2 cnt
-0                                                                           max
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+Command 1: ls -lh
+                   Mode     ┌    Min    Median    95th     99th      Max   ┐
+    Total time    3.0 ms    │    2.9      3.0       -        -       3.8   │
+     User time    0.9 ms    │    0.9      1.0       -        -       1.1   │
+   System time    2.0 ms    │    1.9      2.0       -        -       2.8   │
+       Max RSS    1.8 MiB   │    1.8      1.8       -        -       2.0   │
+    Context sw     16 ct    └     15       16       -        -        37   ┘
+0                                                                             max
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
 
-Command 2: find /usr "*.dylib"
-                      Median               Range
-  Total time        120.8 ms       119.3 ms  -  124.7 ms 
-  User time          25.6 ms        40.5 ms  -   35.3 ms 
-  System time        80.0 ms        94.7 ms  -   86.3 ms 
-  Max RSS             0.0 MiB        0.0 MiB -    0.0 MiB
-  Context switches     30 count       29 cnt -     32 cnt
-0                                                                           max
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+Command 2: find /usr/local "*.dylib"
+                   Mode     ┌    Min    Median    95th     99th      Max   ┐
+    Total time   2.34 s     │   2.32     2.34       -        -      2.36   │
+     User time   0.11 s     │   0.11     0.11       -        -      0.11   │
+   System time   2.23 s     │   2.21     2.23       -        -      2.24   │
+       Max RSS   3.27 MiB   │   3.22     3.28       -        -      3.47   │
+    Context sw  40.44 Kct   └  40.38    40.45       -        -     40.59   ┘
+0                                                                             max
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
 
-Command 3: ls -l
-                      Median               Range
-  Total time          1.1 ms         1.0 ms  -    1.4 ms 
-  User time           0.0 ms         1.2 ms  -    0.0 ms 
-  System time         0.0 ms         1.4 ms  -    1.1 ms 
-  Max RSS             0.0 MiB        0.0 MiB -    0.0 MiB
-  Context switches      1 count        1 cnt -      1 cnt
-0                                                                           max
-|time exceeds plot size: 1375 us
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-|▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-
-Summary
-  ls -l ran
-    2.58 times faster than ps Aux
-  108.07 times faster than find /usr "*.dylib"
+Best guess is
+  ls -lh ran
+  782.41 times faster than find /usr/local "*.dylib"
 $ 
 ```
 

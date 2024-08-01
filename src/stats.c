@@ -28,13 +28,13 @@
 
  */
 
-#define MEDIAN_SELECT(accessor, indices, usagedata)	\
-  ((runs == (runs/2) * 2) 				\
-   ?							\
-   ((accessor(&(usagedata)[indices[runs/2 - 1]]) +	\
-     accessor(&(usagedata)[indices[runs/2]])) / 2)	\
-   :							\
-   (accessor(&usagedata[indices[runs/2]])))		\
+#define MEDIAN_SELECT(accessor, indices, usagedata)			\
+  ((config.runs == (config.runs/2) * 2) 				\
+   ?									\
+   ((accessor(&(usagedata)[indices[config.runs/2 - 1]]) +		\
+     accessor(&(usagedata)[indices[config.runs/2]])) / 2)		\
+   :									\
+   (accessor(&usagedata[indices[config.runs/2]])))			\
 
 static int64_t avg(int64_t a, int64_t b) {
   return (a + b) / 2;
@@ -64,7 +64,7 @@ static int64_t estimate_mode(struct rusage *usagedata,
   int idx, limit, n, h;
   int64_t wmin = 0;
   idx = 0;
-  n = runs;
+  n = config.runs;
   
  tailcall:
   if (n == 1) {
@@ -102,8 +102,8 @@ static int64_t percentile(int pct,
   if (pct > 99) bail("Error: unable to calculate percentiles greater than 99");
   // Number of samples needed for a percentile calculation
   int samples = 100 / (100 - pct);
-  if (runs < samples) return -1;
-  int idx = runs - (runs / samples);
+  if (config.runs < samples) return -1;
+  int idx = config.runs - (config.runs / samples);
   return accessor(&usagedata[indices[idx]]);
 }
 
@@ -113,14 +113,14 @@ static void measure(struct rusage *usagedata,
 		    comparator compare,
 		    measures *meas) {
   // Note: 'meas' is filled with zeros on initial allocation
-  if (runs < 1) return;
-  int *indices = malloc(runs * sizeof(int));
+  if (config.runs < 1) return;
+  int *indices = malloc(config.runs * sizeof(int));
   if (!indices) bail("Out of memory");
-  for (int i = 0; i < runs; i++) indices[i] = i;
-  sort(indices, runs, sizeof(int), usagedata, compare);
+  for (int i = 0; i < config.runs; i++) indices[i] = i;
+  sort(indices, config.runs, sizeof(int), usagedata, compare);
   meas->median = MEDIAN_SELECT(accessor, indices, usagedata);
   meas->min = accessor(&usagedata[indices[0]]);
-  meas->max = accessor(&usagedata[indices[runs - 1]]);
+  meas->max = accessor(&usagedata[indices[config.runs - 1]]);
   meas->mode = estimate_mode(usagedata, accessor, indices);
   meas->pct95 = percentile(95, usagedata, accessor, indices);
   meas->pct99 = percentile(99, usagedata, accessor, indices);
@@ -145,11 +145,11 @@ summary *summarize(char *cmd, int fail_count, struct rusage *usagedata) {
   summary *s = new_summary();
 
   s->cmd = strdup(cmd);
-  s->shell = shell ? strdup(shell) : NULL;
-  s->runs = runs;
+  s->shell = config.shell ? strdup(config.shell) : NULL;
+  s->runs = config.runs;
   s->fail_count = fail_count;
 
-  if (runs < 1) {
+  if (config.runs < 1) {
     // No data to process, and 's' contains all zeros in the numeric
     // fields except for number of runs as set above
     return s;

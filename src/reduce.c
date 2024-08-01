@@ -14,8 +14,8 @@ int reduce_data(void) {
 
   printf("Not fully implemented yet\n");
 
-  input = maybe_open(input_filename, "r");
-  output = maybe_open(output_filename, "w");
+  input = maybe_open(config.input_filename, "r");
+  output = maybe_open(config.output_filename, "w");
   if (!output) output = stdout;
   if (!input) input = stdin;
 

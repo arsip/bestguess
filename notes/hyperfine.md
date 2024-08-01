@@ -153,42 +153,49 @@ matter the goal of benchmarking.
 ## Detailed discussion
 
 - **Differences in measurements** The BestGuess median times are lower than the
-  Hyperfine medians.  A possible explanation is that BestGuess and Hyperfine use
-  different techniques to compute the runtimes.
-  - BestGuess is getting the user and system time from the OS using
-    [wait4()](https://linux.die.net/man/2/wait4), via which the OS reports
-    process statistics as of the moment the child exited.
-  - Hyperfine calls `getrusage(RUSAGE_CHILDREN, &mut buf)` before and after
-    starting a child process to run the command.  Between the two calls to
-    `getrusage`, some Rust code must execute: `command.spawn()` and
-    `child.wait()`.  See [the actual
-    code](https://github.com/sharkdp/hyperfine/blob/master/src/timer/mod.rs#L82-L109)
-    for details.
-<!-- 
-	let cpu_timer = self::unix_timer::CPUTimer::start();
-    let mut child = command.spawn()?;
-    let status = child.wait()?;
-    let (time_user, time_system) = cpu_timer.stop(); 
--->
-  - The Hyperfine runtime measurement includes the time needed for those Rust
-    routines, plus the time to `fork()` and `exec()` (on Unix).  Also, any
-    context switches in the parent process before the fork and after the wait
-    have the potential to pollute CPU caches and other components, making the
-    (timed) code that runs afterward take more cycles.
-  - Example: When timing a very fast command, like `ls -l`, BestGuess reports
-    the runtime range as _2.4 ms - 3.5 ms_ on my machine with 1000
-    runs.  Hyperfine reports _5.2 ms … 10.1 ms_.  This is a significant
-    difference, one that may be due to the measurement issues mentioned above. 
-  - Hyperfine reports that `ls -l` took _6.0 ms ± 0.7 ms_.  Ignoring the
-    irrelevant standard deviation figure, the mean is at 16% of the range
-    interval, whereas the BestGuess mode (and median as it turns out) is at the
-    9% mark, i.e. closer to the minimum.  Repeated experiments with runs between
-    100 and 1000 produce some variation in the range with BestGuess, but the mode
-    remains stubbornly at 2.5ms.
-  - BestGuess avoids many sources of error by using the system call provided for
-    obtaining a snapshot of exactly what the OS can tell us about the child
-    process that ran our command.  The reported statistics are all robust,
-    avoiding measures suited only to normal distributions.
+  Hyperfine medians.
+  - A possible explanation is that BestGuess and Hyperfine use different
+    techniques to compute the runtimes.
+	- BestGuess is getting the user and system time from the OS using
+      [wait4()](https://linux.die.net/man/2/wait4), via which the OS reports
+      process statistics as of the moment the child exited.  
+	- Hyperfine calls `getrusage(RUSAGE_CHILDREN, &mut buf)` twice: before
+      spawning a child process to run the command, and after the child has
+      exited.  Because the two calls to `getrusage()` specify `RUSAGE_CHILDREN`,
+      and only one child runs at a time, we expect accurate measurements.
+    - Indeed, in testing BestGuess we implemented the Hyperfine technique and
+      found that user and systems times were identical (to the microsecond
+      accuracy of `getrusage()`) when a call to `wait4()` was used to wait on
+      the child exit.  Changing to `waitpid()` produced identical results to the
+      0.1ms resolution that BestGuess prints on the terminal.  
+	- We conclude that the Hyperfine technique of using `getrusage()` and
+      `waitpid()` produces identical measurements of user and system time to
+      those returned by `wait4()`.  The difference in the techniques is down to
+      functionality, as `wait4()` also reports useful memory and context switch
+      information.
+  - Another potential source of error is the use of floating point math in
+    Hyperfine to represent user and system times internally in units of seconds.
+    But could this account for the somewhat large differences we are seeing?
+    Probably not.
+  - Is it possible that the way the Rust `std::process` library performs
+    fork/exec (in the Unix case) accrues extra time to the child process?  It
+    seems unlikely, but (1) any work done after `fork()` but before `exec()`
+    will be attributed to the child process, and (2) Rust appears to set up
+    pipes to communicate with the child process, which is example of such work.
+    In Hyperfine, the output from the child process is collected even when that
+    output is to be discarded.  Could these actions explain the longer runtimes
+    for the child process in the Hyperfine/Rust case compared with BestGuess/C?
+  - Looks like Rust provides a very generic and robust interface to process
+    control (fork/exec/spawn).  For benchmarking, this has an unfortunate
+    effect, because a certain amount of work is done after `fork` but before
+    `exec`.  See `do_exec`
+    [here](https://doc.rust-lang.org/1.73.0/src/std/sys/unix/process/process_unix.rs.html#303-407). 
+  - It seems likely that the steps taken before the `exec` system call in
+    `sys::process` could take measurable time, at least on Unix.   But why would
+    the extra time reported by Hyperfine vary from about 4 ms on `ls -l` to over
+    20 ms on `ps Aux`?
+  - This remains an open area of investigation.
+
 
 - **Measure of central tendency** To characterize a distribution using a single
   number, we choose a measure such as one of the many forms of mean, or the
@@ -230,7 +237,7 @@ matter the goal of benchmarking.
 
 ## About the long tail
 
-Some notes follow.
+Some rough notes follow.
 
 Because we are measuring user and system time, not real time, we are getting the
 operating system's report about processor time expended on our program.  The
@@ -275,7 +282,7 @@ Why, then, do we get such an interesting distribution of runtimes?
 
 ## Further investigation
 
-A thorough investigation is needed into these topics.  An illuminating example
+More work is needed on the topics outlined in this note.  An illuminating example
 follows, in which `ls -l` is measured by both BestGuess and Hyperfine without
 using a shell.  Note that 10,000 runs were executed.
 

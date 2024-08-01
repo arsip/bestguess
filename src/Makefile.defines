@@ -3,9 +3,7 @@
 ## The 'bestguess' project for performance benchmarking
 ##
 
-ifeq ($(RELEASE_MODE),)
-  $(error RELEASE_MODE is not set)
-endif
+RELEASE_MODE ?= false
 
 # -----------------------------------------------------------------------------
 # ESTABLISH THE PLATFORM: CPU ARCH and OS

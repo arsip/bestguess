@@ -333,7 +333,7 @@ void optable_printhelp(const char *progname) {
   optable_printusage(progname);
   printf("\n");
   for (i = optable_iter_start(); i >= 0; i = optable_iter_next(i))
-    printf("  %1s%-6s  --%-16s  %s\n",
+    printf("  %1s%-1s  --%-14s  %s\n",
 	   optable_shortname(i) ? "-" : " ",
 	   optable_shortname(i) ?: "",
 	   optable_longname(i),

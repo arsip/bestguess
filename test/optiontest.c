@@ -4,15 +4,18 @@
 // 
 //  COPYRIGHT (c) Jamie A. Jennings, 2024
 
-#include "bestguess.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include "optable.h"
 
 #define ASSERT(val) do {					\
-  if (!val) {							\
-  fprintf(stderr, "ERROR: Assertion failed %s:%d\n",		\
-	  __FILE__, __LINE__);					\
-  bail("");							\
-  } while(0)
+    if (!(val)) {						\
+      fprintf(stderr, "ERROR: Assertion failed %s:%d\n",	\
+	      __FILE__, __LINE__);				\
+      fflush(NULL);						\
+      exit(-1);							\
+    }								\
+  } while (0)
 
 typedef enum Options { 
   OPT_UNUSED1,			// for testing
@@ -69,21 +72,30 @@ static void print_options(void) {
     }								\
   } while (0)
 
+#define EXPECT_WARNING do {			\
+    printf("Expect a warning here:\n");		\
+  } while (0)
+
 int main(int argc, char *argv[]) {
 
-  if (argc) progname = argv[0];
-
   int err;
+
+  EXPECT_WARNING;
   err = optable_add(OPT_ERR_TEST, NULL, NULL, 0, "Help! No option names!");
   ASSERT(err);
+  EXPECT_WARNING;
   err = optable_add(OPT_ERR_TEST, "", NULL, 0, "Help! Empty shortname!");
   ASSERT(err);
+  EXPECT_WARNING;
   err = optable_add(OPT_ERR_TEST, NULL, "", 0, "Help! Empty longname!");
   ASSERT(err);
+  EXPECT_WARNING;
   err = optable_add(OPT_ERR_TEST, "", "", 0, "Help! Both names empty!");
   ASSERT(err);
+  EXPECT_WARNING;
   err = optable_add(OPT_ERR_TEST, "h", "help", 2, "Help! Numvals out of range!");
   ASSERT(err);
+  EXPECT_WARNING;
   err = optable_add(OPT_ERR_TEST, "h", "help", -1, "Help! Numvals out of range!");
   ASSERT(err);
   err = optable_add(OPT_HELP, "h", "help", 0, "Show help");
@@ -94,12 +106,17 @@ int main(int argc, char *argv[]) {
   // Reset everything after the tests above
   optable_free();
 
-  printf("%s: Printing option configuration\n", progname);
+  printf("\nPrinting option configuration\n");
   init_options();
   print_options();
   printf("\n");
 
-  printf("\n%s: Parsing command-line arguments\n\n", progname);
+  if (argc < 2) {
+    printf("\nNo command-line arguments given\n");
+    goto done;
+  }
+  
+  printf("\nParsing command-line arguments\n\n");
   const char *val;
   int n, i;
   printf("Arg  Option  Value\n");
@@ -171,6 +188,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
+  done:
   optable_free();
   return 0;
 }
