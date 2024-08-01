@@ -63,7 +63,7 @@ void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   // Voluntary context switches:
   // The number of times a context switch resulted due to a process
   // voluntarily giving up the processor before its time slice was
-  // completed (usually to await availability of a resource).
+  // completed (e.g. to await availability of a resource).
   WRITESEP(F_VCSW, usage->ru_nvcsw);
   // Involuntary context switches:
   // The number of times a context switch resulted due to a higher
