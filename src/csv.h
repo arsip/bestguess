@@ -14,7 +14,7 @@
 // Output file (raw data, per timed run)
 
 void write_header(FILE *f);
-void write_line(FILE *f, const char *cmd, int code, struct rusage *usage);
+void write_line(FILE *f, const char *cmd, int code, usage *usage);
 
 // Summary statistics file
 

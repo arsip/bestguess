@@ -10,10 +10,10 @@ TESTDIR=test
 default: debug
 
 debug: clean
-	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=false $(PROGRAM) && mv $(SRCDIR)/$(PROGRAM) .
+	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=false $(PROGRAM) && cp $(SRCDIR)/$(PROGRAM) .
 
 release: clean
-	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=true $(PROGRAM) && mv $(SRCDIR)/$(PROGRAM) .
+	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=true $(PROGRAM) && cp $(SRCDIR)/$(PROGRAM) .
 
 # ------------------------------------------------------------------
 
@@ -22,6 +22,6 @@ clean:
 	@$(MAKE) -C $(SRCDIR) clean
 
 install deps tags test config help:
-	$(MAKE) -C $(SRCDIR) $@
+	@$(MAKE) -C $(SRCDIR) $@
 
 .PHONY: default debug release clean install deps tags test config help

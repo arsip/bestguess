@@ -28,13 +28,13 @@
 
  */
 
-#define MEDIAN_SELECT(accessor, indices, usagedata)			\
+#define MEDIAN_SELECT(accessor, indices, data)				\
   ((config.runs == (config.runs/2) * 2) 				\
    ?									\
-   ((accessor(&(usagedata)[indices[config.runs/2 - 1]]) +		\
-     accessor(&(usagedata)[indices[config.runs/2]])) / 2)		\
+   ((accessor(&(data)[indices[config.runs/2 - 1]]) +			\
+     accessor(&(data)[indices[config.runs/2]])) / 2)			\
    :									\
-   (accessor(&usagedata[indices[config.runs/2]])))			\
+   (accessor(&(data)[indices[config.runs/2]])))				\
 
 static int64_t avg(int64_t a, int64_t b) {
   return (a + b) / 2;
@@ -54,8 +54,8 @@ static int64_t avg(int64_t a, int64_t b) {
 //
 // Note that the data must be sorted, and for that we use 'indices'.
 //
-static int64_t estimate_mode(struct rusage *usagedata,
-			     int64_t (accessor)(struct rusage *),
+static int64_t estimate_mode(usage *usagedata,
+			     int64_t (accessor)(usage *),
 			     int *indices) {
   // n = number of samples being examined
   // h = size of "half sample" (floor of n/2)
@@ -95,8 +95,8 @@ static int64_t estimate_mode(struct rusage *usagedata,
 
 // Returns -1 when there are insufficient samples
 static int64_t percentile(int pct,
-			  struct rusage *usagedata,
-			  int64_t (accessor)(struct rusage *),
+			  usage *usagedata,
+			  int64_t (accessor)(usage *),
 			  int *indices) {
   if (pct < 90) bail("Error: refuse to calculate percentiles less than 90");
   if (pct > 99) bail("Error: unable to calculate percentiles greater than 99");
@@ -107,23 +107,27 @@ static int64_t percentile(int pct,
   return accessor(&usagedata[indices[idx]]);
 }
 
-// Produce a statistical summary (stored in 's') of usagedata over all runs
-static void measure(struct rusage *usagedata,
-		    int64_t (accessor)(struct rusage *),
+// Produce a statistical summary (stored in 'meas') over all runs of
+// time values (int64_t storing microseconds).
+//
+static void measure(struct usage *data,
+		    int64_t (accessor)(usage *),
 		    comparator compare,
-		    measures *meas) {
-  // Note: 'meas' is filled with zeros on initial allocation
-  if (config.runs < 1) return;
+		    measures *m) {
+  if (config.runs < 0) {
+    memset(m, 0, sizeof(measures));
+    return;
+  }
   int *indices = malloc(config.runs * sizeof(int));
   if (!indices) bail("Out of memory");
   for (int i = 0; i < config.runs; i++) indices[i] = i;
-  sort(indices, config.runs, sizeof(int), usagedata, compare);
-  meas->median = MEDIAN_SELECT(accessor, indices, usagedata);
-  meas->min = accessor(&usagedata[indices[0]]);
-  meas->max = accessor(&usagedata[indices[config.runs - 1]]);
-  meas->mode = estimate_mode(usagedata, accessor, indices);
-  meas->pct95 = percentile(95, usagedata, accessor, indices);
-  meas->pct99 = percentile(99, usagedata, accessor, indices);
+  sort(indices, config.runs, sizeof(int), data, compare);
+  m->median = MEDIAN_SELECT(accessor, indices, data);
+  m->min = accessor(&data[indices[0]]);
+  m->max = accessor(&data[indices[config.runs - 1]]);
+  m->mode = estimate_mode(data, accessor, indices);
+  m->pct95 = percentile(95, data, accessor, indices);
+  m->pct99 = percentile(99, data, accessor, indices);
   free(indices);
   return;
 }
@@ -140,7 +144,9 @@ void free_summary(summary *s) {
   free(s);
 }
 
-summary *summarize(char *cmd, int fail_count, struct rusage *usagedata) {
+summary *summarize(char *cmd,
+		   int fail_count,
+		   usage *usagedata) {
 
   summary *s = new_summary();
 
@@ -158,10 +164,11 @@ summary *summarize(char *cmd, int fail_count, struct rusage *usagedata) {
   measure(usagedata, totaltime, compare_totaltime, &s->total);
   measure(usagedata, usertime, compare_usertime, &s->user);
   measure(usagedata, systemtime, compare_systemtime, &s->system);
-  measure(usagedata, rss, compare_rss, &s->rss);
+  measure(usagedata, maxrss, compare_maxrss, &s->maxrss);
   measure(usagedata, vcsw, compare_vcsw, &s->vcsw);
   measure(usagedata, icsw, compare_icsw, &s->icsw);
   measure(usagedata, tcsw, compare_tcsw, &s->tcsw);
+  measure(usagedata, wall, compare_wall, &s->wall);
 
   return s;
 }

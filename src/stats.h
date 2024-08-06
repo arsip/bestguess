@@ -8,6 +8,7 @@
 #define stats_h
 
 #include "bestguess.h"
+#include "utils.h"
 #include <sys/resource.h>
 
 // Min, max, and measures of central tendency
@@ -29,13 +30,17 @@ typedef struct summary {
   measures  user;
   measures  system;
   measures  total;
-  measures  rss;
+  measures  maxrss;
   measures  vcsw;
   measures  icsw;
   measures  tcsw;
+  measures  wall;
 } summary;
 
-summary *summarize(char *cmd, int fail_count, struct rusage *usagedata);
+summary *summarize(char *cmd,
+		   int fail_count,
+		   usage *usagedata);
+
 void     free_summary(summary *s);
 
 

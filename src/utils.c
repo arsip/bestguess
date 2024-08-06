@@ -28,35 +28,47 @@ void bail(const char *msg) {
 }
 
 // -----------------------------------------------------------------------------
-// Accessors and comparators for rusage fields
+// Custom usage struct with accessors and comparators
 // -----------------------------------------------------------------------------
 
-int64_t rss(struct rusage *usage) {
-  return usage->ru_maxrss;
+int64_t maxrss(usage *usage) {
+  return usage->os.ru_maxrss;
 }
 
-int64_t usertime(struct rusage *usage) {
-  return usage->ru_utime.tv_sec * 1000 * 1000 + usage->ru_utime.tv_usec;
+int64_t usertime(usage *usage) {
+  return usage->os.ru_utime.tv_sec * MICROSECS + usage->os.ru_utime.tv_usec;
 }
 
-int64_t systemtime(struct rusage *usage) {
-  return usage->ru_stime.tv_sec * 1000 * 1000 + usage->ru_stime.tv_usec;
+int64_t systemtime(usage *usage) {
+  return usage->os.ru_stime.tv_sec * MICROSECS + usage->os.ru_stime.tv_usec;
 }
 
-int64_t totaltime(struct rusage *usage) {
+int64_t totaltime(usage *usage) {
   return usertime(usage) + systemtime(usage);
 }
 
-int64_t vcsw(struct rusage *usage) {
-  return usage->ru_nvcsw;
+int64_t vcsw(usage *usage) {
+  return usage->os.ru_nvcsw;
 }
 
-int64_t icsw(struct rusage *usage) {
-  return usage->ru_nivcsw;
+int64_t icsw(usage *usage) {
+  return usage->os.ru_nivcsw;
 }
 
-int64_t tcsw(struct rusage *usage) {
+int64_t minflt(usage *usage) {
+  return usage->os.ru_minflt;
+}
+
+int64_t majflt(usage *usage) {
+  return usage->os.ru_majflt;
+}
+
+int64_t tcsw(usage *usage) {
   return vcsw(usage) + icsw(usage);
+}
+
+int64_t wall(usage *usage) {
+  return usage->wall;
 }
 
 // The arg order for comparators passed to qsort_r differs between
@@ -66,7 +78,7 @@ int64_t tcsw(struct rusage *usage) {
   int compare_##accessor(const void *idx_ptr1,				\
 			 const void *idx_ptr2,				\
 			 void *context) {				\
-    struct rusage *usagedata = context;					\
+    usage *usagedata = context;						\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\
     if (accessor(&usagedata[idx1]) > accessor(&usagedata[idx2]))	\
@@ -80,7 +92,7 @@ int64_t tcsw(struct rusage *usage) {
   int compare_##accessor(void *context,					\
 			 const void *idx_ptr1,				\
 			 const void *idx_ptr2) {			\
-    struct rusage *usagedata = context;					\
+    usage *usagedata = context;						\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\
     if (accessor(&usagedata[idx1]) > accessor(&usagedata[idx2]))	\
@@ -94,10 +106,11 @@ int64_t tcsw(struct rusage *usage) {
 MAKE_COMPARATOR(usertime)
 MAKE_COMPARATOR(systemtime)
 MAKE_COMPARATOR(totaltime)
-MAKE_COMPARATOR(rss)
+MAKE_COMPARATOR(maxrss)
 MAKE_COMPARATOR(vcsw)
 MAKE_COMPARATOR(icsw)
 MAKE_COMPARATOR(tcsw)
+MAKE_COMPARATOR(wall)
 
 // -----------------------------------------------------------------------------
 // Parsing utilities

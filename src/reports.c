@@ -13,7 +13,7 @@
 #define FMT "%6.1f"
 #define FMTs "%6.2f"
 #define IFMT "%6" PRId64
-#define LABEL "  %12s "
+#define LABEL "  %14s "
 #define GAP   "   "
 #define UNITS 1
 #define NOUNITS 0
@@ -74,7 +74,7 @@ void print_command_summary(summary *s) {
 
 
   int sec = 1;
-  double divisor = 1000 * 1000;
+  double divisor = MICROSECS;
   const char *units = "s";
   
   // Decide on which time unit to use for printing the summary
@@ -84,7 +84,7 @@ void print_command_summary(summary *s) {
     units = "ms";
   }
 
-  printf(LABEL, "Total time");
+  printf(LABEL, "Total CPU time");
   PRINTMODE(s->total.mode);
   PRINTTIME(s->total.min);
   PRINTTIME(s->total.median);
@@ -113,25 +113,47 @@ void print_command_summary(summary *s) {
     PRINTTIME(s->system.pct95);
     PRINTTIME(s->system.pct99);
     PRINTTIMENL(s->system.max);
+  }
 
-    divisor = 1024.0 * 1024.0;
+  printf(LABEL, "Wall clock");
+  PRINTMODE(s->wall.mode);
+  PRINTTIME(s->wall.min);
+  PRINTTIME(s->wall.median);
+
+  if (!config.brief_summary) {
+    PRINTTIME(s->wall.pct95);
+    PRINTTIME(s->wall.pct99);
+  }
+  PRINTTIMENL(s->wall.max);
+
+  if (!config.brief_summary) {
+    divisor = MEGA;
     units = "MiB";
+    // More than 3 digits left of decimal place?
+    if (s->maxrss.max >= MEGA * 1000) {
+      divisor *= 1024;
+      units = "GiB";
+    }
     printf(LABEL, "Max RSS");
-    PRINTMODE(s->rss.mode);
-    PRINTTIME(s->rss.min);
-    PRINTTIME(s->rss.median);
+    PRINTMODE(s->maxrss.mode);
+    PRINTTIME(s->maxrss.min);
+    PRINTTIME(s->maxrss.median);
 
     // Misusing PRINTTIME because it does the right thing
-    PRINTTIME(s->rss.pct95);
-    PRINTTIME(s->rss.pct99);
-    PRINTTIMENL(s->rss.max);
+    PRINTTIME(s->maxrss.pct95);
+    PRINTTIME(s->maxrss.pct99);
+    PRINTTIMENL(s->maxrss.max);
 
-    divisor = 1000;
-    units = "Kct";
-    if (s->tcsw.max < 10000) {
-      units = "ct";
-      divisor = 1;
-    } 
+    divisor = 1;
+    units = "ct";
+    if (s->tcsw.max >= 10000) {
+      divisor = 1000;
+      units = "Kct";
+    }
+    if (s->tcsw.max >= MICROSECS) { // Not a time
+      divisor = MICROSECS;	    // but MICROSECS
+      units = "Mct";		    // is convenient
+    }
     printf(LABEL, "Context sw");
     PRINTCOUNT(s->tcsw.mode, UNITS);
     printf(GAP);
@@ -155,7 +177,7 @@ void print_command_summary(summary *s) {
 
 #define BAR "▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 
-void print_graph(summary *s, struct rusage *usagedata) {
+void print_graph(summary *s, usage *usagedata) {
   int bars;
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int maxbars = strlen(BAR) / bytesperbar;

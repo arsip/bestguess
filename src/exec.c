@@ -8,17 +8,24 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h> 
+#include <sys/time.h>
 #include "csv.h"
 #include "stats.h"
 #include "reports.h"
 #include "optable.h"
+#include "utils.h"
 
-static int run(const char *cmd, struct rusage *usage) {
+static int run(const char *cmd, usage *usage) {
 
-  int status;
-  pid_t pid;
   FILE *f;
+  pid_t pid;
+  int status;
+  int64_t start, stop;
+
+  int show_output = config.show_output;
   int use_shell = (config.shell && *config.shell);
+
+  struct timeval wall_clock_start, wall_clock_stop;
 
   arglist *args = new_arglist(MAXARGS);
   if (!args)
@@ -39,11 +46,16 @@ static int run(const char *cmd, struct rusage *usage) {
     fflush(NULL);
   }
 
+  if (gettimeofday(&wall_clock_start, NULL)) {
+    perror("could not get wall clock time");
+    bail("Exiting");
+  }
+
   // Goin' for a ride!
   pid = fork();
 
   if (pid == 0) {
-    if (!config.show_output) {
+    if (!show_output) {
       f = freopen("/dev/null", "r", stdin);
       if (!f) bail("freopen failed on stdin");
       f = freopen("/dev/null", "w", stderr);
@@ -57,7 +69,16 @@ static int run(const char *cmd, struct rusage *usage) {
     bail("Exec failed");
   }
   
-  pid_t err = wait4(pid, &status, 0, usage);
+  pid_t err = wait4(pid, &status, 0, &usage->os);
+
+  if (gettimeofday(&wall_clock_stop, NULL)) {
+    perror("could not get wall clock time");
+    bail("Exiting");
+  }
+
+  start = wall_clock_start.tv_sec * MICROSECS + wall_clock_start.tv_usec;
+  stop = wall_clock_stop.tv_sec * MICROSECS + wall_clock_stop.tv_usec;
+  usage->wall = stop - start;
 
   // Check to see if cmd/shell aborted or was killed
   if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
@@ -107,11 +128,16 @@ static int run(const char *cmd, struct rusage *usage) {
 }
 
 // Returns modal total runtime for 'cmd'
-int64_t run_command(int num, char *cmd,
-		    FILE *output, FILE *csv_output, FILE *hf_output) {
+int64_t run_command(int num,
+		    char *cmd,
+		    FILE *output,
+		    FILE *csv_output,
+		    FILE *hf_output) {
+
   int code, fail_count = 0;
   int64_t mode;
-  struct rusage *usagedata = malloc(config.runs * sizeof(struct rusage));
+
+  struct usage *usagedata = malloc(config.runs * sizeof(usage));
   if (!usagedata) bail("Out of memory");
 
   if (!config.output_to_stdout) {

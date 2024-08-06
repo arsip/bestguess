@@ -36,7 +36,7 @@ void write_header(FILE *f) {
     NEWLINE;					\
   } while (0)
 
-void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
+void write_line(FILE *f, const char *cmd, int code, usage *usage) {
   char *escaped_cmd = escape(cmd);
   char *shell_cmd = escape(config.shell);
 
@@ -51,25 +51,27 @@ void write_line(FILE *f, const char *cmd, int code, struct rusage *usage) {
   // Max RSS in kibibytes
   // ru_maxrss (since Linux 2.6.32) This is the maximum resident set size used (in kilobytes).
   // When the above was written, a kilobyte meant 1024 bytes.
-  WRITESEP(F_RSS, usage->ru_maxrss);
+  WRITESEP(F_MAXRSS, maxrss(usage));
   // Page reclaims (count):
   // The number of page faults serviced without any I/O activity; here
   // I/O activity is avoided by “reclaiming” a page frame from the
   // list of pages awaiting reallocation.
-  WRITESEP(F_RECLAIMS, usage->ru_minflt);
+  WRITESEP(F_RECLAIMS, minflt(usage));
   // Page faults (count):
   // The number of page faults serviced that required I/O activity.
-  WRITESEP(F_FAULTS, usage->ru_majflt);
+  WRITESEP(F_FAULTS, majflt(usage));
   // Voluntary context switches:
   // The number of times a context switch resulted due to a process
   // voluntarily giving up the processor before its time slice was
   // completed (e.g. to await availability of a resource).
-  WRITESEP(F_VCSW, usage->ru_nvcsw);
+  WRITESEP(F_VCSW, vcsw(usage));
   // Involuntary context switches:
   // The number of times a context switch resulted due to a higher
   // priority process becoming runnable or because the current process
   // exceeded its time slice.
-  WRITELN(F_ICSW, usage->ru_nivcsw);
+  WRITESEP(F_ICSW, icsw(usage));
+  // Elapsed wall clock time in microseconds
+  WRITELN(F_WALL, wall(usage));
 
   fflush(f);
   free(escaped_cmd);
@@ -126,7 +128,13 @@ void write_summary_header(FILE *f) {
   WRITEFMT("%s,", "Total Ctx Sw median (ct)");
   WRITEFMT("%s,", "Total Ctx Sw p95 (ct)");
   WRITEFMT("%s,", "Total Ctx Sw p99 (ct)");
-  WRITEFMT("%s\n", "Total Ctx Sw max (ct)");
+  WRITEFMT("%s,", "Total Ctx Sw max (ct)");
+  WRITEFMT("%s,", "Wall mode (us)");
+  WRITEFMT("%s,", "Wall min (us)");
+  WRITEFMT("%s,", "Wall median (us)");
+  WRITEFMT("%s,", "Wall p95 (us)");
+  WRITEFMT("%s,", "Wall p99 (us)");
+  WRITEFMT("%s\n", "Wall max (us)");
   fflush(f);
 }
 
@@ -165,12 +173,12 @@ void write_summary_line(FILE *f, summary *s) {
   MAYBE(WRITESEP, F_SYSTEM, s->system.pct95);
   MAYBE(WRITESEP, F_SYSTEM, s->system.pct99);
   WRITESEP(F_SYSTEM, s->system.max);
-  WRITESEP(F_RSS, s->rss.mode);
-  WRITESEP(F_RSS, s->rss.min);
-  WRITESEP(F_RSS, s->rss.median);
-  MAYBE(WRITESEP, F_RSS, s->rss.pct95);
-  MAYBE(WRITESEP, F_RSS, s->rss.pct99);
-  WRITESEP(F_RSS, s->rss.max);
+  WRITESEP(F_MAXRSS, s->maxrss.mode);
+  WRITESEP(F_MAXRSS, s->maxrss.min);
+  WRITESEP(F_MAXRSS, s->maxrss.median);
+  MAYBE(WRITESEP, F_MAXRSS, s->maxrss.pct95);
+  MAYBE(WRITESEP, F_MAXRSS, s->maxrss.pct99);
+  WRITESEP(F_MAXRSS, s->maxrss.max);
   WRITESEP(F_VCSW, s->vcsw.mode);
   WRITESEP(F_VCSW, s->vcsw.min);
   WRITESEP(F_VCSW, s->vcsw.median);
@@ -188,7 +196,13 @@ void write_summary_line(FILE *f, summary *s) {
   WRITESEP(F_TCSW, s->tcsw.median);
   MAYBE(WRITESEP, F_TCSW, s->tcsw.pct95);
   MAYBE(WRITESEP, F_TCSW, s->tcsw.pct99);
-  WRITELN(F_TCSW, s->tcsw.max);
+  WRITESEP(F_TCSW, s->tcsw.max);
+  WRITESEP(F_WALL, s->wall.mode);
+  WRITESEP(F_WALL, s->wall.min);
+  WRITESEP(F_WALL, s->wall.median);
+  MAYBE(WRITESEP, F_WALL, s->wall.pct95);
+  MAYBE(WRITESEP, F_WALL, s->wall.pct99);
+  WRITELN(F_WALL, s->wall.max);
   fflush(f);
   free(escaped_cmd);
   free(shell_cmd);
@@ -209,7 +223,7 @@ void write_hf_header(FILE *f) {
 }
 
 void write_hf_line(FILE *f, summary *s) {
-  const double million = 1000.0 * 1000.0;
+  const double million = MICROSECS;
   // Command
   WRITEFMT("%s", *(s->cmd) ? s->cmd : config.shell); SEP;
   // Mode total time (written to the mean field because mean is useless)

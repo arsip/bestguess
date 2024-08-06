@@ -29,11 +29,17 @@ release:
 
 install: $(PROGRAM)
 	@printf "NOTE: DESTDIR is $(DESTDIR)\n"; \
-	printf "NOTE: Use 'make DESTDIR=/some/path' to install into /some/path/bin\n"; \
-	printf "Copying $(PROGRAM) to $(DESTDIR)/bin\n"; \
 	mkdir -p "$(DESTDIR)/bin"; \
+        if [[ $$? -ne 0 ]]; then \
+	  echo "Failed to create $(DESTDIR)/bin"; \
+	  exit -1;\
+	fi; \
 	cp "$(PROGRAM)" "$(DESTDIR)/bin/$(PROGRAM)"; \
-	printf "Done\n"
+        if [[ $$? -ne 0 ]]; then \
+	  echo "Failed to copy $(PROGRAM)"; \
+	  exit -1;\
+	fi; \
+	printf "Copied $(PROGRAM) to $(DESTDIR)/bin\n";
 
 # -----------------------------------------------------------------------------
 RELEASE_MODE ?= false
