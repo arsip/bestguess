@@ -177,7 +177,7 @@ void print_command_summary(summary *s) {
 
 #define BAR "▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 
-void print_graph(summary *s, usage *usagedata) {
+void print_graph(summary *s, Usage *usagedata) {
   int bars;
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int maxbars = strlen(BAR) / bytesperbar;
@@ -200,7 +200,7 @@ void print_overall_summary(char *commands[],
 			   int end) {
 
   if (config.runs < 1) return;
-  if ((end - start) < 2) {
+  if (config.input_filename && ((end - start) < 2)) {
     printf("Command group contains only one command\n");
     return;
   }
@@ -215,13 +215,15 @@ void print_overall_summary(char *commands[],
       best = i;
     }
 
-  printf("Best guess is:\n");
-  printf("  %s ran\n", *commands[best] ? commands[best] : "(empty)");
-  for (int i = start; i < end; i++) {
-    if (i != best) {
-      factor = (double) modes[i] / (double) fastest;
-      printf("  %6.2f times faster than %s\n",
-	     factor, *commands[i] ? commands[i] : "(empty)");
+  if ((end - start) > 1) {
+    printf("Best guess is:\n");
+    printf("  %s ran\n", *commands[best] ? commands[best] : "(empty)");
+    for (int i = start; i < end; i++) {
+      if (i != best) {
+	factor = (double) modes[i] / (double) fastest;
+	printf("  %6.2f times faster than %s\n",
+	       factor, *commands[i] ? commands[i] : "(empty)");
+      }
     }
   }
 

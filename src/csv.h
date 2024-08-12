@@ -11,10 +11,23 @@
 #include "stats.h"
 #include <stdio.h>
 
+typedef struct CSVrow {
+  char **fields;
+  int    next;
+  int    capacity;
+} CSVrow;
+
+// Generic utilities
+
+int     CSVfields(CSVrow *row);
+CSVrow *read_CSVrow(FILE *f);
+char   *CSVfield(CSVrow *row, int i);
+void    free_CSVrow(CSVrow *);
+
 // Output file (raw data, per timed run)
 
 void write_header(FILE *f);
-void write_line(FILE *f, const char *cmd, int code, usage *usage);
+void write_line(FILE *f, const char *cmd, int code, Usage *usage);
 
 // Summary statistics file
 

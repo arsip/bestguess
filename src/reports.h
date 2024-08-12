@@ -11,7 +11,7 @@
 #include "stats.h"
 
 void print_command_summary(summary *s);
-void print_graph(summary *s, usage *usagedata);
+void print_graph(summary *s, Usage *usagedata);
 void print_overall_summary(char *commands[],
 			   int64_t modes[],
 			   int start,

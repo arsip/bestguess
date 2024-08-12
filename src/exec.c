@@ -15,7 +15,7 @@
 #include "optable.h"
 #include "utils.h"
 
-static int run(const char *cmd, usage *usage) {
+static int run(const char *cmd, Usage *usage) {
 
   FILE *f;
   pid_t pid;
@@ -80,6 +80,8 @@ static int run(const char *cmd, usage *usage) {
   stop = wall_clock_stop.tv_sec * MICROSECS + wall_clock_stop.tv_usec;
   usage->wall = stop - start;
 
+  usage->cmd = strndup(cmd, MAXCMDLEN);
+
   // Check to see if cmd/shell aborted or was killed
   if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
     fprintf(stderr, "Error: Could not execute %s '%s'.\n",
@@ -102,6 +104,8 @@ static int run(const char *cmd, usage *usage) {
     fflush(stderr);
     exit(-1);  
   }
+
+  usage->code = WEXITSTATUS(status);
 
   // If we get here, the child process exited normally, though the
   // exit code might not be zero (and zero indicates success)
@@ -137,7 +141,7 @@ int64_t run_command(int num,
   int code, fail_count = 0;
   int64_t mode;
 
-  struct usage *usagedata = malloc(config.runs * sizeof(usage));
+  Usage *usagedata = new_usage_array(config.runs);
   if (!usagedata) bail("Out of memory");
 
   if (!config.output_to_stdout) {
@@ -176,7 +180,7 @@ int64_t run_command(int num,
   fflush(stdout);
   mode = s->total.mode;
   free_summary(s);
-  free(usagedata);
+  free_usage(usagedata, config.runs);
   return mode;
 }
 

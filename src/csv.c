@@ -6,9 +6,124 @@
 
 #include "csv.h"
 #include "utils.h"
+#include <limits.h>
+#include <stdbool.h>
+#include <string.h>
+#include <assert.h>
+
+int CSVfields(CSVrow *row) {
+  if (!row) bail("null row");
+  return row->next;
+}
+
+char *CSVfield(CSVrow *row, int i) {
+  if (!row) bail("null row");
+  if ((i < 0) || (i >= row->next)) bail("invalid col index");
+  return row->fields[i];
+}
+
+// TODO: Increase after testing
+#define MIN_COLS 2
+
+static CSVrow *new_row(void) {
+  CSVrow *row = malloc(sizeof(CSVrow));
+  if (!row) bail("Out of memory");
+  row->fields = malloc(sizeof(char *) * MIN_COLS);
+  if (!row->fields) bail("Out of memory");
+  row->next = 0;
+  row->capacity = MIN_COLS;
+  return row;
+}
+
+static void CSV_add(CSVrow *row, char *start, char *end) {
+  if (row->next == row->capacity) {
+    if (row->capacity > INT_MAX / 2) 
+      bail("Too many columns in CSV row");
+    int newcap = 2 * row->capacity;
+    char **tmp = realloc(row->fields, sizeof(char *) * newcap);
+    if (!tmp) bail("Out of memory");
+    row->fields = tmp;
+    row->capacity = newcap;
+  }
+  assert(row->capacity > row->next);
+  char *tmp = strndup(start, (end - start));
+  if (!tmp) bail("Out of memory");
+  row->fields[row->next] = tmp;
+  row->next++;
+}
+
+static bool quotep(char *p) {
+  return *p && (*p == '"');
+}
+
+static bool newlinep(char *p) {
+  return *p && (*p == '\n');
+}
+
+static bool commap(char *p) {
+  return *p && (*p == ',');
+}
+
+// Returns the number of the field that failed to parse.  Fields are
+// numbered starting with 1, so 0 means no errors.
+static int parse_CSVrow(char *line, CSVrow *row) {
+  if (!line) return 1;
+  if (!line[0]) return 1;
+  char *start, *p = line;
+  while (*p != '\0') {
+    start = p;
+    if (quotep(p)) {
+      // Quoted field
+      while (p++, !newlinep(p)) {
+	if (((*p == '\\') || quotep(p)) && quotep(p+1)) p++;
+	if (quotep(p) && !quotep(p+1)) break;
+      }
+      CSV_add(row, start+1, p);
+      p++;
+    } else {
+      // Bare (unquoted) field
+      while (*p && !newlinep(p) && !commap(p)) p++;
+      CSV_add(row, start, p);
+    }
+    if (!newlinep(p) && !commap(p)) {
+      int fieldnumber = row->next + 1;
+      return fieldnumber;
+    }
+    if (newlinep(p)) return 0;
+    p++;
+  }
+  return 0;
+}
+
+CSVrow *read_CSVrow(FILE *f) {
+  char buf[MAXCSVLEN];
+  char *line = fgets(buf, MAXCSVLEN, f);
+  if (!line) return NULL;	// EOF
+  CSVrow *row = new_row();
+  int errfield = parse_CSVrow(line, row);
+  if (errfield) {
+    // Cut newline from end of 'buf' for better printing
+    char *p = buf;
+    while(*p && !newlinep(p)) p++;
+    *p = '\0';
+    fprintf(stderr, "Error parsing CSV row at field %d\n", errfield);
+    fprintf(stderr, "  Input: %s\n", buf);
+    fflush(stderr);
+    free_CSVrow(row);
+    return NULL;
+  }
+  return row;
+}
+
+void free_CSVrow(CSVrow *row) {
+  if (!row) return;
+  for (int i = 0; i < row->next; i++)
+    free(row->fields[i]);
+  free(row);
+}
 
 // -----------------------------------------------------------------------------
-// Output file (raw data, per timed run)
+// Output file (raw data, per timed run) CONTROLLED BY Headers[]
 // -----------------------------------------------------------------------------
 
 void write_header(FILE *f) {
@@ -36,7 +151,7 @@ void write_header(FILE *f) {
     NEWLINE;					\
   } while (0)
 
-void write_line(FILE *f, const char *cmd, int code, usage *usage) {
+void write_line(FILE *f, const char *cmd, int code, Usage *usage) {
   char *escaped_cmd = escape(cmd);
   char *shell_cmd = escape(config.shell);
 
@@ -77,6 +192,7 @@ void write_line(FILE *f, const char *cmd, int code, usage *usage) {
   free(escaped_cmd);
   free(shell_cmd);
 }
+
 
 // -----------------------------------------------------------------------------
 // Summary statistics file

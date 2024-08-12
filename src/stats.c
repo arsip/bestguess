@@ -54,8 +54,8 @@ static int64_t avg(int64_t a, int64_t b) {
 //
 // Note that the data must be sorted, and for that we use 'indices'.
 //
-static int64_t estimate_mode(usage *usagedata,
-			     int64_t (accessor)(usage *),
+static int64_t estimate_mode(Usage *usagedata,
+			     int64_t (accessor)(Usage *),
 			     int *indices) {
   // n = number of samples being examined
   // h = size of "half sample" (floor of n/2)
@@ -95,8 +95,8 @@ static int64_t estimate_mode(usage *usagedata,
 
 // Returns -1 when there are insufficient samples
 static int64_t percentile(int pct,
-			  usage *usagedata,
-			  int64_t (accessor)(usage *),
+			  Usage *usagedata,
+			  int64_t (accessor)(Usage *),
 			  int *indices) {
   if (pct < 90) bail("Error: refuse to calculate percentiles less than 90");
   if (pct > 99) bail("Error: unable to calculate percentiles greater than 99");
@@ -110,8 +110,8 @@ static int64_t percentile(int pct,
 // Produce a statistical summary (stored in 'meas') over all runs of
 // time values (int64_t storing microseconds).
 //
-static void measure(struct usage *data,
-		    int64_t (accessor)(usage *),
+static void measure(struct Usage *data,
+		    int64_t (accessor)(Usage *),
 		    comparator compare,
 		    measures *m) {
   if (config.runs < 0) {
@@ -146,7 +146,7 @@ void free_summary(summary *s) {
 
 summary *summarize(char *cmd,
 		   int fail_count,
-		   usage *usagedata) {
+		   Usage *usagedata) {
 
   summary *s = new_summary();
 

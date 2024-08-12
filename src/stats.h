@@ -39,7 +39,7 @@ typedef struct summary {
 
 summary *summarize(char *cmd,
 		   int fail_count,
-		   usage *usagedata);
+		   Usage *usagedata);
 
 void     free_summary(summary *s);
 

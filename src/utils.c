@@ -31,43 +31,57 @@ void bail(const char *msg) {
 // Custom usage struct with accessors and comparators
 // -----------------------------------------------------------------------------
 
-int64_t maxrss(usage *usage) {
+Usage *new_usage_array(int n) {
+  if (n < 1) bail("Invalid number of usage structs requested");
+  Usage *usage = malloc(n * sizeof(Usage));
+  if (!usage) bail("Out of memory");
+  return usage;
+}
+
+void free_usage(Usage *usage, int n) {
+  if (!usage || (n < 1)) return;
+  for (int i = 0; i < n; i++)
+    free(usage[i].cmd);
+  free(usage);
+}
+
+int64_t maxrss(Usage *usage) {
   return usage->os.ru_maxrss;
 }
 
-int64_t usertime(usage *usage) {
+int64_t usertime(Usage *usage) {
   return usage->os.ru_utime.tv_sec * MICROSECS + usage->os.ru_utime.tv_usec;
 }
 
-int64_t systemtime(usage *usage) {
+int64_t systemtime(Usage *usage) {
   return usage->os.ru_stime.tv_sec * MICROSECS + usage->os.ru_stime.tv_usec;
 }
 
-int64_t totaltime(usage *usage) {
+int64_t totaltime(Usage *usage) {
   return usertime(usage) + systemtime(usage);
 }
 
-int64_t vcsw(usage *usage) {
+int64_t vcsw(Usage *usage) {
   return usage->os.ru_nvcsw;
 }
 
-int64_t icsw(usage *usage) {
+int64_t icsw(Usage *usage) {
   return usage->os.ru_nivcsw;
 }
 
-int64_t minflt(usage *usage) {
+int64_t minflt(Usage *usage) {
   return usage->os.ru_minflt;
 }
 
-int64_t majflt(usage *usage) {
+int64_t majflt(Usage *usage) {
   return usage->os.ru_majflt;
 }
 
-int64_t tcsw(usage *usage) {
+int64_t tcsw(Usage *usage) {
   return vcsw(usage) + icsw(usage);
 }
 
-int64_t wall(usage *usage) {
+int64_t wall(Usage *usage) {
   return usage->wall;
 }
 
@@ -78,7 +92,7 @@ int64_t wall(usage *usage) {
   int compare_##accessor(const void *idx_ptr1,				\
 			 const void *idx_ptr2,				\
 			 void *context) {				\
-    usage *usagedata = context;						\
+    Usage *usagedata = context;						\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\
     if (accessor(&usagedata[idx1]) > accessor(&usagedata[idx2]))	\
@@ -92,7 +106,7 @@ int64_t wall(usage *usage) {
   int compare_##accessor(void *context,					\
 			 const void *idx_ptr1,				\
 			 const void *idx_ptr2) {			\
-    usage *usagedata = context;						\
+    Usage *usagedata = context;						\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\
     if (accessor(&usagedata[idx1]) > accessor(&usagedata[idx2]))	\

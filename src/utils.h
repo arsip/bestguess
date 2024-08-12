@@ -21,21 +21,29 @@
 // Custom usage struct with accessors and comparators
 // -----------------------------------------------------------------------------
 
-typedef struct usage {
+typedef struct Usage {
   struct rusage os;		// direct from operating system
   int64_t       wall;		// measured wall clock time
-} usage;
+  char         *cmd;		// command that was executed
+  int           code;		// exit code
+} Usage;
 
-int64_t maxrss(usage *usage);
-int64_t usertime(usage *usage);
-int64_t systemtime(usage *usage);
-int64_t totaltime(usage *usage);
-int64_t vcsw(usage *usage);
-int64_t icsw(usage *usage);
-int64_t tcsw(usage *usage);
-int64_t minflt(usage *usage);
-int64_t majflt(usage *usage);
-int64_t wall(usage *usage);
+Usage *new_usage_array(int n);
+void   free_usage(Usage *usage, int n);
+
+// Accessors for 'Usage' struct
+const char *cmd(Usage *usage);
+int code(Usage *usage);
+int64_t maxrss(Usage *usage);
+int64_t usertime(Usage *usage);
+int64_t systemtime(Usage *usage);
+int64_t totaltime(Usage *usage);
+int64_t vcsw(Usage *usage);
+int64_t icsw(Usage *usage);
+int64_t tcsw(Usage *usage);
+int64_t minflt(Usage *usage);
+int64_t majflt(Usage *usage);
+int64_t wall(Usage *usage);
 
 // The arg order for comparators passed to qsort_r differs between
 // linux and macos.
