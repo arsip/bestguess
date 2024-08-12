@@ -40,9 +40,24 @@ Usage *new_usage_array(int n) {
 
 void free_usage(Usage *usage, int n) {
   if (!usage || (n < 1)) return;
-  for (int i = 0; i < n; i++)
+  // These fields are strings owned by the usage struct
+  for (int i = 0; i < n; i++) {
     free(usage[i].cmd);
+    free(usage[i].shell);
+  }
   free(usage);
+}
+
+char *usage_cmd(Usage *usage) {
+  return usage->cmd;
+}
+
+int usage_code(Usage *usage) {
+  return usage->code;
+}
+
+char *usage_shell(Usage *usage) {
+  return usage->shell;
 }
 
 int64_t maxrss(Usage *usage) {

@@ -25,6 +25,7 @@ typedef struct Usage {
   struct rusage os;		// direct from operating system
   int64_t       wall;		// measured wall clock time
   char         *cmd;		// command that was executed
+  char         *shell;		// shell used (optional, may be NULL)
   int           code;		// exit code
 } Usage;
 
@@ -32,8 +33,9 @@ Usage *new_usage_array(int n);
 void   free_usage(Usage *usage, int n);
 
 // Accessors for 'Usage' struct
-const char *cmd(Usage *usage);
-int code(Usage *usage);
+char *usage_cmd(Usage *usage);
+char *usage_shell(Usage *usage);
+int usage_code(Usage *usage);
 int64_t maxrss(Usage *usage);
 int64_t usertime(Usage *usage);
 int64_t systemtime(Usage *usage);

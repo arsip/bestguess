@@ -151,12 +151,12 @@ void write_header(FILE *f) {
     NEWLINE;					\
   } while (0)
 
-void write_line(FILE *f, const char *cmd, int code, Usage *usage) {
-  char *escaped_cmd = escape(cmd);
-  char *shell_cmd = escape(config.shell);
+void write_line(FILE *f, Usage *usage) {
+  char *escaped_cmd = escape(usage_cmd(usage));
+  char *shell_cmd = escape(usage_shell(usage));
 
   WRITESEP(F_CMD, escaped_cmd);
-  WRITESEP(F_EXIT, code);
+  WRITESEP(F_EXIT, usage_code(usage));
   if (shell_cmd) WRITESEP(F_SHELL, shell_cmd);
   else SEP;
   // User time in microseconds

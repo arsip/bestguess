@@ -29,8 +29,20 @@ int reduce_data(void) {
     free_CSVrow(row);
   }
 
+  // TEMP:
+  for (int a = 41; a >= 0; a--) {
+    printf("z = -%3.1f  :  ", (double) a / 10.0);
+    for (int b = 0; b <= 9; b++) {
+      int zz = a * 10 + b;
+      int score = zzscore(-zz);
+      printf("0.%05d  ", score);
+    }
+    printf("\n");
+  }
+
   if (input) fclose(input);
   if (output) fclose(output);
+
   return 0;
 }
 

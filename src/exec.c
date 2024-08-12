@@ -81,6 +81,7 @@ static int run(const char *cmd, Usage *usage) {
   usage->wall = stop - start;
 
   usage->cmd = strndup(cmd, MAXCMDLEN);
+  usage->shell = strndup(config.shell, MAXCMDLEN);
 
   // Check to see if cmd/shell aborted or was killed
   if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
@@ -157,7 +158,7 @@ int64_t run_command(int num,
   for (int i = 0; i < config.runs; i++) {
     code = run(cmd, &(usagedata[i]));
     fail_count += (code != 0);
-    if (output) write_line(output, cmd, code, &(usagedata[i]));
+    if (output) write_line(output, &(usagedata[i]));
   }
 
   summary *s = summarize(cmd, fail_count, usagedata);
@@ -216,6 +217,8 @@ void run_all_commands(int argc, char **argv) {
   if (csv_output) write_summary_header(csv_output);
   if (hf_output) write_hf_header(hf_output);
 
+  // TODO: Now we store the commands in the usage array, so we should
+  // not need a separate array of them
   if (config.first_command > 0) {
     for (int k = config.first_command; k < argc; k++) {
       commands[n] = strndup(argv[k], MAXCMDLEN);

@@ -43,6 +43,7 @@ summary *summarize(char *cmd,
 
 void     free_summary(summary *s);
 
+int zzscore(int scaled_z);
 
 
 #endif
