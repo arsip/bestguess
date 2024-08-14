@@ -25,6 +25,9 @@ release:
 	@echo "NOTE: Building in RELEASE MODE"; \
 	$(MAKE) RELEASE_MODE=true $(PROGRAM)
 
+test: $(PROGRAM)
+	./test-basic.sh && ./test-features.sh
+
 # ------------------------------------------------------------------
 
 install: $(PROGRAM)

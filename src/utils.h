@@ -140,18 +140,32 @@ int64_t strtoint64 (const char *str);
 FILE *maybe_open(const char *filename, const char *mode);
 
 /* ----------------------------------------------------------------------------- */
-/* Error handling for runtime errors and code bugs                               */
+/* Error handling for runtime errors                                             */
 /* ----------------------------------------------------------------------------- */
 
-#define WARN(...) do {							\
-    report_error("Warning:", __FILE__, __LINE__,  __VA_ARGS__);	\
-    exit(ERR_PANIC);							\
+#define ERR_USAGE   1
+#define ERR_RUNTIME 2
+
+#define ERROR(...) do {							\
+    error_report(__VA_ARGS__);						\
+    exit(ERR_RUNTIME);							\
   } while (0)
 
-#define ERR_PANIC -1
+#define USAGE(...) do {							\
+    error_report(__VA_ARGS__);						\
+    exit(ERR_USAGE);							\
+  } while (0)
+
+void error_report(const char *fmt, ...);
+
+/* ----------------------------------------------------------------------------- */
+/* Error handling for internal errors (bugs) and warnings                        */
+/* ----------------------------------------------------------------------------- */
+
+#define ERR_PANIC 255
 
 #define PANIC(...) do {							\
-    report_error("Panic at", __FILE__, __LINE__,  __VA_ARGS__);	\
+    panic_report("Panic at", __FILE__, __LINE__,  __VA_ARGS__);	\
     exit(ERR_PANIC);							\
   } while (0)
 
@@ -163,7 +177,7 @@ FILE *maybe_open(const char *filename, const char *mode);
     PANIC("Required argument is NULL");			\
   } while (0)
 
-void report_error(const char *prelude,
+void panic_report(const char *prelude,
 		  const char *filename, int lineno,
 		  const char *fmt, ...);
 

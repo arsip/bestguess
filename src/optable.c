@@ -270,14 +270,16 @@ int optable_is_option(const char *arg) {
   return arg && (*arg == '-') && !all_dashes(arg);
 }
 
-static int argv_next_is_value(const char *value, int n, int i) {
-  return (!value &&
-	  !ShortnamePtr &&
-	  Tbl[n].numvals &&
-	  (i + 1 < Argc) &&
-	  !optable_is_option(Argv[i+1]));
+static int still_need_value(const char *value, int n) {
+  return (!value && !ShortnamePtr && Tbl[n].numvals);
 }
 
+// On success (non-zero return value), '*n' is set to the option
+// number encountered (> 0) or -1 to signal that we are not looking at
+// an option.
+//
+// On success, '*value' is set to the option value.  In the case of
+// the "equals syntax" (-r=5) this is the 
 int optable_next(int *n, const char **value, int i) {
   if (!Tbl || !n || !value) {
     fprintf(stderr, "%s: invalid args to iterator\n", __FILE__);
@@ -296,7 +298,8 @@ int optable_next(int *n, const char **value, int i) {
       ShortnamePtr = NULL;
       return i;
     }
-    if (argv_next_is_value(*value, *n, i))
+    // Since argv ends in a NULL, we can index ahead
+    if (still_need_value(*value, *n))
       *value = Argv[++i];
     return i;
   } 
@@ -310,7 +313,8 @@ int optable_next(int *n, const char **value, int i) {
 	*n = match_long_option(Argv[i]+2, value);
     } 
     if (*n < 0) return i;
-    if (argv_next_is_value(*value, *n, i))
+    // Since argv ends in a NULL, we can index ahead
+    if (still_need_value(*value, *n))
       *value = Argv[++i];
     return i;
   }
@@ -325,7 +329,8 @@ void optable_setusage(const char *usagetext) {
 }
 
 void optable_printusage(const char *progname) {
-  printf("Usage: %s %s\n", progname, Usage ?: "");
+  fprintf(stderr, "Usage: %s %s\n", progname, Usage ?: "");
+  fflush(stderr);
 }
 
 void optable_printhelp(const char *progname) {
@@ -338,4 +343,5 @@ void optable_printhelp(const char *progname) {
 	   optable_shortname(i) ?: "",
 	   optable_longname(i),
 	   optable_helptext(i));
+  fflush(stdout);
 }

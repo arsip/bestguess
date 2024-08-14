@@ -15,14 +15,24 @@
 const char *Header[] = {XFields(SECOND) NULL};
 #undef SECOND
 
-// Used by PANIC and WARN macros
-void __attribute__((unused)) 
-report_error(const char *prelude,
+// Used by the PANIC macro to report internal errors (bugs)
+void panic_report(const char *prelude,
 	     const char *filename, int lineno,
 	     const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     fprintf(stderr, "%s %s:%d ", prelude, filename, lineno);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+    fputc('\n', stderr);
+    fflush(stderr);
+}
+
+// Used by BAIL and USAGE macros to report reason for exiting
+void error_report(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, "%s: ", progname);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
     fputc('\n', stderr);
@@ -227,7 +237,7 @@ int64_t strtoint64 (const char *str) {
   int64_t value;
   int scancount = sscanf(str, "%" PRId64 "%n", &value, &count);
   if ((scancount != 1) || (count != (int) strlen(str))) 
-    PANIC("Failed to get integer from '%s'\n", str);
+    USAGE("Failed to get integer from '%s'\n", str);
   return value;
 }
 
@@ -238,10 +248,8 @@ int64_t strtoint64 (const char *str) {
 // Returns error indicator, 1 for error, 0 for success.
 int add_arg(arglist *args, char *newarg) {
   if (!args || !newarg) return 1;
-  if (args->next == args->max) {
-    WARN("arg table full at %d items", args->max);
-    return 1;
-  }
+  if (args->next == args->max)
+    USAGE("Arg table full at %d items", args->max);
   args->args[args->next++] = newarg;
   return 0;
 }
@@ -265,10 +273,7 @@ arglist *new_arglist(size_t limit) {
 // Split at whitespace, respecting pairs of double and single quotes.
 // Returns error code: 1 for error, 0 for no error.
 int split(const char *in, arglist *args) {
-  if (!in || !args) {
-    WARN("null required arg");
-    return 1;
-  }
+  if (!in || !args) PANIC_NULL();
   char *new;
   const char *p, *end, *start = in;
 
@@ -279,10 +284,7 @@ int split(const char *in, arglist *args) {
     // Read an argument, which might be quoted
     start = p;
     p = read_arg(p);
-    if (!p) {
-      WARN("Unmatched quotes in: %s", start);
-      return 1;
-    }
+    if (!p) USAGE("Unmatched quotes in: %s", start);
     // Successful read.  Store a copy in the 'args' array.
     end = p;
     if (is_quote(p)) {

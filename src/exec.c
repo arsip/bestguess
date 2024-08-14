@@ -160,9 +160,7 @@ static int run(const char *cmd, Usage *usage) {
       fprintf(stderr, "      are read as empty commands unless option --%s is given.\n",
 	      optable_longname(OPT_GROUPS));
     }
-
-    fflush(stderr);
-    exit(-1);  
+    exit(ERR_RUNTIME);
   }
 
   set_usage_int64(usage, F_CODE, WEXITSTATUS(status));
@@ -194,8 +192,7 @@ static int run(const char *cmd, Usage *usage) {
     else
       fprintf(stderr, "Use the -i/--ignore-failure option to ignore non-zero exit codes.\n");
 
-    fflush(stderr);
-    exit(-1);
+    exit(ERR_RUNTIME);
   }
 
   free_arglist(args);
@@ -330,5 +327,5 @@ void run_all_commands(int argc, char **argv) {
   return;
 
  toomany:
-  PANIC("ERROR: Number of commands exceeds maximum of %d\n", MAXCMDS);
+  USAGE("Number of commands exceeds maximum of %d\n", MAXCMDS);
 }

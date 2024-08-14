@@ -79,17 +79,11 @@ static void check_option_value(const char *val, int n) {
     fprintf(stderr, "%20s: %s\n", optable_longname(n), val);
 
   if (val) {
-    if (!optable_numvals(n)) {
-      fprintf(stderr, "Error: option '%s' does not take a value\n",
-	      optable_longname(n));
-      exit(1);
-    }
+    if (!optable_numvals(n))
+      USAGE("Error: option '%s' does not take a value\n", optable_longname(n));
   } else {
-    if (optable_numvals(n)) {
-      fprintf(stderr, "Error: option '%s' requires a value\n",
-	      optable_longname(n));
-      exit(1);
-    }
+    if (optable_numvals(n))
+      USAGE("Error: option '%s' requires a value\n", optable_longname(n));
   }
 }
 
@@ -113,10 +107,10 @@ static int process_args(int argc, char **argv) {
 	if (!config.first_command) config.first_command = i;
 	continue;
       }
-      PANIC("invalid option/switch '%s'\n", argv[i]);
+      USAGE("Invalid option/switch '%s'", argv[i]);
     }
     if (config.first_command) {
-      PANIC("options found after first command '%s'\n",
+      USAGE("Options found after first command '%s'",
 	    argv[config.first_command]);
     }
     switch (n) {
@@ -131,10 +125,14 @@ static int process_args(int argc, char **argv) {
       case OPT_WARMUP:
 	check_option_value(val, n);
 	config.warmups = strtoint64(val);
+	if ((config.warmups < 0) || (config.warmups > MAXRUNS))
+	  USAGE("Number of warmup runs is out of range 0..%d", MAXRUNS);
 	break;
       case OPT_RUNS:
 	check_option_value(val, n);
 	config.runs = strtoint64(val);
+	if ((config.runs < 0) || (config.runs > MAXRUNS))
+	  USAGE("Number of timed runs is out of range 0..%d", MAXRUNS);
 	break;
       case OPT_OUTPUT:
 	check_option_value(val, n);
@@ -200,8 +198,7 @@ int main(int argc, char *argv[]) {
 
   if (argc < 2) {
     optable_printusage(progname);
-    fprintf(stderr, "For more information, try %s --help\n", progname);
-    exit(1);
+    USAGE("For more information, try %s --help\n", progname);
   }
 
   init_options();

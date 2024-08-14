@@ -34,6 +34,9 @@ extern const char *progname;
 // Maximum length of a single line in our own CSV file format
 #define MAXCSVLEN 4096
 
+// Maximum number of timed runs and warmup runs
+#define MAXRUNS (1 << 20)
+
 // Change as desired
 #define PROCESS_DATA_COMMAND "reduce"
 
