@@ -209,18 +209,20 @@ int64_t run_command(int num,
   int code, fail_count = 0;
   int64_t mode;
 
-  Usage *usagedata = new_usage_array(config.runs);
-  if (!usagedata) PANIC_OOM();
-
   if (!config.output_to_stdout) {
     printf("Command %d: %s\n", num+1, *cmd ? cmd : "(empty)");
     fflush(stdout);
   }
 
+  Usage dummy;
+
   for (int i = 0; i < config.warmups; i++) {
-    code = run(cmd, &(usagedata[0]));
+    code = run(cmd, &dummy);
     fail_count += (code != 0);
   }
+
+  Usage *usagedata = new_usage_array(config.runs);
+  if (!usagedata) PANIC_OOM();
 
   for (int i = 0; i < config.runs; i++) {
     code = run(cmd, &(usagedata[i]));

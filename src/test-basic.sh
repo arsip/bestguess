@@ -62,12 +62,18 @@ ok      ./bestguess -w 10000
 ok      ./bestguess -r 1048576
 ok      ./bestguess -w 1048576
 
-
 # Bad shell programs '-fasdkl' and foobarbaz
 usage   ./bestguess -S -fasdkl ls -l
 runtime ./bestguess -S -fasdkl "ls -l"
 runtime ./bestguess -S foobarbaz 'ls -l'
 runtime ./bestguess -S foobarbaz 'ls -l'
+
+# Command cannot be executed
+runtime ./bestguess thisprogramshouldnotexist
+runtime ./bestguess /thisprogramshouldnotexist
+runtime ./bestguess ./thisprogramshouldnotexist
+runtime ./bestguess ./nosuchdirectory/thisprogramshouldnotexist
+
 
 
 if [[ $allpassed -eq 1 ]]; then 

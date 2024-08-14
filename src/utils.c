@@ -44,7 +44,7 @@ void error_report(const char *fmt, ...) {
 // -----------------------------------------------------------------------------
 
 Usage *new_usage_array(int n) {
-  if (n < 1) PANIC("Invalid number of usage structs requested");
+  if (n < 1) n = 1; 		// Edge case of 0 runs requested
   Usage *usage = malloc(n * sizeof(Usage));
   if (!usage) PANIC_OOM();
   return usage;
