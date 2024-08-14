@@ -62,6 +62,7 @@ typedef struct Config {
   char *output_filename;
   char *csv_filename;
   char *hf_filename;
+  char *prep_command;
   const char *shell;
   int groups;
 } Config;
@@ -73,6 +74,7 @@ extern Config config;
 enum Options { 
   OPT_WARMUP,
   OPT_RUNS,
+  OPT_PREP,
   OPT_OUTPUT,
   OPT_FILE,
   OPT_GROUPS,

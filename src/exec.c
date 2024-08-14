@@ -15,6 +15,66 @@
 #include "optable.h"
 #include "utils.h"
 
+static void run_prep_command(void) {
+  if (!config.prep_command) return;
+  
+  // TODO: Factor out commonality with run()
+
+  FILE *f;
+  pid_t pid;
+  int use_shell = *config.shell;
+  arglist *args = new_arglist(MAXARGS);
+
+  if (use_shell) {
+    split_unescape(config.shell, args);
+    add_arg(args, strdup(config.prep_command));
+  } else {
+    split_unescape(config.prep_command, args);
+  }
+
+  if (DEBUG) {
+    printf("Prepare command arguments:\n");
+    print_arglist(args);
+    fflush(NULL);
+  }
+
+  // Goin' for a ride!
+  pid = fork();
+
+  if (pid == 0) {
+    f = freopen("/dev/null", "r", stdin);
+    if (!f) PANIC("freopen failed on stdin");
+    f = freopen("/dev/null", "w", stderr);
+    if (!f) PANIC("freopen failed on stderr");
+    f = freopen("/dev/null", "w", stdout);
+    if (!f) PANIC("freopen failed on stdout");
+
+    execvp(args->args[0], args->args);
+    // The exec() functions return only if an error occurs, i.e. it
+    // could not launch args[0] (a command or the shell to run it)
+    PANIC("Exec failed");
+  }
+
+  int status;
+  pid_t err = wait4(pid, &status, 0, NULL);
+
+  // Check to see if cmd/shell aborted or was killed
+  if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
+    PANIC("Error: Could not execute %s '%s'.\n",
+	  use_shell ? "shell" : "command",
+	  use_shell ? config.shell : config.prep_command);
+  }
+
+  if (!config.ignore_failure && WEXITSTATUS(status)) {
+    if (use_shell) 
+      PANIC("Prepare command under %s produced non-zero exit code %d\n",
+	    args->args[0], WEXITSTATUS(status));
+    else
+      PANIC("Prepare command produced non-zero exit code %d\n",
+	      WEXITSTATUS(status));
+  }
+}
+
 static int run(const char *cmd, Usage *usage) {
 
   FILE *f;
@@ -27,16 +87,15 @@ static int run(const char *cmd, Usage *usage) {
 
   struct timeval wall_clock_start, wall_clock_stop;
 
+  run_prep_command();
+
   arglist *args = new_arglist(MAXARGS);
-  if (!args) PANIC("Exiting");	// Warning already issued
 
   if (use_shell) {
-    if (split_unescape(config.shell, args))
-      PANIC("Exiting");		// Warning already issued
+    split_unescape(config.shell, args);
     add_arg(args, strdup(cmd));
   } else {
-    if (split_unescape(cmd, args))
-      PANIC("Exiting");		// Warning already issued
+    split_unescape(cmd, args);
   }
 
   if (DEBUG) {

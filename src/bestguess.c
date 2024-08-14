@@ -7,7 +7,7 @@
 
 #include "bestguess.h"
 
-const char *progversion = "0.4.0";
+const char *progversion = "0.5.0";
 const char *progname = "bestguess";
 
 #include "csv.h"
@@ -35,6 +35,7 @@ Config config = {
   .output_filename = NULL,
   .csv_filename = NULL,
   .hf_filename = NULL,
+  .prep_command = NULL,
   .shell = "",
   .groups = 0,
 };
@@ -51,10 +52,12 @@ Config config = {
 #define HELP_SHELL "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands"
 #define HELP_CSV "Write statistical summary to CSV <FILE>"
 #define HELP_HFCSV "Write Hyperfine-style summary to CSV <FILE>"
+#define HELP_PREPARE "Execute <COMMAND> before each benchmarked command"
 
 static void init_options(void) {
   optable_add(OPT_WARMUP,     "w",  "warmup",         1, HELP_WARMUP);
   optable_add(OPT_RUNS,       "r",  "runs",           1, HELP_RUNS);
+  optable_add(OPT_PREP,       "p",  "prepare",        1, HELP_PREPARE);
   optable_add(OPT_OUTPUT,     "o",  "output",         1, HELP_OUTPUT);
   optable_add(OPT_FILE,       "f",  "file",           1, HELP_FILE);
   optable_add(OPT_GROUPS,     NULL, "groups",         0, HELP_GROUPS);
@@ -169,6 +172,10 @@ static int process_args(int argc, char **argv) {
       case OPT_CSV:
 	check_option_value(val, n);
 	config.csv_filename = strdup(val);
+	break;
+      case OPT_PREP:
+	check_option_value(val, n);
+	config.prep_command = strdup(val);
 	break;
       case OPT_VERSION:
 	check_option_value(val, n);

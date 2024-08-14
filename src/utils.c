@@ -320,7 +320,7 @@ static int unescape_char(const char *p) {
 // Very simple unescaping, because it's not clear we need more.  The
 // escape char is backslash '\'.
 char *unescape(const char *str) {
-  if (!str) return NULL;
+  if (!str) PANIC_NULL();
   int chr, i = 0;
   size_t len = strlen(str);
   char *result = malloc(len + 1);
@@ -332,7 +332,8 @@ char *unescape(const char *str) {
 	return NULL;
       }
       if ((chr = unescape_char(str)) < 0)
-	// Not a recognized escape char
+	// Not a recognized escape char, so
+	// ignore the backslash
 	result[i++] = *str;
       else
 	result[i++] = chr;
@@ -348,7 +349,7 @@ char *unescape(const char *str) {
 	
 // We use "" to escape ", because that is more common in CSV files than \".
 char *escape(const char *str) {
-  if (!str) return NULL;
+  if (!str) PANIC_NULL();
   int chr, i = 0;
   size_t len = strlen(str);
   char *result = malloc(2 * len + 1);
