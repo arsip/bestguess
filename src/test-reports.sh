@@ -1,9 +1,11 @@
 #/bin/bash
 #  -*- Mode: Shell-script; -*-                                            
 
-DEBUG=true
+SHOWOUTPUT=
 
-printf "Feature tests\n"
+printf "%s\n"   '--------------------------------------'
+printf "%s\n"   'Report tests (terminal output)'
+printf "%s\n\n" '--------------------------------------'
 
 declare -a output
 allpassed=1
@@ -11,7 +13,7 @@ allpassed=1
 function ok {
     output=$(${@})
     local status=$?
-    if [[ -n "$DEBUG" ]]; then
+    if [[ -n "$SHOWOUTPUT" ]]; then
 	printf "\n"
 	echo "$output"
     fi
@@ -31,7 +33,7 @@ function contains {
 }
 
 # ------------------------------------------------------------------
-# TERMINAL Output options
+# TERMINAL output options
 # ------------------------------------------------------------------
 
 # Default report
@@ -74,15 +76,11 @@ for warmups in $(seq 0 5); do
     done
 done
 
-# ------------------------------------------------------------------
-# RAW DATA output
-# ------------------------------------------------------------------
-
 
 
 
 if [[ $allpassed -eq 1 ]]; then 
-    printf "\nAll tests passed.\n"
+    printf "All tests passed.\n"
     exit 0
 else
     exit -1

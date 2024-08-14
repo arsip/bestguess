@@ -26,7 +26,7 @@ release:
 	$(MAKE) RELEASE_MODE=true $(PROGRAM)
 
 test: $(PROGRAM)
-	./test-basic.sh && ./test-features.sh
+	@./test-basic.sh && ./test-reports.sh && ./test-rawdata.sh
 
 # ------------------------------------------------------------------
 

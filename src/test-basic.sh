@@ -1,7 +1,9 @@
 #/bin/bash
 #  -*- Mode: Shell-script; -*-                                            
 
-printf "Basic tests, e.g. checking exit status\n\n"
+printf "%s\n"   '--------------------------------------'
+printf "%s\n"   'Basic tests, e.g. checking exit status'
+printf "%s\n\n" '--------------------------------------'
 
 allpassed=1
 
