@@ -12,24 +12,24 @@
 #include <assert.h>
 
 int CSVfields(CSVrow *row) {
-  if (!row) bail("null row");
+  if (!row) PANIC_NULL();
   return row->next;
 }
 
 char *CSVfield(CSVrow *row, int i) {
-  if (!row) bail("null row");
-  if ((i < 0) || (i >= row->next)) bail("invalid col index");
+  if (!row) PANIC_NULL();
+  if ((i < 0) || (i >= row->next))
+    PANIC("invalid column index %d (%d cols total)", i, row->next);
   return row->fields[i];
 }
 
-// TODO: Increase after testing
-#define MIN_COLS 2
+#define MIN_COLS 50
 
 static CSVrow *new_row(void) {
   CSVrow *row = malloc(sizeof(CSVrow));
-  if (!row) bail("Out of memory");
+  if (!row) PANIC_OOM();
   row->fields = malloc(sizeof(char *) * MIN_COLS);
-  if (!row->fields) bail("Out of memory");
+  if (!row->fields) PANIC_OOM();
   row->next = 0;
   row->capacity = MIN_COLS;
   return row;
@@ -38,16 +38,16 @@ static CSVrow *new_row(void) {
 static void CSV_add(CSVrow *row, char *start, char *end) {
   if (row->next == row->capacity) {
     if (row->capacity > INT_MAX / 2) 
-      bail("Too many columns in CSV row");
+      PANIC("Too many columns in CSV row %d", row->capacity);
     int newcap = 2 * row->capacity;
     char **tmp = realloc(row->fields, sizeof(char *) * newcap);
-    if (!tmp) bail("Out of memory");
+    if (!tmp) PANIC_OOM();
     row->fields = tmp;
     row->capacity = newcap;
   }
   assert(row->capacity > row->next);
   char *tmp = strndup(start, (end - start));
-  if (!tmp) bail("Out of memory");
+  if (!tmp) PANIC_OOM();
   row->fields[row->next] = tmp;
   row->next++;
 }
@@ -126,212 +126,214 @@ void free_CSVrow(CSVrow *row) {
 // Output file (raw data, per timed run) CONTROLLED BY Headers[]
 // -----------------------------------------------------------------------------
 
+#define WRITEFIELD(fc, fmt, value, lastfc) do {		\
+    fprintf(f, fmt, value);				\
+    fputc(((fc) == (lastfc - 1)) ? '\n' : ',', f);	\
+  } while (0)
+
+#define WRITEHEADER(fc, header, lastfc) do {		\
+    fprintf(f, "%s", (header));				\
+    fputc(((fc) == (lastfc - 1)) ? '\n' : ',', f);	\
+  } while (0)
+
 void write_header(FILE *f) {
-  for (int i = 0; i < (F_LAST - 1); i++)
-    fprintf(f, "%s,", Headers[i]);
-  fprintf(f, "%s\n", Headers[F_LAST - 1]);
+  for (FieldCode fc = 0; fc < F_RAWNUMEND; fc++)
+    WRITEHEADER(fc, Header[fc], F_RAWNUMEND);
   fflush(f);
 }
 
-#define SEP do {				\
-    fputc(',', f);				\
-  } while (0)
-#define NEWLINE do {				\
-    fputc('\n', f);				\
-  } while (0)
-#define WRITEFMT(fmt_string, val) do {	\
-    fprintf(f, (fmt_string), (val));		\
-  } while (0)
-#define WRITESEP(fmt_idx, val) do {		\
-    WRITEFMT(FieldFormats[fmt_idx], val);	\
-    SEP;					\
-  } while (0)
-#define WRITELN(fmt_idx, val) do {		\
-    WRITEFMT(FieldFormats[fmt_idx], val);	\
-    NEWLINE;					\
-  } while (0)
+#define GETFIELD(fc) (get_usage_int64(usage, (fc)))
 
 void write_line(FILE *f, Usage *usage) {
-  char *escaped_cmd = escape(usage_cmd(usage));
-  char *shell_cmd = escape(usage_shell(usage));
+  char *escaped_cmd = escape(get_usage_string(usage, F_CMD));
+  char *shell_cmd = escape(get_usage_string(usage, F_SHELL));
 
-  WRITESEP(F_CMD, escaped_cmd);
-  WRITESEP(F_EXIT, usage_code(usage));
-  if (shell_cmd) WRITESEP(F_SHELL, shell_cmd);
-  else SEP;
+  WRITEFIELD(F_CMD, "%s", escaped_cmd, F_RAWNUMEND);
+  WRITEFIELD(F_SHELL, "%s", shell_cmd, F_RAWNUMEND);
+  for (FieldCode fc = F_RAWNUMSTART; fc < F_RAWNUMEND; fc++) {
+    WRITEFIELD(fc, INT64FMT, GETFIELD(fc), F_RAWNUMEND);
+  }
+  
   // User time in microseconds
-  WRITESEP(F_USER, usertime(usage));
   // System time in microseconds
-  WRITESEP(F_SYSTEM, systemtime(usage));
   // Max RSS in kibibytes
-  // ru_maxrss (since Linux 2.6.32) This is the maximum resident set size used (in kilobytes).
-  // When the above was written, a kilobyte meant 1024 bytes.
-  WRITESEP(F_MAXRSS, maxrss(usage));
+  //   "ru_maxrss (since Linux 2.6.32) This is the maximum resident
+  //   set size used (in kilobytes)."
+  //   When the above was written, a kilobyte meant 1024 bytes.
   // Page reclaims (count):
-  // The number of page faults serviced without any I/O activity; here
-  // I/O activity is avoided by “reclaiming” a page frame from the
-  // list of pages awaiting reallocation.
-  WRITESEP(F_RECLAIMS, minflt(usage));
+  //   The number of page faults serviced without any I/O activity; here
+  //   I/O activity is avoided by “reclaiming” a page frame from the
+  //   list of pages awaiting reallocation.
   // Page faults (count):
-  // The number of page faults serviced that required I/O activity.
-  WRITESEP(F_FAULTS, majflt(usage));
+  //   The number of page faults serviced that required I/O activity.
   // Voluntary context switches:
-  // The number of times a context switch resulted due to a process
-  // voluntarily giving up the processor before its time slice was
-  // completed (e.g. to await availability of a resource).
-  WRITESEP(F_VCSW, vcsw(usage));
+  //   The number of times a context switch resulted due to a process
+  //   voluntarily giving up the processor before its time slice was
+  //   completed (e.g. to await availability of a resource).
   // Involuntary context switches:
-  // The number of times a context switch resulted due to a higher
-  // priority process becoming runnable or because the current process
-  // exceeded its time slice.
-  WRITESEP(F_ICSW, icsw(usage));
+  //   The number of times a context switch resulted due to a higher
+  //   priority process becoming runnable or because the current process
+  //   exceeded its time slice.
   // Elapsed wall clock time in microseconds
-  WRITELN(F_WALL, wall(usage));
 
   fflush(f);
   free(escaped_cmd);
   free(shell_cmd);
 }
-
 
 // -----------------------------------------------------------------------------
 // Summary statistics file
 // -----------------------------------------------------------------------------
 
+#define XSUMMARYFields(X)		\
+  X(S_CMD, "Command")			\
+  X(S_SHELL, "Shell")			\
+  X(S_RUNS, "Runs (ct)")		\
+  X(S_FAILED, "Failed (ct)")		\
+  X(S_TOTALMODE, "Total mode (us)")	\
+  X(S_TOTALMIN,  "Total min (us)")	\
+  X(S_TOTALMED, "Total median (us)")	\
+  X(S_TOTALP95, "Total p95 (us)")	\
+  X(S_TOTALP99, "Total p99 (us)")	\
+  X(S_TOTALMAX, "Total max (us)")	\
+  X(S_USERMODE, "User mode (us)")	\
+  X(S_USERMIN, "User min (us)")		\
+  X(S_USERMED, "User median (us)")	\
+  X(S_USERP95, "User p95 (us)")		\
+  X(S_USERP99, "User p99 (us)")		\
+  X(S_USERMAX, "User max (us)")		\
+  X(S_SYSTEMMODE, "System mode (us)")	\
+  X(S_SYSTEMMIN, "System min (us)")	\
+  X(S_SYSTEMMED, "System median (us)")	\
+  X(S_SYSTEMP95, "System p95 (us)")	\
+  X(S_SYSTEMP99, "System p99 (us)")	\
+  X(S_SYSTEMMAX,"System max (us)")		\
+  X(S_MAXRSSMODE, "Max RSS mode (bytes)")	\
+  X(S_MAXRSSMIN, "Max RSS min (bytes)")		\
+  X(S_MAXRSSMED, "Max RSS median (bytes)")	\
+  X(S_MAXRSSP95, "Max RSS p95 (bytes)")		\
+  X(S_MAXRSSP99, "Max RSS p99 (bytes)")		\
+  X(S_MAXRSSMAX, "Max RSS max (bytes)")		\
+  X(S_VCSWMODE, "Vol Ctx Sw mode (us)")		\
+  X(S_VCSWMIN, "Vol Ctx Sw min (ct)")		\
+  X(S_VCSWMED, "Vol Ctx Sw median (ct)")	\
+  X(S_VCSWP95, "Vol Ctx Sw p95 (us)")		\
+  X(S_VCSWP99, "Vol Ctx Sw p99 (us)")		\
+  X(S_VCSWMAX, "Vol Ctx Sw max (ct)")		\
+  X(S_ICSWMODE, "Invol Ctx Sw mode (ct)")	\
+  X(S_ICSWMIN, "Invol Ctx Sw min (ct)")		\
+  X(S_ICSWMED, "Invol Ctx Sw median (ct)")	\
+  X(S_ICSWP95, "Invol Ctx Sw p95 (ct)")		\
+  X(S_ICSWP99, "Invol Ctx Sw p99 (ct)")		\
+  X(S_ICSWMAX, "Invol Ctx Sw max (ct)")		\
+  X(S_TCSWMODE, "Total Ctx Sw mode (ct)")	\
+  X(S_TCSWMIN, "Total Ctx Sw min (ct)")		\
+  X(S_TCSWMED, "Total Ctx Sw median (ct)")	\
+  X(S_TCSWP95, "Total Ctx Sw p95 (ct)")		\
+  X(S_TCSWP99, "Total Ctx Sw p99 (ct)")		\
+  X(S_TCSWMAX, "Total Ctx Sw max (ct)")	        \
+  X(S_WALLMODE, "Wall mode (us)")		\
+  X(S_WALLMIN, "Wall min (us)")		        \
+  X(S_WALLMED, "Wall median (us)")		\
+  X(S_WALLP95, "Wall p95 (us)")		        \
+  X(S_WALLP99, "Wall p99 (us)")		        \
+  X(S_WALLMAX, "Wall max (us)")			\
+  X(S_LAST,    "SENTINEL")
+
+#define FIRST(a, b) a,
+typedef enum { XSUMMARYFields(FIRST) } SummaryFieldCode;
+#undef FIRST
+#define SECOND(a, b) b,
+const char *SummaryHeader[] = {XSUMMARYFields(SECOND) NULL};
+#undef SECOND
+
 void write_summary_header(FILE *f) {
-  WRITEFMT("%s,", "Command");	      // 1
-  WRITEFMT("%s,", "Shell");	      // 2
-  WRITEFMT("%s,", "Runs (ct)");	      // 3
-  WRITEFMT("%s,", "Failed (ct)");     // 4
-  WRITEFMT("%s,", "Total mode (us)"); // 5
-  WRITEFMT("%s,", "Total min (us)");
-  WRITEFMT("%s,", "Total median (us)");
-  WRITEFMT("%s,", "Total p95 (us)");
-  WRITEFMT("%s,", "Total p99 (us)");
-  WRITEFMT("%s,", "Total max (us)");
-  WRITEFMT("%s,", "User mode (us)");
-  WRITEFMT("%s,", "User min (us)");
-  WRITEFMT("%s,", "User median (us)");
-  WRITEFMT("%s,", "User p95 (us)");
-  WRITEFMT("%s,", "User p99 (us)");
-  WRITEFMT("%s,", "User max (us)");
-  WRITEFMT("%s,", "System mode (us)");
-  WRITEFMT("%s,", "System min (us)");
-  WRITEFMT("%s,", "System median (us)");
-  WRITEFMT("%s,", "System p95 (us)");
-  WRITEFMT("%s,", "System p99 (us)");
-  WRITEFMT("%s,", "System max (us)");
-  WRITEFMT("%s,", "Max RSS mode (bytes)");
-  WRITEFMT("%s,", "Max RSS min (bytes)");
-  WRITEFMT("%s,", "Max RSS median (bytes)");
-  WRITEFMT("%s,", "Max RSS p95 (bytes)");
-  WRITEFMT("%s,", "Max RSS p99 (bytes)");
-  WRITEFMT("%s,", "Max RSS max (bytes)");
-  WRITEFMT("%s,", "Vol Ctx Sw mode (us)");
-  WRITEFMT("%s,", "Vol Ctx Sw min (ct)");
-  WRITEFMT("%s,", "Vol Ctx Sw median (ct)");
-  WRITEFMT("%s,", "Vol Ctx Sw p95 (us)");
-  WRITEFMT("%s,", "Vol Ctx Sw p99 (us)");
-  WRITEFMT("%s,", "Vol Ctx Sw max (ct)");
-  WRITEFMT("%s,", "Invol Ctx Sw mode (ct)");
-  WRITEFMT("%s,", "Invol Ctx Sw min (ct)");
-  WRITEFMT("%s,", "Invol Ctx Sw median (ct)");
-  WRITEFMT("%s,", "Invol Ctx Sw p95 (ct)");
-  WRITEFMT("%s,", "Invol Ctx Sw p99 (ct)");
-  WRITEFMT("%s,", "Invol Ctx Sw max (ct)");
-  WRITEFMT("%s,", "Total Ctx Sw mode (ct)");
-  WRITEFMT("%s,", "Total Ctx Sw min (ct)");
-  WRITEFMT("%s,", "Total Ctx Sw median (ct)");
-  WRITEFMT("%s,", "Total Ctx Sw p95 (ct)");
-  WRITEFMT("%s,", "Total Ctx Sw p99 (ct)");
-  WRITEFMT("%s,", "Total Ctx Sw max (ct)");
-  WRITEFMT("%s,", "Wall mode (us)");
-  WRITEFMT("%s,", "Wall min (us)");
-  WRITEFMT("%s,", "Wall median (us)");
-  WRITEFMT("%s,", "Wall p95 (us)");
-  WRITEFMT("%s,", "Wall p99 (us)");
-  WRITEFMT("%s\n", "Wall max (us)");
+  for (SummaryFieldCode fc = S_CMD; fc < S_LAST; fc++)
+    WRITEHEADER(fc, SummaryHeader[fc], S_LAST);
   fflush(f);
 }
 
-#define MAYBE(write, field_code, numeric_field) do { \
-    if (numeric_field < 0)			     \
-      SEP;					     \
+#define MAYBE(write, fc, fmt, value, lastfc) do {    \
+    if (value < 0)				     \
+      fputc(',', f);				     \
     else					     \
-      write(field_code, numeric_field);		     \
+      write(fc, fmt, value, lastfc);		     \
   } while (0)
 
 void write_summary_line(FILE *f, summary *s) {
   char *escaped_cmd = escape(s->cmd);
   char *shell_cmd = escape(config.shell);
-  WRITESEP(F_CMD, escaped_cmd);
-  if (config.shell)
-    WRITESEP(F_SHELL, shell_cmd);
-  else
-    SEP;
-  WRITEFMT("%d,", s->runs);
-  WRITEFMT("%d,", s->fail_count);
-  WRITESEP(F_TOTAL, s->total.mode);
-  WRITESEP(F_TOTAL, s->total.min);
-  WRITESEP(F_TOTAL, s->total.median);
-  MAYBE(WRITESEP, F_TOTAL, s->total.pct95);
-  MAYBE(WRITESEP, F_TOTAL, s->total.pct99);
-  WRITESEP(F_TOTAL, s->total.max);
-  WRITESEP(F_USER, s->user.mode);
-  WRITESEP(F_USER, s->user.min);
-  WRITESEP(F_USER, s->user.median);
-  MAYBE(WRITESEP, F_USER, s->user.pct95);
-  MAYBE(WRITESEP, F_USER, s->user.pct99);
-  WRITESEP(F_USER, s->user.max);
-  WRITESEP(F_SYSTEM, s->system.mode);
-  WRITESEP(F_SYSTEM, s->system.min);
-  WRITESEP(F_SYSTEM, s->system.median);
-  MAYBE(WRITESEP, F_SYSTEM, s->system.pct95);
-  MAYBE(WRITESEP, F_SYSTEM, s->system.pct99);
-  WRITESEP(F_SYSTEM, s->system.max);
-  WRITESEP(F_MAXRSS, s->maxrss.mode);
-  WRITESEP(F_MAXRSS, s->maxrss.min);
-  WRITESEP(F_MAXRSS, s->maxrss.median);
-  MAYBE(WRITESEP, F_MAXRSS, s->maxrss.pct95);
-  MAYBE(WRITESEP, F_MAXRSS, s->maxrss.pct99);
-  WRITESEP(F_MAXRSS, s->maxrss.max);
-  WRITESEP(F_VCSW, s->vcsw.mode);
-  WRITESEP(F_VCSW, s->vcsw.min);
-  WRITESEP(F_VCSW, s->vcsw.median);
-  MAYBE(WRITESEP, F_VCSW, s->vcsw.pct95);
-  MAYBE(WRITESEP, F_VCSW, s->vcsw.pct99);
-  WRITESEP(F_VCSW, s->vcsw.max);
-  WRITESEP(F_ICSW, s->icsw.mode);
-  WRITESEP(F_ICSW, s->icsw.min);
-  WRITESEP(F_ICSW, s->icsw.median);
-  MAYBE(WRITESEP, F_ICSW, s->icsw.pct95);
-  MAYBE(WRITESEP, F_ICSW, s->icsw.pct99);
-  WRITESEP(F_ICSW, s->icsw.max);
-  WRITESEP(F_TCSW, s->tcsw.mode);
-  WRITESEP(F_TCSW, s->tcsw.min);
-  WRITESEP(F_TCSW, s->tcsw.median);
-  MAYBE(WRITESEP, F_TCSW, s->tcsw.pct95);
-  MAYBE(WRITESEP, F_TCSW, s->tcsw.pct99);
-  WRITESEP(F_TCSW, s->tcsw.max);
-  WRITESEP(F_WALL, s->wall.mode);
-  WRITESEP(F_WALL, s->wall.min);
-  WRITESEP(F_WALL, s->wall.median);
-  MAYBE(WRITESEP, F_WALL, s->wall.pct95);
-  MAYBE(WRITESEP, F_WALL, s->wall.pct99);
-  WRITELN(F_WALL, s->wall.max);
+  WRITEFIELD(S_CMD, "%s", escaped_cmd, S_LAST);
+  WRITEFIELD(S_SHELL, "%s", shell_cmd, S_LAST);
+  WRITEFIELD(S_RUNS, "%d,", s->runs, S_LAST);
+  WRITEFIELD(S_FAILED, "%d,", s->fail_count, S_LAST);
+  WRITEFIELD(S_TOTALMODE, INT64FMT, s->total.mode, S_LAST);
+  WRITEFIELD(S_TOTALMIN, INT64FMT, s->total.min, S_LAST);
+  WRITEFIELD(S_TOTALMED, INT64FMT, s->total.median, S_LAST);
+  MAYBE(WRITEFIELD, S_TOTALP95, INT64FMT, s->total.pct95, S_LAST);
+  MAYBE(WRITEFIELD, S_TOTALP99, INT64FMT, s->total.pct99, S_LAST);
+  WRITEFIELD(S_TOTALMAX, INT64FMT, s->total.max, S_LAST);
+  WRITEFIELD(S_USERMODE, INT64FMT, s->user.mode, S_LAST);
+  WRITEFIELD(S_USERMIN, INT64FMT, s->user.min, S_LAST);
+  WRITEFIELD(S_USERMED, INT64FMT, s->user.median, S_LAST);
+  MAYBE(WRITEFIELD, S_USERP95, INT64FMT, s->user.pct95, S_LAST);
+  MAYBE(WRITEFIELD, S_USERP99, INT64FMT, s->user.pct99, S_LAST);
+  WRITEFIELD(S_USERMAX, INT64FMT, s->user.max, S_LAST);
+  WRITEFIELD(S_SYSTEMMODE, INT64FMT, s->system.mode, S_LAST);
+  WRITEFIELD(S_SYSTEMMIN, INT64FMT, s->system.min, S_LAST);
+  WRITEFIELD(S_SYSTEMMED, INT64FMT, s->system.median, S_LAST);
+  MAYBE(WRITEFIELD, S_SYSTEMP95, INT64FMT, s->system.pct95, S_LAST);
+  MAYBE(WRITEFIELD, S_SYSTEMP99, INT64FMT, s->system.pct99, S_LAST);
+  WRITEFIELD(S_SYSTEMMAX, INT64FMT, s->system.max, S_LAST);
+  WRITEFIELD(S_MAXRSSMODE, INT64FMT, s->maxrss.mode, S_LAST);
+  WRITEFIELD(S_MAXRSSMIN, INT64FMT, s->maxrss.min, S_LAST);
+  WRITEFIELD(S_MAXRSSMED, INT64FMT, s->maxrss.median, S_LAST);
+  MAYBE(WRITEFIELD, S_MAXRSSP95, INT64FMT, s->maxrss.pct95, S_LAST);
+  MAYBE(WRITEFIELD, S_MAXRSSP99, INT64FMT, s->maxrss.pct99, S_LAST);
+  WRITEFIELD(S_MAXRSSMAX, INT64FMT, s->maxrss.max, S_LAST);
+  WRITEFIELD(S_VCSWMODE, INT64FMT, s->vcsw.mode, S_LAST);
+  WRITEFIELD(S_VCSWMIN, INT64FMT, s->vcsw.min, S_LAST);
+  WRITEFIELD(S_VCSWMED, INT64FMT, s->vcsw.median, S_LAST);
+  MAYBE(WRITEFIELD, S_VCSWP95, INT64FMT, s->vcsw.pct95, S_LAST);
+  MAYBE(WRITEFIELD, S_VCSWP99, INT64FMT, s->vcsw.pct99, S_LAST);
+  WRITEFIELD(S_VCSWMAX, INT64FMT, s->vcsw.max, S_LAST);
+  WRITEFIELD(S_ICSWMODE, INT64FMT, s->icsw.mode, S_LAST);
+  WRITEFIELD(S_ICSWMIN, INT64FMT, s->icsw.min, S_LAST);
+  WRITEFIELD(S_ICSWMED, INT64FMT, s->icsw.median, S_LAST);
+  MAYBE(WRITEFIELD, S_ICSWP95, INT64FMT, s->icsw.pct95, S_LAST);
+  MAYBE(WRITEFIELD, S_ICSWP99, INT64FMT, s->icsw.pct99, S_LAST);
+  WRITEFIELD(S_ICSWMAX, INT64FMT, s->icsw.max, S_LAST);
+  WRITEFIELD(S_TCSWMODE, INT64FMT, s->tcsw.mode, S_LAST);
+  WRITEFIELD(S_TCSWMIN, INT64FMT, s->tcsw.min, S_LAST);
+  WRITEFIELD(S_TCSWMED, INT64FMT, s->tcsw.median, S_LAST);
+  MAYBE(WRITEFIELD, S_TCSWP95, INT64FMT, s->tcsw.pct95, S_LAST);
+  MAYBE(WRITEFIELD, S_TCSWP99, INT64FMT, s->tcsw.pct99, S_LAST);
+  WRITEFIELD(S_TCSWMAX, INT64FMT, s->tcsw.max, S_LAST);
+  WRITEFIELD(S_WALLMODE, INT64FMT, s->wall.mode, S_LAST);
+  WRITEFIELD(S_WALLMIN, INT64FMT, s->wall.min, S_LAST);
+  WRITEFIELD(S_WALLMED, INT64FMT, s->wall.median, S_LAST);
+  MAYBE(WRITEFIELD, S_WALLP95, INT64FMT, s->wall.pct95, S_LAST);
+  MAYBE(WRITEFIELD, S_WALLP99, INT64FMT, s->wall.pct99, S_LAST);
+  WRITEFIELD(S_WALLMAX, INT64FMT, s->wall.max, S_LAST);
   fflush(f);
   free(escaped_cmd);
   free(shell_cmd);
 }
 
-
 // -----------------------------------------------------------------------------
 // Hyperfine-format file
 // -----------------------------------------------------------------------------
 
-// Differences:
-// - Mean has been replaced by mode for total time, user time, system time
-// - Stddev is omitted
+// Differences with Hyperfine
+//
+// - The mode of the total time replaces the mean in the output file
+//   because the mode is a better representation of skewed distributions
+//
+// - Median values replace mean values time because median is more
+//   representative of skewed distributions
+//
+// - Stddev is omitted because its value is not supported for
+//   distributions that badly fail a normality test
 
 void write_hf_header(FILE *f) {
   fprintf(f, "command,mode,stddev,median,user,system,min,max\n");
@@ -341,22 +343,22 @@ void write_hf_header(FILE *f) {
 void write_hf_line(FILE *f, summary *s) {
   const double million = MICROSECS;
   // Command
-  WRITEFMT("%s", *(s->cmd) ? s->cmd : config.shell); SEP;
-  // Mode total time (written to the mean field because mean is useless)
-  WRITEFMT("%f", (double) s->total.mode / million); SEP;
+  WRITEFIELD(0, "%s", *(s->cmd) ? s->cmd : config.shell, 7);
+  // Median total time (more useful than mean, not as good as mode)
+  WRITEFIELD(1, "%f", (double) s->total.mode / million, 7);
   // Stddev omitted til we get an appropriate variance measure for
   // long-tailed (skewed) multi-modal distributions
-  SEP;
-  // Mode total time (repeated to be compatible with hf format)
-  WRITEFMT("%f", (double) s->total.mode / million); SEP;
+  fputc(',', f);
+  // Mode total time
+  WRITEFIELD(2, "%f", (double) s->total.median / million, 7);
   // User time in seconds as double 
-  WRITEFMT("%f", (double) s->user.mode / million); SEP;
+  WRITEFIELD(3, "%f", (double) s->user.median / million, 7);
   // System time in seconds as double
-  WRITEFMT("%f", (double) s->system.mode / million); SEP;
+  WRITEFIELD(4, "%f", (double) s->system.median / million, 7);
   // Min total time in seconds as double 
-  WRITEFMT("%f", (double) s->total.min / million); SEP;
+  WRITEFIELD(5, "%f", (double) s->total.min / million, 7);
   // Max total time in seconds as double
-  WRITEFMT("%f", (double) s->total.max / million); NEWLINE;
+  WRITEFIELD(6, "%f", (double) s->total.max / million, 7);
   fflush(f);
 }
 

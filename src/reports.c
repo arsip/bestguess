@@ -184,12 +184,12 @@ void print_graph(summary *s, Usage *usagedata) {
   int64_t tmax = s->total.max;
   printf("0%*smax\n", maxbars - 1, "");
   for (int i = 0; i < config.runs; i++) {
-    bars = (int) (totaltime(&usagedata[i]) * maxbars / tmax);
+    bars = (int) (get_usage_int64(&usagedata[i], F_TOTAL) * maxbars / tmax);
     if (bars <= maxbars)
       printf("│%.*s\n", bars * bytesperbar, BAR);
     else
       printf("│time exceeds plot size: %" PRId64 " us\n",
-	     totaltime(&usagedata[i]));
+	     get_usage_int64(&usagedata[i], F_TOTAL));
   }
   fflush(stdout);
 }

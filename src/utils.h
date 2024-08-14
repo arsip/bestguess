@@ -18,34 +18,75 @@
 #define MEGA 1048576
 
 // -----------------------------------------------------------------------------
+// Raw data output file (CSV) follows Usage struct contents
+// -----------------------------------------------------------------------------
+     
+#define XFields(X)				 \
+  /* -------- String fields ----------------- */ \
+  X(F_CMD,      "Command"                      ) \
+  X(F_SHELL,    "Shell"                        ) \
+  /* -------- Numeric metrics from rusage --- */ \
+  X(F_CODE,     "Exit code"                    ) \
+  X(F_USER,     "User time (us)"               ) \
+  X(F_SYSTEM,   "System time (us)"             ) \
+  X(F_MAXRSS,   "Max RSS (Bytes)"              ) \
+  X(F_RECLAIMS, "Page Reclaims"                ) \
+  X(F_FAULTS,   "Page Faults"                  ) \
+  X(F_VCSW,     "Voluntary Context Switches"   ) \
+  X(F_ICSW,     "Involuntary Context Switches" ) \
+  X(F_WALL,     "Wall clock (us)"              ) \
+  /* -------- Computed metrics -------------- */ \
+  X(F_TOTAL,    "Total time (us)"              ) \
+  X(F_TCSW,     "Total Context Switches"       ) \
+  X(F_LAST,     "SENTINEL"                     )
+
+#define FIRST(a, b) a,
+typedef enum { XFields(FIRST) } FieldCode;
+#undef FIRST
+extern const char *Header[];
+
+// IMPORTANT: Check/alter these if the table structure changes
+#define F_NUMSTART F_CODE
+#define F_NUMEND F_TOTAL
+#define F_RAWNUMSTART F_CODE
+#define F_RAWNUMEND F_TOTAL
+
+#define FSTRING(f) (((f) >= 0) || ((f) < F_NUMSTART))
+#define FRAWDATA(f) (((f) >= F_NUMSTART) && ((f) < F_NUMEND))
+#define FNUMERIC(f) (((f) >= F_NUMSTART) && ((f) < F_LAST))
+#define FTONUMERICIDX(f) ((f) - F_NUMSTART)
+
+#define INT64FMT "%" PRId64
+
+// -----------------------------------------------------------------------------
 // Custom usage struct with accessors and comparators
 // -----------------------------------------------------------------------------
 
 typedef struct Usage {
-  struct rusage os;		// direct from operating system
-  int64_t       wall;		// measured wall clock time
-  char         *cmd;		// command that was executed
-  char         *shell;		// shell used (optional, may be NULL)
-  int           code;		// exit code
+  char         *cmd;		 // command that was executed
+  char         *shell;		 // shell used (optional, may be NULL)
+  int64_t       metrics[F_LAST - F_NUMSTART];
 } Usage;
+
+
+// Accessors for 'Usage' struct
+char    *get_usage_string(Usage *usage, FieldCode fc);
+int64_t  get_usage_int64(Usage *usage,  FieldCode fc);
+// Setters
+void     set_usage_string(Usage *usage, FieldCode fc, char *str);
+void     set_usage_int64(Usage *usage,  FieldCode fc, int64_t val);
+
 
 Usage *new_usage_array(int n);
 void   free_usage(Usage *usage, int n);
 
-// Accessors for 'Usage' struct
-char *usage_cmd(Usage *usage);
-char *usage_shell(Usage *usage);
-int usage_code(Usage *usage);
-int64_t maxrss(Usage *usage);
-int64_t usertime(Usage *usage);
-int64_t systemtime(Usage *usage);
-int64_t totaltime(Usage *usage);
-int64_t vcsw(Usage *usage);
-int64_t icsw(Usage *usage);
-int64_t tcsw(Usage *usage);
-int64_t minflt(Usage *usage);
-int64_t majflt(Usage *usage);
-int64_t wall(Usage *usage);
+int64_t rmaxrss(struct rusage *ru);
+int64_t rusertime(struct rusage *ru);
+int64_t rsystemtime(struct rusage *ru);
+int64_t rvcsw(struct rusage *ru);
+int64_t ricsw(struct rusage *ru);
+int64_t rminflt(struct rusage *ru);
+int64_t rmajflt(struct rusage *ru);
 
 // The arg order for comparators passed to qsort_r differs between
 // linux and macos.
@@ -92,10 +133,39 @@ int split(const char *in, arglist *args);
 int split_unescape(const char *in, arglist *args);
 int ends_in(const char *str, const char *suffix);
 
+int64_t strtoint64 (const char *str);
+
 // Misc:
+
 FILE *maybe_open(const char *filename, const char *mode);
-void  warning(const char *fmt, ...);
-void  bail(const char *msg);
+
+/* ----------------------------------------------------------------------------- */
+/* Error handling for runtime errors and code bugs                               */
+/* ----------------------------------------------------------------------------- */
+
+#define WARN(...) do {							\
+    report_error("Warning:", __FILE__, __LINE__,  __VA_ARGS__);	\
+    exit(ERR_PANIC);							\
+  } while (0)
+
+#define ERR_PANIC -1
+
+#define PANIC(...) do {							\
+    report_error("Panic at", __FILE__, __LINE__,  __VA_ARGS__);	\
+    exit(ERR_PANIC);							\
+  } while (0)
+
+#define PANIC_OOM() do {			        \
+    PANIC("Out of memory");				\
+  } while (0)
+
+#define PANIC_NULL() do {				\
+    PANIC("Required argument is NULL");			\
+  } while (0)
+
+void report_error(const char *prelude,
+		  const char *filename, int lineno,
+		  const char *fmt, ...);
 
 
 #endif

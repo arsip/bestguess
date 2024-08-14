@@ -23,21 +23,20 @@ static int run(const char *cmd, Usage *usage) {
   int64_t start, stop;
 
   int show_output = config.show_output;
-  int use_shell = (config.shell && *config.shell);
+  int use_shell = *config.shell;
 
   struct timeval wall_clock_start, wall_clock_stop;
 
   arglist *args = new_arglist(MAXARGS);
-  if (!args)
-    bail("Exiting");		// Warning already issued
+  if (!args) PANIC("Exiting");	// Warning already issued
 
   if (use_shell) {
     if (split_unescape(config.shell, args))
-      bail("Exiting");		// Warning already issued
+      PANIC("Exiting");		// Warning already issued
     add_arg(args, strdup(cmd));
   } else {
     if (split_unescape(cmd, args))
-      bail("Exiting");		// Warning already issued
+      PANIC("Exiting");		// Warning already issued
   }
 
   if (DEBUG) {
@@ -48,7 +47,7 @@ static int run(const char *cmd, Usage *usage) {
 
   if (gettimeofday(&wall_clock_start, NULL)) {
     perror("could not get wall clock time");
-    bail("Exiting");
+    PANIC("Exiting");
   }
 
   // Goin' for a ride!
@@ -57,31 +56,32 @@ static int run(const char *cmd, Usage *usage) {
   if (pid == 0) {
     if (!show_output) {
       f = freopen("/dev/null", "r", stdin);
-      if (!f) bail("freopen failed on stdin");
+      if (!f) PANIC("freopen failed on stdin");
       f = freopen("/dev/null", "w", stderr);
-      if (!f) bail("freopen failed on stderr");
+      if (!f) PANIC("freopen failed on stderr");
       f = freopen("/dev/null", "w", stdout);
-      if (!f) bail("freopen failed on stdout");
+      if (!f) PANIC("freopen failed on stdout");
     }
     execvp(args->args[0], args->args);
     // The exec() functions return only if an error occurs, i.e. it
     // could not launch args[0] (a command or the shell to run it)
-    bail("Exec failed");
+    PANIC("Exec failed");
   }
   
-  pid_t err = wait4(pid, &status, 0, &usage->os);
+  struct rusage from_os;
+  pid_t err = wait4(pid, &status, 0, &from_os);
 
   if (gettimeofday(&wall_clock_stop, NULL)) {
     perror("could not get wall clock time");
-    bail("Exiting");
+    PANIC("Exiting");
   }
 
   start = wall_clock_start.tv_sec * MICROSECS + wall_clock_start.tv_usec;
   stop = wall_clock_stop.tv_sec * MICROSECS + wall_clock_stop.tv_usec;
-  usage->wall = stop - start;
+  set_usage_int64(usage, F_WALL, stop - start);
 
-  usage->cmd = strndup(cmd, MAXCMDLEN);
-  usage->shell = strndup(config.shell, MAXCMDLEN);
+  set_usage_string(usage, F_CMD, strndup(cmd, MAXCMDLEN));
+  set_usage_string(usage, F_SHELL, strndup(config.shell ?: "", MAXCMDLEN));;
 
   // Check to see if cmd/shell aborted or was killed
   if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
@@ -89,7 +89,7 @@ static int run(const char *cmd, Usage *usage) {
 	    use_shell ? "shell" : "command",
 	    use_shell ? config.shell : cmd);
 
-    if (!config.shell) {
+    if (!*config.shell) {
       fprintf(stderr, "\nHint: No shell option specified.  Use -%s or --%s to specify a shell.\n",
 	      optable_shortname(OPT_SHELL), optable_longname(OPT_SHELL));
       fprintf(stderr, "      An empty command run in a shell will measure shell startup.\n");
@@ -106,7 +106,18 @@ static int run(const char *cmd, Usage *usage) {
     exit(-1);  
   }
 
-  usage->code = WEXITSTATUS(status);
+  set_usage_int64(usage, F_CODE, WEXITSTATUS(status));
+  
+  // Fill the rest of the usage metrics from what the OS reported
+  set_usage_int64(usage, F_USER, rusertime(&from_os));
+  set_usage_int64(usage, F_SYSTEM, rsystemtime(&from_os));
+  set_usage_int64(usage, F_TOTAL, rusertime(&from_os) + rsystemtime(&from_os));
+  set_usage_int64(usage, F_MAXRSS, rmaxrss(&from_os));
+  set_usage_int64(usage, F_RECLAIMS, rminflt(&from_os));
+  set_usage_int64(usage, F_FAULTS, rmajflt(&from_os));
+  set_usage_int64(usage, F_VCSW, rvcsw(&from_os));
+  set_usage_int64(usage, F_ICSW, ricsw(&from_os));
+  set_usage_int64(usage, F_TCSW, rvcsw(&from_os) + ricsw(&from_os)); 
 
   // If we get here, the child process exited normally, though the
   // exit code might not be zero (and zero indicates success)
@@ -143,7 +154,7 @@ int64_t run_command(int num,
   int64_t mode;
 
   Usage *usagedata = new_usage_array(config.runs);
-  if (!usagedata) bail("Out of memory");
+  if (!usagedata) PANIC_OOM();
 
   if (!config.output_to_stdout) {
     printf("Command %d: %s\n", num+1, *cmd ? cmd : "(empty)");
@@ -162,7 +173,6 @@ int64_t run_command(int num,
   }
 
   summary *s = summarize(cmd, fail_count, usagedata);
-  if (!s) bail("ERROR: failed to generate summary statistics");
 
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
@@ -261,6 +271,5 @@ void run_all_commands(int argc, char **argv) {
   return;
 
  toomany:
-  printf("ERROR: Number of commands exceeds maximum of %d\n", MAXCMDS);
-  bail("Exiting...");
+  PANIC("ERROR: Number of commands exceeds maximum of %d\n", MAXCMDS);
 }

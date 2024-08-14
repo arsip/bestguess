@@ -35,14 +35,9 @@ Config config = {
   .output_filename = NULL,
   .csv_filename = NULL,
   .hf_filename = NULL,
-  .shell = NULL,
+  .shell = "",
   .groups = 0,
 };
-
-#define SECOND(a, b, c) b,
-const char *Headers[] = {XFields(SECOND) NULL};
-#define THIRD(a, b, c) c,
-const char *FieldFormats[] = {XFields(THIRD) NULL};
 
 #define HELP_WARMUP "Number of warmup runs"
 #define HELP_RUNS "Number of timed runs"
@@ -73,47 +68,35 @@ static void init_options(void) {
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
-    bail("\nERROR: failed to configure command-line option parser");
+    PANIC("failed to configure command-line option parser");
 }
 
-static int bad_option_value(const char *val, int n) {
+static void check_option_value(const char *val, int n) {
   if (DEBUG)
-    printf("%20s: %s\n", optable_longname(n), val);
+    fprintf(stderr, "%20s: %s\n", optable_longname(n), val);
 
   if (val) {
     if (!optable_numvals(n)) {
-      printf("Error: option '%s' does not take a value\n",
-	     optable_longname(n));
-      return 1;
+      fprintf(stderr, "Error: option '%s' does not take a value\n",
+	      optable_longname(n));
+      exit(1);
     }
   } else {
     if (optable_numvals(n)) {
-      printf("Error: option '%s' requires a value\n",
-	     optable_longname(n));
-      return 1;
+      fprintf(stderr, "Error: option '%s' requires a value\n",
+	      optable_longname(n));
+      exit(1);
     }
   }
-  return 0;
 }
-
-#define SCANINT(val, intvar, posvar, desc) do {			\
-    if (bad_option_value(val, n)) bail("Exiting");		\
-    int scancount = sscanf(val, "%d%n", &(intvar), &(posvar));	\
-    if ((scancount != 1) || (posvar != (int) strlen(val))) {	\
-      fprintf(stderr, "Failed to get %s from '%s'\n",		\
-	      desc, val);					\
-      bail("Exiting");						\
-    }								\
-  } while (0)
 
 static int process_args(int argc, char **argv) {
   int n, i;
-  int posn;
   const char *val;
 
   // 'i' steps through the args from 1 to argc-1
   i = optable_init(argc, argv);
-  if (i < 0) bail("ERROR: Failed to initialize option parser");
+  if (i < 0) PANIC("failed to initialize option parser");
 
   while ((i = optable_next(&n, &val, i))) {
     if (n < 0) {
@@ -127,31 +110,31 @@ static int process_args(int argc, char **argv) {
 	if (!config.first_command) config.first_command = i;
 	continue;
       }
-      fprintf(stderr, "Error: invalid option/switch '%s'\n", argv[i]);
-      bail("Exiting");
+      PANIC("invalid option/switch '%s'\n", argv[i]);
     }
     if (config.first_command) {
-      fprintf(stderr, "Error: options found after first command '%s'\n",
-	      argv[config.first_command]);
-      bail("Exiting"); 
+      PANIC("options found after first command '%s'\n",
+	    argv[config.first_command]);
     }
     switch (n) {
       case OPT_BRIEF:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	config.brief_summary = 1;
 	break;
       case OPT_GRAPH:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	config.show_graph = 1;
 	break;
       case OPT_WARMUP:
-	SCANINT(val, config.warmups, posn, "number of warmups");
+	check_option_value(val, n);
+	config.warmups = strtoint64(val);
 	break;
       case OPT_RUNS:
-	SCANINT(val, config.runs, posn, "number of runs");
+	check_option_value(val, n);
+	config.runs = strtoint64(val);
 	break;
       case OPT_OUTPUT:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	if (strcmp(val, "-") == 0) {
 	  config.output_to_stdout = 1;
 	} else {
@@ -160,44 +143,43 @@ static int process_args(int argc, char **argv) {
 	}
 	break;
       case OPT_FILE:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	config.input_filename = strdup(val);
 	break;
       case OPT_GROUPS:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	config.groups = 1;
 	break;
       case OPT_SHOWOUTPUT:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	config.show_output = 1;
 	break;
       case OPT_IGNORE:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	config.ignore_failure = 1;
 	break;
       case OPT_SHELL:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	config.shell = val;
 	break;
       case OPT_HFCSV:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	config.hf_filename = strdup(val);
 	break;
       case OPT_CSV:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	config.csv_filename = strdup(val);
 	break;
       case OPT_VERSION:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	return n;
 	break;
       case OPT_HELP:
-	if (bad_option_value(val, n)) bail("Exiting");
+	check_option_value(val, n);
 	return n;
 	break;
       default:
-	fprintf(stderr, "Error: invalid option index %d\n", n);
-	bail("Exiting");
+	PANIC("invalid option index %d\n", n);
     }
   }
   return -1;
@@ -212,7 +194,7 @@ int main(int argc, char *argv[]) {
   if (argc < 2) {
     optable_printusage(progname);
     fprintf(stderr, "For more information, try %s --help\n", progname);
-    exit(-1);
+    exit(1);
   }
 
   init_options();

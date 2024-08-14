@@ -5,26 +5,28 @@
 //  COPYRIGHT (c) Jamie A. Jennings, 2024
 
 #include "utils.h"
-#include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
+#include <assert.h>
 #include <errno.h>
+#include <stdarg.h> 		// __VA_ARGS__ (var args)
+#include <stdlib.h>		// exit()
 
-void warning(const char *fmt, ...) {
+#define SECOND(a, b) b,
+const char *Header[] = {XFields(SECOND) NULL};
+#undef SECOND
+
+// Used by PANIC and WARN macros
+void __attribute__((unused)) 
+report_error(const char *prelude,
+	     const char *filename, int lineno,
+	     const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    fprintf(stderr, "Warning: ");
+    fprintf(stderr, "%s %s:%d ", prelude, filename, lineno);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
     fputc('\n', stderr);
     fflush(stderr);
-}
-
-__attribute__((noreturn))
-void bail(const char *msg) {
-  fputs(msg, stderr);
-  fflush(NULL);
-  exit(-1);
 }
 
 // -----------------------------------------------------------------------------
@@ -32,9 +34,9 @@ void bail(const char *msg) {
 // -----------------------------------------------------------------------------
 
 Usage *new_usage_array(int n) {
-  if (n < 1) bail("Invalid number of usage structs requested");
+  if (n < 1) PANIC("Invalid number of usage structs requested");
   Usage *usage = malloc(n * sizeof(Usage));
-  if (!usage) bail("Out of memory");
+  if (!usage) PANIC_OOM();
   return usage;
 }
 
@@ -48,98 +50,106 @@ void free_usage(Usage *usage, int n) {
   free(usage);
 }
 
-char *usage_cmd(Usage *usage) {
-  return usage->cmd;
+// Returns pointer to string OWNED BY USAGE STRUCT
+char *get_usage_string(Usage *usage, FieldCode fc) {
+  if (!usage) PANIC_NULL();
+  if (fc == F_CMD) return usage->cmd;
+  if (fc == F_SHELL) return usage->shell;
+  PANIC("Non-string field code (%d)", fc);
 }
 
-int usage_code(Usage *usage) {
-  return usage->code;
+int64_t get_usage_int64(Usage *usage, FieldCode fc) {
+  if (!usage) PANIC_NULL();
+  if (!FNUMERIC(fc)) PANIC("Invalid int64 field code (%d)", fc);
+  return usage->metrics[FTONUMERICIDX(fc)];
 }
 
-char *usage_shell(Usage *usage) {
-  return usage->shell;
+// Struct 'usage' takes OWNERSHIP of 'str'
+void set_usage_string(Usage *usage, FieldCode fc, char *str) {
+  if (!usage) PANIC_NULL();
+  switch (fc) {
+    case F_CMD: usage->cmd = str; break;
+    case F_SHELL: usage->shell = str; break;
+    default: PANIC("Invalid string field code (%d)", fc);
+  }
 }
 
-int64_t maxrss(Usage *usage) {
-  return usage->os.ru_maxrss;
+void set_usage_int64(Usage *usage,  FieldCode fc, int64_t val) {
+  if (!usage) PANIC_NULL();
+  if (!FNUMERIC(fc)) PANIC("Invalid int64 field code (%d)", fc);
+  usage->metrics[FTONUMERICIDX(fc)] = val;
 }
 
-int64_t usertime(Usage *usage) {
-  return usage->os.ru_utime.tv_sec * MICROSECS + usage->os.ru_utime.tv_usec;
+// struct rusage accessors
+
+int64_t rmaxrss(struct rusage *ru) {
+  return ru->ru_maxrss;
 }
 
-int64_t systemtime(Usage *usage) {
-  return usage->os.ru_stime.tv_sec * MICROSECS + usage->os.ru_stime.tv_usec;
+int64_t rusertime(struct rusage *ru) {
+  return ru->ru_utime.tv_sec * MICROSECS + ru->ru_utime.tv_usec;
 }
 
-int64_t totaltime(Usage *usage) {
-  return usertime(usage) + systemtime(usage);
+int64_t rsystemtime(struct rusage *ru) {
+  return ru->ru_stime.tv_sec * MICROSECS + ru->ru_stime.tv_usec;
 }
 
-int64_t vcsw(Usage *usage) {
-  return usage->os.ru_nvcsw;
+int64_t rvcsw(struct rusage *ru) {
+  return ru->ru_nvcsw;
 }
 
-int64_t icsw(Usage *usage) {
-  return usage->os.ru_nivcsw;
+int64_t ricsw(struct rusage *ru) {
+  return ru->ru_nivcsw;
 }
 
-int64_t minflt(Usage *usage) {
-  return usage->os.ru_minflt;
+int64_t rminflt(struct rusage *ru) {
+  return ru->ru_minflt;
 }
 
-int64_t majflt(Usage *usage) {
-  return usage->os.ru_majflt;
-}
-
-int64_t tcsw(Usage *usage) {
-  return vcsw(usage) + icsw(usage);
-}
-
-int64_t wall(Usage *usage) {
-  return usage->wall;
+int64_t rmajflt(struct rusage *ru) {
+  return ru->ru_majflt;
 }
 
 // The arg order for comparators passed to qsort_r differs between
 // linux and macos.
 #ifdef __linux__
-#define MAKE_COMPARATOR(accessor)					\
-  int compare_##accessor(const void *idx_ptr1,				\
-			 const void *idx_ptr2,				\
-			 void *context) {				\
+#define MAKE_COMPARATOR(name, fieldcode)				\
+  int compare_name(const void *idx_ptr1,				\
+		   const void *idx_ptr2,				\
+		   void *context) {					\
     Usage *usagedata = context;						\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\
-    if (accessor(&usagedata[idx1]) > accessor(&usagedata[idx2]))	\
-      return 1;								\
-    if (accessor(&usagedata[idx1]) < accessor(&usagedata[idx2]))	\
-      return -1;							\
+    int64_t val1 = get_usage_int64(&usagedata[idx1], fieldcode);	\
+    int64_t val2 = get_usage_int64(&usagedata[idx2], fieldcode);	\
+    if (val1 > val2) return 1;						\
+    if (val1 < val2) return -1;						\
     return 0;								\
   }
 #else
-#define MAKE_COMPARATOR(accessor)					\
-  int compare_##accessor(void *context,					\
-			 const void *idx_ptr1,				\
-			 const void *idx_ptr2) {			\
+#define MAKE_COMPARATOR(name, fieldcode)				\
+  int compare_##name(void *context,					\
+		     const void *idx_ptr1,				\
+		     const void *idx_ptr2) {				\
     Usage *usagedata = context;						\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\
-    if (accessor(&usagedata[idx1]) > accessor(&usagedata[idx2]))	\
-      return 1;								\
-    if (accessor(&usagedata[idx1]) < accessor(&usagedata[idx2]))	\
-      return -1;							\
+    int64_t val1 = get_usage_int64(&usagedata[idx1], fieldcode);	\
+    int64_t val2 = get_usage_int64(&usagedata[idx2], fieldcode);	\
+    if (val1 > val2) return 1;						\
+    if (val1 < val2) return -1;						\
     return 0;								\
   }
 #endif
 
-MAKE_COMPARATOR(usertime)
-MAKE_COMPARATOR(systemtime)
-MAKE_COMPARATOR(totaltime)
-MAKE_COMPARATOR(maxrss)
-MAKE_COMPARATOR(vcsw)
-MAKE_COMPARATOR(icsw)
-MAKE_COMPARATOR(tcsw)
-MAKE_COMPARATOR(wall)
+MAKE_COMPARATOR(usertime, F_USER)
+MAKE_COMPARATOR(systemtime, F_SYSTEM)
+MAKE_COMPARATOR(totaltime, F_TOTAL)
+MAKE_COMPARATOR(maxrss, F_MAXRSS)
+MAKE_COMPARATOR(vcsw, F_VCSW)
+MAKE_COMPARATOR(icsw, F_ICSW)
+MAKE_COMPARATOR(tcsw, F_TCSW)
+MAKE_COMPARATOR(wall, F_WALL)
 
 // -----------------------------------------------------------------------------
 // Parsing utilities
@@ -207,7 +217,20 @@ void print_arglist(arglist *args) {
   for (size_t i = 0; i < args->next; i++)
     printf("[%zu] %s\n", i, args->args[i]);
 }
-      
+
+// -----------------------------------------------------------------------------
+// Numbers from strings
+// -----------------------------------------------------------------------------
+
+int64_t strtoint64 (const char *str) {
+  int count;
+  int64_t value;
+  int scancount = sscanf(str, "%" PRId64 "%n", &value, &count);
+  if ((scancount != 1) || (count != (int) strlen(str))) 
+    PANIC("Failed to get integer from '%s'\n", str);
+  return value;
+}
+
 // -----------------------------------------------------------------------------
 // Argument arrays
 // -----------------------------------------------------------------------------
@@ -216,7 +239,7 @@ void print_arglist(arglist *args) {
 int add_arg(arglist *args, char *newarg) {
   if (!args || !newarg) return 1;
   if (args->next == args->max) {
-    warning("arg table full at %d items", args->max);
+    WARN("arg table full at %d items", args->max);
     return 1;
   }
   args->args[args->next++] = newarg;
@@ -225,18 +248,14 @@ int add_arg(arglist *args, char *newarg) {
 
 arglist *new_arglist(size_t limit) {
   arglist *args = malloc(sizeof(arglist));
-  if (!args) goto oom;
+  if (!args) PANIC_OOM();
   // Important: There must be a NULL at the end of the args,
   // so we allocate 1 more than needed and use 'calloc'.
   args->args = calloc(limit+1, sizeof(char *));
-  if (!args->args) goto oom;
+  if (!args->args) PANIC_OOM();
   args->max = limit;
   args->next = 0;
   return args;
-
- oom:
-  warning("Out of memory");
-  return NULL;
 }
 
 // -----------------------------------------------------------------------------
@@ -247,7 +266,7 @@ arglist *new_arglist(size_t limit) {
 // Returns error code: 1 for error, 0 for no error.
 int split(const char *in, arglist *args) {
   if (!in || !args) {
-    warning("null required arg");
+    WARN("null required arg");
     return 1;
   }
   char *new;
@@ -261,7 +280,7 @@ int split(const char *in, arglist *args) {
     start = p;
     p = read_arg(p);
     if (!p) {
-      warning("Unmatched quotes in: %s", start);
+      WARN("Unmatched quotes in: %s", start);
       return 1;
     }
     // Successful read.  Store a copy in the 'args' array.
@@ -272,8 +291,7 @@ int split(const char *in, arglist *args) {
     } 
     new = malloc(end - start + 1);
     if (!new) {
-      warning("Out of memory");
-      return 1;
+      PANIC_OOM();
     }
     memcpy(new, start, end - start);
     new[end - start] = '\0';
