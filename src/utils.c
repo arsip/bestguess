@@ -43,51 +43,91 @@ void error_report(const char *fmt, ...) {
 // Custom usage struct with accessors and comparators
 // -----------------------------------------------------------------------------
 
-Usage *new_usage_array(int n) {
-  if (n < 1) n = 1; 		// Edge case of 0 runs requested
-  Usage *usage = malloc(n * sizeof(Usage));
+Usage *new_usage_array(int cap) {
+  if (cap < 1) cap = 1; 		// Edge case of 0 runs requested
+  Usage *usage = malloc(sizeof(Usage));
   if (!usage) PANIC_OOM();
+  UsageData *data = malloc(cap * sizeof(UsageData));
+  if (!data) PANIC_OOM();
+  usage->next = 0;
+  usage->capacity = cap;
+  usage->data = data;
   return usage;
 }
 
-void free_usage(Usage *usage, int n) {
-  if (!usage || (n < 1)) return;
-  // These fields are strings owned by the usage struct
-  for (int i = 0; i < n; i++) {
-    free(usage[i].cmd);
-    free(usage[i].shell);
+static void expand_usage_array(Usage *usage, int newcap) {
+  if (!usage) PANIC_NULL();
+  if (newcap <= usage->capacity) return;
+  UsageData *data = realloc(usage->data, newcap * sizeof(UsageData));
+  if (!data) PANIC_OOM();
+  usage->capacity = newcap;
+  usage->data = data;
+}
+
+int usage_next(Usage *usage) {
+  if (!usage) PANIC_NULL();
+  if (usage->next == usage->capacity)
+    expand_usage_array(usage, 2 * usage->capacity);
+  int next = usage->next;
+  usage->next++;
+  return next;
+}
+
+void free_usage_array(Usage *usage) {
+  if (!usage) return;
+  for (int i = 0; i < usage->next; i++) {
+    // These fields are strings owned by the usage struct
+    free(usage->data[i].cmd);
+    free(usage->data[i].shell);
   }
+  free(usage->data);
   free(usage);
 }
 
 // Returns pointer to string OWNED BY USAGE STRUCT
-char *get_usage_string(Usage *usage, FieldCode fc) {
+char *get_string(Usage *usage, int idx, FieldCode fc) {
   if (!usage) PANIC_NULL();
-  if (fc == F_CMD) return usage->cmd;
-  if (fc == F_SHELL) return usage->shell;
+  if ((idx < 0) || (idx >= usage->next))
+    PANIC("index %d out of range 0..%d", usage->next - 1);
+  if (fc == F_CMD) return usage->data->cmd;
+  if (fc == F_SHELL) return usage->data->shell;
   PANIC("Non-string field code (%d)", fc);
 }
 
-int64_t get_usage_int64(Usage *usage, FieldCode fc) {
+int64_t get_int64(Usage *usage, int idx, FieldCode fc) {
   if (!usage) PANIC_NULL();
+  if ((idx < 0) || (idx >= usage->next))
+    PANIC("index %d out of range 0..%d", usage->next - 1);
   if (!FNUMERIC(fc)) PANIC("Invalid int64 field code (%d)", fc);
-  return usage->metrics[FTONUMERICIDX(fc)];
+  return usage->data->metrics[FTONUMERICIDX(fc)];
 }
 
-// Struct 'usage' takes OWNERSHIP of 'str'
-void set_usage_string(Usage *usage, FieldCode fc, char *str) {
+// Struct 'usage' gets a COPY of 'str'
+void set_string(Usage *usage, int idx, FieldCode fc, const char *str) {
   if (!usage) PANIC_NULL();
+  if ((idx < 0) || (idx >= usage->next))
+    PANIC("index %d out of range 0..%d", usage->next - 1);
+  char *dup = strndup(str, MAXCMDLEN);
+  if (!dup) PANIC_OOM();
   switch (fc) {
-    case F_CMD: usage->cmd = str; break;
-    case F_SHELL: usage->shell = str; break;
-    default: PANIC("Invalid string field code (%d)", fc);
+    case F_CMD:
+      usage->data[idx].cmd = dup;
+      break;
+    case F_SHELL:
+      usage->data[idx].shell = dup;
+      break;
+    default:
+      free(dup);
+      PANIC("Invalid string field code (%d)", fc);
   }
 }
 
-void set_usage_int64(Usage *usage,  FieldCode fc, int64_t val) {
+void set_int64(Usage *usage, int idx, FieldCode fc, int64_t val) {
   if (!usage) PANIC_NULL();
+  if ((idx < 0) || (idx >= usage->next))
+    PANIC("index %d out of range 0..%d", usage->next - 1);
   if (!FNUMERIC(fc)) PANIC("Invalid int64 field code (%d)", fc);
-  usage->metrics[FTONUMERICIDX(fc)] = val;
+  usage->data->metrics[FTONUMERICIDX(fc)] = val;
 }
 
 // struct rusage accessors
@@ -127,11 +167,11 @@ int64_t rmajflt(struct rusage *ru) {
   int compare_name(const void *idx_ptr1,				\
 		   const void *idx_ptr2,				\
 		   void *context) {					\
-    Usage *usagedata = context;						\
+    Usage *usage = context;						\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\
-    int64_t val1 = get_usage_int64(&usagedata[idx1], fieldcode);	\
-    int64_t val2 = get_usage_int64(&usagedata[idx2], fieldcode);	\
+    int64_t val1 = get_int64(usage, idx1, fieldcode);			\
+    int64_t val2 = get_int64(usage, idx2, fieldcode);			\
     if (val1 > val2) return 1;						\
     if (val1 < val2) return -1;						\
     return 0;								\
@@ -141,11 +181,11 @@ int64_t rmajflt(struct rusage *ru) {
   int compare_##name(void *context,					\
 		     const void *idx_ptr1,				\
 		     const void *idx_ptr2) {				\
-    Usage *usagedata = context;						\
+    Usage *usage = context;						\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\
-    int64_t val1 = get_usage_int64(&usagedata[idx1], fieldcode);	\
-    int64_t val2 = get_usage_int64(&usagedata[idx2], fieldcode);	\
+    int64_t val1 = get_int64(usage, idx1, fieldcode);			\
+    int64_t val2 = get_int64(usage, idx2, fieldcode);			\
     if (val1 > val2) return 1;						\
     if (val1 < val2) return -1;						\
     return 0;								\

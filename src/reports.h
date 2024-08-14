@@ -9,8 +9,9 @@
 
 #include "bestguess.h"
 #include "stats.h"
+#include <stdbool.h>
 
-void print_command_summary(summary *s);
+void print_summary(summary *s, int n, bool briefly);
 void print_graph(summary *s, Usage *usagedata);
 void print_overall_summary(char *commands[],
 			   int64_t modes[],

@@ -75,8 +75,7 @@ static void run_prep_command(void) {
   }
 }
 
-static int run(const char *cmd, Usage *usage) {
-
+static int run(const char *cmd, Usage *usage, int idx) {
   FILE *f;
   pid_t pid;
   int status;
@@ -137,10 +136,10 @@ static int run(const char *cmd, Usage *usage) {
 
   start = wall_clock_start.tv_sec * MICROSECS + wall_clock_start.tv_usec;
   stop = wall_clock_stop.tv_sec * MICROSECS + wall_clock_stop.tv_usec;
-  set_usage_int64(usage, F_WALL, stop - start);
+  set_int64(usage, idx, F_WALL, stop - start);
 
-  set_usage_string(usage, F_CMD, strndup(cmd, MAXCMDLEN));
-  set_usage_string(usage, F_SHELL, strndup(config.shell ?: "", MAXCMDLEN));;
+  set_string(usage, idx, F_CMD, cmd);
+  set_string(usage, idx, F_SHELL, config.shell);;
 
   // Check to see if cmd/shell aborted or was killed
   if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
@@ -163,18 +162,18 @@ static int run(const char *cmd, Usage *usage) {
     exit(ERR_RUNTIME);
   }
 
-  set_usage_int64(usage, F_CODE, WEXITSTATUS(status));
+  set_int64(usage, idx, F_CODE, WEXITSTATUS(status));
   
   // Fill the rest of the usage metrics from what the OS reported
-  set_usage_int64(usage, F_USER, rusertime(&from_os));
-  set_usage_int64(usage, F_SYSTEM, rsystemtime(&from_os));
-  set_usage_int64(usage, F_TOTAL, rusertime(&from_os) + rsystemtime(&from_os));
-  set_usage_int64(usage, F_MAXRSS, rmaxrss(&from_os));
-  set_usage_int64(usage, F_RECLAIMS, rminflt(&from_os));
-  set_usage_int64(usage, F_FAULTS, rmajflt(&from_os));
-  set_usage_int64(usage, F_VCSW, rvcsw(&from_os));
-  set_usage_int64(usage, F_ICSW, ricsw(&from_os));
-  set_usage_int64(usage, F_TCSW, rvcsw(&from_os) + ricsw(&from_os)); 
+  set_int64(usage, idx, F_USER, rusertime(&from_os));
+  set_int64(usage, idx, F_SYSTEM, rsystemtime(&from_os));
+  set_int64(usage, idx, F_TOTAL, rusertime(&from_os) + rsystemtime(&from_os));
+  set_int64(usage, idx, F_MAXRSS, rmaxrss(&from_os));
+  set_int64(usage, idx, F_RECLAIMS, rminflt(&from_os));
+  set_int64(usage, idx, F_FAULTS, rmajflt(&from_os));
+  set_int64(usage, idx, F_VCSW, rvcsw(&from_os));
+  set_int64(usage, idx, F_ICSW, ricsw(&from_os));
+  set_int64(usage, idx, F_TCSW, rvcsw(&from_os) + ricsw(&from_os)); 
 
   // If we get here, the child process exited normally, though the
   // exit code might not be zero (and zero indicates success)
@@ -200,13 +199,11 @@ static int run(const char *cmd, Usage *usage) {
 }
 
 // Returns modal total runtime for 'cmd'
-int64_t run_command(int num,
-		    char *cmd,
-		    FILE *output,
-		    FILE *csv_output,
-		    FILE *hf_output) {
-
-  int code, fail_count = 0;
+static int64_t run_command(int num,
+			   char *cmd,
+			   FILE *output,
+			   FILE *csv_output,
+			   FILE *hf_output) {
   int64_t mode;
 
   if (!config.output_to_stdout) {
@@ -214,30 +211,28 @@ int64_t run_command(int num,
     fflush(stdout);
   }
 
-  Usage dummy;
+  Usage *usage = new_usage_array(config.runs);
 
+  // Even when config.runs is 0, we allocate one usage struct
+  int idx = 0;
   for (int i = 0; i < config.warmups; i++) {
-    code = run(cmd, &dummy);
-    fail_count += (code != 0);
+    run(cmd, usage, idx);
   }
-
-  Usage *usagedata = new_usage_array(config.runs);
-  if (!usagedata) PANIC_OOM();
 
   for (int i = 0; i < config.runs; i++) {
-    code = run(cmd, &(usagedata[i]));
-    fail_count += (code != 0);
-    if (output) write_line(output, &(usagedata[i]));
+    idx = usage_next(usage);
+    run(cmd, usage, idx);
+    if (output) write_line(output, usage, idx);
   }
 
-  summary *s = summarize(cmd, fail_count, usagedata);
+  summary *s = summarize(cmd, usage);
 
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
   if (!config.output_to_stdout) {
-    print_command_summary(s);
-    if (config.show_graph) print_graph(s, usagedata);
+    print_summary(s, config.runs, config.brief_summary);
+    if (config.show_graph) print_graph(s, usage);
     printf("\n");
   }
 
@@ -248,8 +243,8 @@ int64_t run_command(int num,
 
   fflush(stdout);
   mode = s->total.mode;
+  free_usage_array(usage);
   free_summary(s);
-  free_usage(usagedata, config.runs);
   return mode;
 }
 

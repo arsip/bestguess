@@ -142,11 +142,11 @@ void write_header(FILE *f) {
   fflush(f);
 }
 
-#define GETFIELD(fc) (get_usage_int64(usage, (fc)))
+#define GETFIELD(fc) (get_int64(usage, idx, (fc)))
 
-void write_line(FILE *f, Usage *usage) {
-  char *escaped_cmd = escape(get_usage_string(usage, F_CMD));
-  char *shell_cmd = escape(get_usage_string(usage, F_SHELL));
+void write_line(FILE *f, Usage *usage, int idx) {
+  char *escaped_cmd = escape(get_string(usage, idx, F_CMD));
+  char *shell_cmd = escape(get_string(usage, idx, F_SHELL));
 
   WRITEFIELD(F_CMD, "%s", escaped_cmd, F_RAWNUMEND);
   WRITEFIELD(F_SHELL, "%s", shell_cmd, F_RAWNUMEND);

@@ -61,13 +61,13 @@
     if (showunits) printf(" %-3s", units);			\
   } while (0)
 
-void print_command_summary(summary *s) {
-  if (config.runs < 1) {
-    printf("\n  No data (number of timed runs was %d)\n", config.runs);
+void print_summary(summary *s, int n, bool briefly) {
+  if (n < 1) {
+    printf("\n  No data (number of timed runs was %d)\n", n);
     return;
   }
 
-  if (config.brief_summary)
+  if (briefly)
     printf(LABEL "    Mode" GAP "       Min    Median     Max\n", "");
   else
     printf(LABEL "    Mode" GAP "  ┌    Min    Median    95th     99th      Max   ┐\n", "");
@@ -89,13 +89,13 @@ void print_command_summary(summary *s) {
   PRINTTIME(s->total.min);
   PRINTTIME(s->total.median);
 
-  if (!config.brief_summary) {
+  if (!briefly) {
     PRINTTIME(s->total.pct95);
     PRINTTIME(s->total.pct99);
   }
   PRINTTIMENL(s->total.max);
 
-  if (!config.brief_summary) {
+  if (!briefly) {
     printf(LABEL, "User time");
     PRINTMODE(s->user.mode);
     PRINTTIME(s->user.min);
@@ -120,13 +120,13 @@ void print_command_summary(summary *s) {
   PRINTTIME(s->wall.min);
   PRINTTIME(s->wall.median);
 
-  if (!config.brief_summary) {
+  if (!briefly) {
     PRINTTIME(s->wall.pct95);
     PRINTTIME(s->wall.pct99);
   }
   PRINTTIMENL(s->wall.max);
 
-  if (!config.brief_summary) {
+  if (!briefly) {
     divisor = MEGA;
     units = "MiB";
     // More than 3 digits left of decimal place?
@@ -177,19 +177,19 @@ void print_command_summary(summary *s) {
 
 #define BAR "▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 
-void print_graph(summary *s, Usage *usagedata) {
+void print_graph(summary *s, Usage *usage) {
   int bars;
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int maxbars = strlen(BAR) / bytesperbar;
   int64_t tmax = s->total.max;
   printf("0%*smax\n", maxbars - 1, "");
   for (int i = 0; i < config.runs; i++) {
-    bars = (int) (get_usage_int64(&usagedata[i], F_TOTAL) * maxbars / tmax);
+    bars = (int) (get_int64(usage, i, F_TOTAL) * maxbars / tmax);
     if (bars <= maxbars)
       printf("│%.*s\n", bars * bytesperbar, BAR);
     else
       printf("│time exceeds plot size: %" PRId64 " us\n",
-	     get_usage_int64(&usagedata[i], F_TOTAL));
+	     get_int64(usage, i, F_TOTAL));
   }
   fflush(stdout);
 }

@@ -62,23 +62,30 @@ extern const char *Header[];
 // Custom usage struct with accessors and comparators
 // -----------------------------------------------------------------------------
 
-typedef struct Usage {
-  char         *cmd;		 // command that was executed
-  char         *shell;		 // shell used (optional, may be NULL)
+typedef struct UsageData {
+  char         *cmd;
+  char         *shell;
   int64_t       metrics[F_LAST - F_NUMSTART];
+} UsageData;
+  
+typedef struct Usage {
+  int           next;
+  int           capacity;
+  UsageData    *data;
 } Usage;
 
 
 // Accessors for 'Usage' struct
-char    *get_usage_string(Usage *usage, FieldCode fc);
-int64_t  get_usage_int64(Usage *usage,  FieldCode fc);
+char       *get_string(Usage *usage, int idx, FieldCode fc);
+int64_t     get_int64(Usage *usage, int idx, FieldCode fc);
 // Setters
-void     set_usage_string(Usage *usage, FieldCode fc, char *str);
-void     set_usage_int64(Usage *usage,  FieldCode fc, int64_t val);
+void        set_string(Usage *usage, int idx, FieldCode fc, const char *str);
+void        set_int64(Usage *usage, int idx, FieldCode fc, int64_t val);
 
 
-Usage *new_usage_array(int n);
-void   free_usage(Usage *usage, int n);
+Usage *new_usage_array(int capacity);
+void   free_usage_array(Usage *usage);
+int    usage_next(Usage *usage);
 
 int64_t rmaxrss(struct rusage *ru);
 int64_t rusertime(struct rusage *ru);

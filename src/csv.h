@@ -27,7 +27,7 @@ void    free_CSVrow(CSVrow *);
 // Output file (raw data, per timed run)
 
 void write_header(FILE *f);
-void write_line(FILE *f, Usage *usage);
+void write_line(FILE *f, Usage *usage, int idx);
 
 // Summary statistics file
 

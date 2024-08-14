@@ -37,10 +37,7 @@ typedef struct summary {
   measures  wall;
 } summary;
 
-summary *summarize(char *cmd,
-		   int fail_count,
-		   Usage *usagedata);
-
+summary *summarize(char *cmd, Usage *usagedata);
 void     free_summary(summary *s);
 
 double zscore(double z);
