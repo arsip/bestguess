@@ -44,8 +44,8 @@ The BestGuess `--hyperfine-csv <FILE>` option is used wherever you would use
 `--export-csv <FILE>` with Hyperfine to get essentially the same summary
 statistics in CSV form.  Two important differences:
   1. BestGuess does not calculate arithmetic mean.  In the summary file, the
-     `mean` and `median` columns contain the same value, which is the median of
-     the total (user + system) time.
+     `mean` column has been replaced by `mode`.  The mode value of total time
+     is more representative than mean for skewed distributions.
   2. BestGuess does not calculate standard deviation because we do observe
      normal distributions.  Until we decide on a replacement measure of
      variation, the summary file will contain zero in this field.
