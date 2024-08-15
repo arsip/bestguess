@@ -10,6 +10,10 @@
 #include <stdio.h>
 #include <string.h>
 
+void announce_command(const char *cmd, int number) {
+  printf("Command %d: %s\n", number, *cmd ? cmd : "(empty)");
+}
+
 #define FMT "%6.1f"
 #define FMTs "%6.2f"
 #define IFMT "%6" PRId64
@@ -62,7 +66,10 @@
   } while (0)
 
 void print_summary(Summary *s, bool briefly) {
-  if (!s) PANIC_NULL();
+  if (!s) {
+    printf("  No data\n");
+    return;
+  }
 
   if (briefly)
     printf(LABEL "    Mode" GAP "       Min    Median     Max\n", "");
@@ -174,13 +181,18 @@ void print_summary(Summary *s, bool briefly) {
 
 #define BAR "▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 
-void print_graph(Summary *s, Usage *usage) {
+void print_graph(Summary *s, Usage *usage, int start, int end) {
+  // No data if 's' or 'usage' are NULL
+  if (!s || !usage) return;
+  // Error if start or end is out of range
+  if ((start < 0) || (start >= usage->next) || (end < 0) || (end > usage->next))
+    PANIC("usage data indices out of bounds");
   int bars;
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int maxbars = strlen(BAR) / bytesperbar;
   int64_t tmax = s->total.max;
   printf("0%*smax\n", maxbars - 1, "");
-  for (int i = 0; i < config.runs; i++) {
+  for (int i = start; i < end; i++) {
     bars = (int) (get_int64(usage, i, F_TOTAL) * maxbars / tmax);
     if (bars <= maxbars)
       printf("│%.*s\n", bars * bytesperbar, BAR);
@@ -191,35 +203,44 @@ void print_graph(Summary *s, Usage *usage) {
   fflush(stdout);
 }
 
-void print_overall_summary(char *commands[],
-			   int64_t modes[],
-			   int start,
-			   int end) {
+#define MODE(i) (summaries[i]->total.mode)
+#define COMMAND(i) (summaries[i]->cmd)
 
-  if (config.runs < 1) return;
-  if (config.input_filename && ((end - start) < 2)) {
-    printf("Command group contains only one command\n");
+void print_overall_summary(Summary *summaries[], int start, int end) {
+  if (!summaries) PANIC_NULL();
+
+  // Need at least two commands in order to have a comparison
+  if ((end - start) < 2) {
+    // Command groups are a feature of commands read from a file
+    if (config.input_filename) {
+      printf("Command group contains only one command\n");
+    }
     return;
   }
 
+  if (!summaries[start]) return; // No data
+
   int best = start;
-  int64_t fastest = modes[best];
+  int64_t fastest = MODE(best);
   double factor;
   
-  for (int i = start; i < end; i++)
-    if (modes[i] < fastest) {
-      fastest = modes[i];
+  // Find the best total time, and also check for lack of data
+  for (int i = start; i < end; i++) {
+    if (!summaries[i]) return;	// No data
+    if (MODE(i) < fastest) {
+      fastest = MODE(i);
       best = i;
     }
+  }
 
   if ((end - start) > 1) {
     printf("Best guess is:\n");
-    printf("  %s ran\n", *commands[best] ? commands[best] : "(empty)");
+    printf("  %s ran\n", *COMMAND(best) ? COMMAND(best) : "(empty)");
     for (int i = start; i < end; i++) {
       if (i != best) {
-	factor = (double) modes[i] / (double) fastest;
+	factor = (double) MODE(i) / (double) fastest;
 	printf("  %6.2f times faster than %s\n",
-	       factor, *commands[i] ? commands[i] : "(empty)");
+	       factor, *COMMAND(best) ? COMMAND(i) : "(empty)");
       }
     }
   }

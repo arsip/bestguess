@@ -11,6 +11,7 @@ declare -a output
 allpassed=1
 
 function ok {
+    command="$*"
     output=$(${@})
     local status=$?
     if [[ -n "$SHOWOUTPUT" ]]; then
@@ -18,7 +19,7 @@ function ok {
 	echo "$output"
     fi
     if [[ $status -ne 0 ]]; then
-	printf "Expected success. Failed with code %d: %s\n" $status "$*"
+	printf "Expected success. Failed with code %d: %s\n" $status "$command"
 	allpassed=0
     fi
 }
@@ -26,7 +27,7 @@ function ok {
 function contains {
     for str in "$@"; do
 	if [[ "$output" != *"$str"* ]]; then
-	    printf "Output did not contain '%s'\n" "$str"
+	    printf "Output did not contain '%s': %s\n" "$str" "$command"
 	    allpassed=0
 	fi
     done

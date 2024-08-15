@@ -25,9 +25,9 @@ int reduce_data(void) {
       printf("**** ALERT! Z-score for %6.3f is %8.5f\n", z, zscore(z));
   }
 
-  printf("Relevant configuration:\n");
-  printf("  Input filename:  %s\n", config.input_filename);
-  printf("  Output filename: %s\n", config.output_filename);
+//   printf("Relevant configuration:\n");
+//   printf("  Input filename:  %s\n", config.input_filename);
+//   printf("  Output filename: %s\n", config.output_filename);
 
   input = maybe_open(config.input_filename, "r");
   output = maybe_open(config.output_filename, "w");
@@ -53,13 +53,23 @@ int reduce_data(void) {
     //write_line(output, usage, idx);
   }
 
-  Summary *s;
+  Summary *s[MAXCMDS];
   int next = 0;
-  while ((s = summarize(usage, &next))) {
+  int prev = 0;
+  int count = 0;
+  while ((s[count] = summarize(usage, &next))) {
+    announce_command(get_string(usage, prev, F_CMD), count+1);
+    print_summary(s[count], false);
+    print_graph(s[count], usage, prev, next);
     printf("\n");
-    print_summary(s, false);
-    free_summary(s);
+    prev = next;
+    if (++count == MAXCMDS) USAGE("too many commands");
   }
+
+  print_overall_summary(s, 0, count);
+
+  for (int i = 0; i < count; i++) free_summary(s[i]);
+  free_usage_array(usage);
 
   if (config.input_filename) fclose(input);
   if (config.output_filename) fclose(output);

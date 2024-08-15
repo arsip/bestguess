@@ -44,7 +44,7 @@ void error_report(const char *fmt, ...) {
 // -----------------------------------------------------------------------------
 
 Usage *new_usage_array(int cap) {
-  if (cap < 1) cap = 1; 		// Edge case of 0 runs requested
+  if (cap < 1) return NULL;
   Usage *usage = malloc(sizeof(Usage));
   if (!usage) PANIC_OOM();
   UsageData *data = malloc(cap * sizeof(UsageData));
@@ -125,7 +125,7 @@ void set_string(Usage *usage, int idx, FieldCode fc, const char *str) {
 void set_int64(Usage *usage, int idx, FieldCode fc, int64_t val) {
   if (!usage) PANIC_NULL();
   if ((idx < 0) || (idx >= usage->next))
-    PANIC("index %d out of range 0..%d", usage->next - 1);
+    PANIC("index %d out of range 0..%d", idx, usage->next - 1);
   if (!FNUMERIC(fc)) PANIC("Invalid int64 field code (%d)", fc);
   usage->data[idx].metrics[FTONUMERICIDX(fc)] = val;
 }

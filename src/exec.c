@@ -5,10 +5,13 @@
 //  Copyright (C) Jamie A. Jennings, 2024
 
 #include "exec.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h> 
+#include <assert.h>
 #include <sys/time.h>
+
 #include "csv.h"
 #include "stats.h"
 #include "reports.h"
@@ -199,24 +202,25 @@ static int run(const char *cmd, Usage *usage, int idx) {
 }
 
 // Returns modal total runtime for 'cmd'
-static int64_t run_command(int num,
-			   char *cmd,
-			   FILE *output,
-			   FILE *csv_output,
-			   FILE *hf_output) {
-  int64_t mode;
+static Summary *run_command(int num,
+			    char *cmd,
+			    FILE *output,
+			    FILE *csv_output,
+			    FILE *hf_output) {
 
   if (!config.output_to_stdout) {
-    printf("Command %d: %s\n", num+1, *cmd ? cmd : "(empty)");
+    // Internally, num is 0-based.  Users should see 1-based numbering.
+    announce_command(cmd, num+1);
     fflush(stdout);
   }
 
   Usage *usage = new_usage_array(config.runs);
+  assert((config.runs <= 0) || usage);
 
-  // Even when config.runs is 0, we allocate one usage struct
-  int idx = 0;
+  Usage *dummy = new_usage_array(1);
+  int idx = usage_next(dummy);
   for (int i = 0; i < config.warmups; i++) {
-    run(cmd, usage, idx);
+    run(cmd, dummy, idx);
   }
 
   for (int i = 0; i < config.runs; i++) {
@@ -225,15 +229,18 @@ static int64_t run_command(int num,
     if (output) write_line(output, usage, idx);
   }
 
-  int next = 0;
-  Summary *s = summarize(usage, &next);
+  int ignore = 0;
+  Summary *s = summarize(usage, &ignore);
+  assert((config.runs <= 0) || s);
 
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
   if (!config.output_to_stdout) {
     print_summary(s, config.brief_summary);
-    if (config.show_graph) print_graph(s, usage);
+    if (config.show_graph && usage) {
+      print_graph(s, usage, 0, usage->next);
+    }
     printf("\n");
   }
 
@@ -242,29 +249,32 @@ static int64_t run_command(int num,
   // If exporting in Hyperfine CSV format, write that line of data
   if (config.hf_filename) write_hf_line(hf_output, s);
 
-  fflush(stdout);
-  mode = s->total.mode;
   free_usage_array(usage);
-  free_summary(s);
-  return mode;
+  fflush(stdout);
+  return s;
 }
 
 void run_all_commands(int argc, char **argv) {
+  // 'n' is the number of summaries == number of commands
   int n = 0;
   char buf[MAXCMDLEN];
-  int64_t modes[MAXCMDS];
-  char *commands[MAXCMDLEN];
+  Summary *summaries[MAXCMDS];
   FILE *input = NULL, *output = NULL, *csv_output = NULL, *hf_output = NULL;
 
+  // Best practice is to save the raw data (all the timing runs).
+  // Provide a reminder if that data is not being saved.
   if (!config.output_to_stdout && !config.output_filename && !config.brief_summary) {
-    printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n",
+    printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n"
+	   "A single dash '-' instead of a file name prints to stdout.\n\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
-    printf("A single dash '-' instead of a file name prints to stdout.\n\n");
     fflush(stdout);
   }
 
+  // Give a warning in case the user provided a command line flag
+  // after the "output file" option, instead of a file name.
   if (config.output_filename && (*config.output_filename == '-')) {
-    printf("Warning: Output filename '%s' begins with a dash\n\n", config.output_filename);
+    printf("Warning: Output filename '%s' begins with a dash\n\n",
+	   config.output_filename);
     fflush(stdout);
   }
 
@@ -272,56 +282,53 @@ void run_all_commands(int argc, char **argv) {
   csv_output = maybe_open(config.csv_filename, "w");
   hf_output = maybe_open(config.hf_filename, "w");
 
-  if (config.output_to_stdout)
-    output = stdout;
-  else
-    output = maybe_open(config.output_filename, "w");
+  output = (config.output_to_stdout) ? stdout : maybe_open(config.output_filename, "w");
 
   if (output) write_header(output);
   if (csv_output) write_summary_header(csv_output);
   if (hf_output) write_hf_header(hf_output);
 
-  // TODO: Now we store the commands in the usage array, so we should
-  // not need a separate array of them
   if (config.first_command > 0) {
     for (int k = config.first_command; k < argc; k++) {
-      commands[n] = strndup(argv[k], MAXCMDLEN);
-      modes[n] = run_command(n, argv[k], output, csv_output, hf_output);
+      summaries[n] = run_command(n, argv[k], output, csv_output, hf_output);
       if (++n == MAXCMDS) goto toomany;
     }
   }
 
   char *cmd = NULL;
   int group_start = 0;
-  if (input)
+  if (input) {
     while ((cmd = fgets(buf, MAXCMDLEN, input))) {
       size_t len = strlen(cmd);
-      if ((len > 0) && (cmd[len-1] == '\n')) cmd[len-1] = '\0';
+      if ((len > 0) && (cmd[len-1] == '\n')) {
+	cmd[len-1] = '\0';
+      }
       if ((!*cmd) && config.groups) {
 	// Blank line in input file AND groups option is set
 	if (!config.output_to_stdout) {
 	  if (group_start == n) continue; // multiple blank lines
-	  print_overall_summary(commands, modes, group_start, n);
+	  print_overall_summary(summaries, group_start, n);
 	  group_start = n;
 	  puts("");
 	}
       } else {
 	// Regular command, which may be blank
-	commands[n] = strndup(cmd, MAXCMDLEN);
-	modes[n] = run_command(n, cmd, output, csv_output, hf_output);
+	summaries[n] = run_command(n, cmd, output, csv_output, hf_output);
 	if (++n == MAXCMDS) goto toomany;
       }
     } // while
+  }
 
-  if (!config.output_to_stdout)
-    print_overall_summary(commands, modes, group_start, n);
+  if (!config.output_to_stdout) {
+    print_overall_summary(summaries, group_start, n);
+  }
 
   if (output) fclose(output);
   if (csv_output) fclose(csv_output);
   if (hf_output) fclose(hf_output);
   if (input) fclose(input);
 
-  for (int i = 0; i < n; i++) free(commands[i]);
+  for (int i = 0; i < n; i++) free_summary(summaries[i]);
   return;
 
  toomany:

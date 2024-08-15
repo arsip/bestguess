@@ -11,11 +11,9 @@
 #include "stats.h"
 #include <stdbool.h>
 
+void announce_command(const char *cmd, int number);
 void print_summary(Summary *s, bool briefly);
-void print_graph(Summary *s, Usage *usagedata);
-void print_overall_summary(char *commands[],
-			   int64_t modes[],
-			   int start,
-			   int end);
+void print_graph(Summary *s, Usage *usagedata, int start, int end);
+void print_overall_summary(Summary *summaries[], int start, int end);
 
 #endif

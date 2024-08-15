@@ -146,6 +146,7 @@ static Summary *new_summary(void) {
 }
 
 void free_summary(Summary *s) {
+  if (!s) return;
   free(s->cmd);
   free(s->shell);
   free(s);
@@ -158,7 +159,9 @@ void free_summary(Summary *s) {
 // (4) We assume that 'shell' is the same for each execution of 'cmd'
 //
 Summary *summarize(Usage *usage, int *next) {
-  if (!usage || !next) PANIC_NULL();
+  if (!next) PANIC_NULL();
+  // No data to summarize if 'usage' is NULL or 'next' is out of range
+  if (!usage) return NULL;
   if ((*next < 0) || (*next >= usage->next)) return NULL;
   int i;
   char *cmd;
