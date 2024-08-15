@@ -98,12 +98,12 @@ int64_t rmajflt(struct rusage *ru);
 // The arg order for comparators passed to qsort_r differs between
 // linux and macos.
 #ifdef __linux__
-typedef int (comparator)(const void *, const void *, void *);
+typedef int (Comparator)(const void *, const void *, void *);
 #else
-typedef int (comparator)(void *, const void *, const void *);
+typedef int (Comparator)(void *, const void *, const void *);
 #endif
 
-#define COMPARATOR(accessor) comparator compare_##accessor
+#define COMPARATOR(accessor) Comparator compare_##accessor
 
 COMPARATOR(usertime);
 COMPARATOR(systemtime);

@@ -12,33 +12,33 @@
 #include <sys/resource.h>
 
 // Min, max, and measures of central tendency
-typedef struct measures {
+typedef struct Measures {
   int64_t min;
   int64_t max;
   int64_t mode;
   int64_t median;
   int64_t pct95;
   int64_t pct99;
-} measures;
+} Measures;
 
 // Statistical summary of a set of runs of a single command
-typedef struct summary {
+typedef struct Summary {
   char     *cmd;
   char     *shell;
   int       runs;
   int       fail_count;
-  measures  user;
-  measures  system;
-  measures  total;
-  measures  maxrss;
-  measures  vcsw;
-  measures  icsw;
-  measures  tcsw;
-  measures  wall;
-} summary;
+  Measures  user;
+  Measures  system;
+  Measures  total;
+  Measures  maxrss;
+  Measures  vcsw;
+  Measures  icsw;
+  Measures  tcsw;
+  Measures  wall;
+} Summary;
 
-summary *summarize(char *cmd, Usage *usagedata);
-void     free_summary(summary *s);
+Summary *summarize(Usage *usage, int *next);
+void     free_summary(Summary *s);
 
 double zscore(double z);
 int    zzscore(int scaled_z);

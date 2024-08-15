@@ -61,11 +61,8 @@
     if (showunits) printf(" %-3s", units);			\
   } while (0)
 
-void print_summary(summary *s, int n, bool briefly) {
-  if (n < 1) {
-    printf("\n  No data (number of timed runs was %d)\n", n);
-    return;
-  }
+void print_summary(Summary *s, bool briefly) {
+  if (!s) PANIC_NULL();
 
   if (briefly)
     printf(LABEL "    Mode" GAP "       Min    Median     Max\n", "");
@@ -177,7 +174,7 @@ void print_summary(summary *s, int n, bool briefly) {
 
 #define BAR "▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 
-void print_graph(summary *s, Usage *usage) {
+void print_graph(Summary *s, Usage *usage) {
   int bars;
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int maxbars = strlen(BAR) / bytesperbar;

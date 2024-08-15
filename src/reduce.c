@@ -35,7 +35,7 @@ int reduce_data(void) {
   if (!input) input = stdin;
 
   // TODO: Increase initial count after some testing
-  struct Usage *usage = new_usage_array(1);
+  struct Usage *usage = new_usage_array(100);
   CSVrow *row;
   // Headers
   row = read_CSVrow(input);
@@ -50,13 +50,16 @@ int reduce_data(void) {
     set_int64(usage, idx, F_TOTAL, get_int64(usage, idx, F_USER) + get_int64(usage, idx, F_SYSTEM));
     set_int64(usage, idx, F_TCSW, get_int64(usage, idx, F_ICSW) + get_int64(usage, idx, F_VCSW));
     free_CSVrow(row);
-    write_line(output, usage, idx);
+    //write_line(output, usage, idx);
   }
 
-  // TEMP: Summarize only first cmd found
-  char *cmd = get_string(usage, 0, F_CMD);
-  summary *s = summarize(cmd, usage);
-  print_summary(s, 1, false);
+  Summary *s;
+  int next = 0;
+  while ((s = summarize(usage, &next))) {
+    printf("\n");
+    print_summary(s, false);
+    free_summary(s);
+  }
 
   if (config.input_filename) fclose(input);
   if (config.output_filename) fclose(output);

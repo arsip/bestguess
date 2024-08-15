@@ -30,13 +30,17 @@
 
  */
 
-#define MEDIAN_SELECT(usage, fc, indices)				\
-  ((config.runs == (config.runs/2) * 2) 				\
-   ?									\
-   ((get_int64(usage, indices[config.runs/2 - 1], fc) +			\
-     get_int64(usage, indices[config.runs/2], fc)) / 2)			\
-   :									\
-   (get_int64(usage, indices[config.runs/2], fc)))
+static int64_t median(Usage *usage,
+		      FieldCode fc,
+		      int *indices,
+		      int start, int end) {
+  int runs = end - start;
+  int half = runs / 2;
+  if (runs == (runs/2) * 2)
+    return (get_int64(usage, indices[half - 1], fc)
+	    + get_int64(usage, indices[half], fc)) / 2;
+  return get_int64(usage, indices[half], fc);
+}
 
 static int64_t avg(int64_t a, int64_t b) {
   return (a + b) / 2;
@@ -58,16 +62,16 @@ static int64_t avg(int64_t a, int64_t b) {
 //
 static int64_t estimate_mode(Usage *usage,
 			     FieldCode fc,
-			     int *indices) {
+			     int *indices,
+			     int n) {
   // n = number of samples being examined
   // h = size of "half sample" (floor of n/2)
   // idx = start index of samples being examined
   // limit = end index one beyond last sample being examined
-  int idx, limit, n, h;
   int64_t wmin = 0;
-  idx = 0;
-  n = config.runs;
-  
+  int limit, h;
+  int idx;
+
  tailcall:
   if (n == 1) {
     return VALUEAT(idx, fc);
@@ -99,13 +103,14 @@ static int64_t estimate_mode(Usage *usage,
 static int64_t percentile(int pct,
 			  Usage *usage,
 			  FieldCode fc,
-			  int *indices) {
+			  int *indices,
+			  int runs) {
   if (pct < 90) PANIC("Error: refuse to calculate percentiles less than 90");
   if (pct > 99) PANIC("Error: unable to calculate percentiles greater than 99");
   // Number of samples needed for a percentile calculation
   int samples = 100 / (100 - pct);
-  if (config.runs < samples) return -1;
-  int idx = config.runs - (config.runs / samples);
+  if (runs < samples) return -1;
+  int idx = runs - (runs / samples);
   return get_int64(usage, indices[idx], fc);
 }
 
@@ -113,76 +118,69 @@ static int64_t percentile(int pct,
 // Time values are single int64_t fields storing microseconds.
 //
 static void measure(Usage *usage,
-		    int first,
-		    int last,
+		    int start,
+		    int end,
 		    FieldCode fc,
-		    comparator compare,
-		    measures *m) {
-  int runs = last - first + 1;
+		    Comparator compare,
+		    Measures *m) {
+  int runs = end - start;
   if (runs < 1) PANIC("no data to analyze");
   int *indices = malloc(runs * sizeof(int));
   if (!indices) PANIC_OOM();
-  for (int i = 0; i < runs; i++) indices[i] = first + i;
+  for (int i = 0; i < runs; i++) indices[i] = start + i;
   sort(indices, runs, sizeof(int), usage, compare);
-  m->median = MEDIAN_SELECT(usage, fc, indices);
+  m->median = median(usage, fc, indices, start, end);
   m->min = get_int64(usage, indices[0], fc);
   m->max = get_int64(usage, indices[runs - 1], fc);
-  m->mode = estimate_mode(usage, fc, indices);
-  m->pct95 = percentile(95, usage, fc, indices);
-  m->pct99 = percentile(99, usage, fc, indices);
+  m->mode = estimate_mode(usage, fc, indices, runs);
+  m->pct95 = percentile(95, usage, fc, indices, runs);
+  m->pct99 = percentile(99, usage, fc, indices, runs);
   free(indices);
   return;
 }
 
-static summary *new_summary(void) {
-  summary *s = calloc(1, sizeof(summary));
+static Summary *new_summary(void) {
+  Summary *s = calloc(1, sizeof(Summary));
   if (!s) PANIC_OOM();
   return s;
 }
 
-void free_summary(summary *s) {
+void free_summary(Summary *s) {
   free(s->cmd);
   free(s->shell);
   free(s);
 }
 
-// (1) 'cmd' is a filter that usage records must match exactly
-// (2) All records with same 'cmd' must be contiguous
-// (3) We assume that 'shell' is the same for each execution of 'cmd'
-summary *summarize(char *cmd, Usage *usage) {
-  summary *s = new_summary();
+//
+// (1) Summarizing starts at index '*next'
+// (2) And continues until 'cmd' changes
+// (3) '*next' is set to the index where 'cmd' changed
+// (4) We assume that 'shell' is the same for each execution of 'cmd'
+//
+Summary *summarize(Usage *usage, int *next) {
+  if (!usage || !next) PANIC_NULL();
+  if ((*next < 0) || (*next >= usage->next)) return NULL;
+  int i;
+  char *cmd;
+  int first = *next;
+  Summary *s = new_summary();
+  cmd = get_string(usage, first, F_CMD);
   s->cmd = strndup(cmd, MAXCMDLEN);
-
-  int first = -1;
-  for (int i = 0; i < usage->next; i++) {
-    if (strncmp(cmd, get_string(usage, i, F_CMD), MAXCMDLEN) == 0) {
-      first = i;
-      break;
-    }
-  }
-  // Maybe there was no matching data?
-  if (first == -1) return s;
-
-  s->cmd = strndup(get_string(usage, first, F_CMD), MAXCMDLEN);
   s->shell = strndup(get_string(usage, first, F_SHELL), MAXCMDLEN);
-
-  int last = first;
-  for (int i = first; i < usage->next; i++) {
+  for (i = first; i < usage->next; i++) {
     if (strncmp(cmd, get_string(usage, i, F_CMD), MAXCMDLEN) != 0) break;
     s->runs++;
     s->fail_count += (get_int64(usage, i, F_CODE) != 0);
-    last = i;
   }
-
-  measure(usage, first, last, F_TOTAL, compare_totaltime, &s->total);
-  measure(usage, first, last, F_USER, compare_usertime, &s->user);
-  measure(usage, first, last, F_SYSTEM, compare_systemtime, &s->system);
-  measure(usage, first, last, F_MAXRSS, compare_maxrss, &s->maxrss);
-  measure(usage, first, last, F_VCSW, compare_vcsw, &s->vcsw);
-  measure(usage, first, last, F_ICSW, compare_icsw, &s->icsw);
-  measure(usage, first, last, F_TCSW, compare_tcsw, &s->tcsw);
-  measure(usage, first, last, F_WALL, compare_wall, &s->wall);
-
+  *next = i;
+  measure(usage, first, i, F_TOTAL, compare_totaltime, &s->total);
+  measure(usage, first, i, F_USER, compare_usertime, &s->user);
+  measure(usage, first, i, F_SYSTEM, compare_systemtime, &s->system);
+  measure(usage, first, i, F_MAXRSS, compare_maxrss, &s->maxrss);
+  measure(usage, first, i, F_VCSW, compare_vcsw, &s->vcsw);
+  measure(usage, first, i, F_ICSW, compare_icsw, &s->icsw);
+  measure(usage, first, i, F_TCSW, compare_tcsw, &s->tcsw);
+  measure(usage, first, i, F_WALL, compare_wall, &s->wall);
   return s;
 }
 

@@ -89,8 +89,8 @@ char *get_string(Usage *usage, int idx, FieldCode fc) {
   if (!usage) PANIC_NULL();
   if ((idx < 0) || (idx >= usage->next))
     PANIC("index %d out of range 0..%d", usage->next - 1);
-  if (fc == F_CMD) return usage->data->cmd;
-  if (fc == F_SHELL) return usage->data->shell;
+  if (fc == F_CMD) return usage->data[idx].cmd;
+  if (fc == F_SHELL) return usage->data[idx].shell;
   PANIC("Non-string field code (%d)", fc);
 }
 
@@ -99,7 +99,7 @@ int64_t get_int64(Usage *usage, int idx, FieldCode fc) {
   if ((idx < 0) || (idx >= usage->next))
     PANIC("index %d out of range 0..%d", usage->next - 1);
   if (!FNUMERIC(fc)) PANIC("Invalid int64 field code (%d)", fc);
-  return usage->data->metrics[FTONUMERICIDX(fc)];
+  return usage->data[idx].metrics[FTONUMERICIDX(fc)];
 }
 
 // Struct 'usage' gets a COPY of 'str'
@@ -127,7 +127,7 @@ void set_int64(Usage *usage, int idx, FieldCode fc, int64_t val) {
   if ((idx < 0) || (idx >= usage->next))
     PANIC("index %d out of range 0..%d", usage->next - 1);
   if (!FNUMERIC(fc)) PANIC("Invalid int64 field code (%d)", fc);
-  usage->data->metrics[FTONUMERICIDX(fc)] = val;
+  usage->data[idx].metrics[FTONUMERICIDX(fc)] = val;
 }
 
 // struct rusage accessors

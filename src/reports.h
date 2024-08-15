@@ -11,8 +11,8 @@
 #include "stats.h"
 #include <stdbool.h>
 
-void print_summary(summary *s, int n, bool briefly);
-void print_graph(summary *s, Usage *usagedata);
+void print_summary(Summary *s, bool briefly);
+void print_graph(Summary *s, Usage *usagedata);
 void print_overall_summary(char *commands[],
 			   int64_t modes[],
 			   int start,

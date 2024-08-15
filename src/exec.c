@@ -225,13 +225,14 @@ static int64_t run_command(int num,
     if (output) write_line(output, usage, idx);
   }
 
-  summary *s = summarize(cmd, usage);
+  int next = 0;
+  Summary *s = summarize(usage, &next);
 
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
   if (!config.output_to_stdout) {
-    print_summary(s, config.runs, config.brief_summary);
+    print_summary(s, config.brief_summary);
     if (config.show_graph) print_graph(s, usage);
     printf("\n");
   }

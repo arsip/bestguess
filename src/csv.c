@@ -260,7 +260,7 @@ void write_summary_header(FILE *f) {
       write(fc, fmt, value, lastfc);		     \
   } while (0)
 
-void write_summary_line(FILE *f, summary *s) {
+void write_summary_line(FILE *f, Summary *s) {
   char *escaped_cmd = escape(s->cmd);
   char *shell_cmd = escape(config.shell);
   WRITEFIELD(S_CMD, "%s", escaped_cmd, S_LAST);
@@ -340,7 +340,7 @@ void write_hf_header(FILE *f) {
   fflush(f);
 }
 
-void write_hf_line(FILE *f, summary *s) {
+void write_hf_line(FILE *f, Summary *s) {
   const double million = MICROSECS;
   // Command
   WRITEFIELD(0, "%s", *(s->cmd) ? s->cmd : config.shell, 7);
