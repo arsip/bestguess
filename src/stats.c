@@ -114,6 +114,17 @@ static int64_t percentile(int pct,
   return get_int64(usage, indices[idx], fc);
 }
 
+static int *make_index(Usage *usage, int start, int end, Comparator compare) {
+  int runs = end - start;
+  if (runs <= 0) PANIC("invalid start/end");
+  int *index = malloc(runs * sizeof(int));
+  if (!index) PANIC_OOM();
+  for (int i = 0; i < runs; i++) index[i] = start + i;
+  sort(index, runs, sizeof(int), usage, compare);
+  return index;
+}
+
+//
 // Produce a statistical summary (stored in 'meas') over all runs.
 // Time values are single int64_t fields storing microseconds.
 //
@@ -125,17 +136,14 @@ static void measure(Usage *usage,
 		    Measures *m) {
   int runs = end - start;
   if (runs < 1) PANIC("no data to analyze");
-  int *indices = malloc(runs * sizeof(int));
-  if (!indices) PANIC_OOM();
-  for (int i = 0; i < runs; i++) indices[i] = start + i;
-  sort(indices, runs, sizeof(int), usage, compare);
-  m->median = median(usage, fc, indices, start, end);
-  m->min = get_int64(usage, indices[0], fc);
-  m->max = get_int64(usage, indices[runs - 1], fc);
-  m->mode = estimate_mode(usage, fc, indices, runs);
-  m->pct95 = percentile(95, usage, fc, indices, runs);
-  m->pct99 = percentile(99, usage, fc, indices, runs);
-  free(indices);
+  int *index = make_index(usage, start, end, compare);
+  m->median = median(usage, fc, index, start, end);
+  m->min = get_int64(usage, index[0], fc);
+  m->max = get_int64(usage, index[runs - 1], fc);
+  m->mode = estimate_mode(usage, fc, index, runs);
+  m->pct95 = percentile(95, usage, fc, index, runs);
+  m->pct99 = percentile(99, usage, fc, index, runs);
+  free(index);
   return;
 }
 
@@ -301,9 +309,6 @@ double zscore(double z) {
   int units = scaled_z % 10;
   int lower = scaled_z - ((units < 0) ? (units + 10) : units);
   int upper = lower + 10;
-//   if (units) printf("units = %d, low[%04d] = %d, high[%04d] = %d\n", units,
-// 		    lower, zzscore(lower/10),
-// 		    upper, zzscore(upper/10));
   double diff = zzscore(upper/10) - zzscore(lower/10);
   if (units < 0) units = 10 + units;
   double score = zzscore(lower/10) + ((double) units/10.0 * diff);
@@ -344,6 +349,7 @@ void print_zscore_table(void) {
 //
 // Input: Xi are samples, order from smallest to largest
 //        n is the number of samples
+//        i ranges from 1..n inclusive
 //
 // Estimate mean of sample distribution: μ = (1/n) Σ(Xi)
 // Estimate variance: σ² = (1/(n-1)) Σ(Xi-μ)²
@@ -376,9 +382,78 @@ void print_zscore_table(void) {
 //     100	0.559	0.631	0.754	0.884	1.047
 //     ∞	0.576	0.656	0.787	0.918	1.092
 //
-const int ADconfidence[30] = {   10,   514,   578,   683,   779,   926,
-				 20,   528,   591,   704,   815,   969,
-				 50,   546,   616,   735,   861,  1021,
-				100,   559,   631,   754,   884,  1047,
-				 -1,   576,   656,   787,   918,  1092  };
+const int ADconfidence[5][6] = {{  10,   514,   578,   683,   779,   926 },
+				{  20,   528,   591,   704,   815,   969 },
+				{  50,   546,   616,   735,   861,  1021 },
+				{ 100,   559,   631,   754,   884,  1047 },
+				{  -1,   576,   656,   787,   918,  1092 }};
 
+static double confidence(double A, int runs) {
+  double confidences[] = {0.0, 0.15, 0.10, 0.05, 0.025, 0.01};
+  // Find the right row
+  int row = 0;
+  for (; row < 4; row++) {
+    int n = ADconfidence[row][0];
+    if (runs <= n) break;
+  }
+  int Aint = round(A * 1000.0);
+  printf("Aint = %d\n", Aint);
+  int col = 5;
+  for (; col > 0; col--)
+    if (Aint >= ADconfidence[row][col])
+      return confidences[col];
+  // Zero will indicate "not to a known confidence level"
+  return 0.0;
+}
+
+// Estimate mean: μ = (1/n) Σ(Xi)
+static double estimate_mean(Usage *usage, int *index, int runs, FieldCode fc) {
+  double sum = 0;
+  for (int i = 0; i < runs; i++)
+    sum += get_int64(usage, index[i], fc);
+  return sum / runs;
+}
+
+// Estimate variance: σ² = (1/(n-1)) Σ(Xi-μ)²
+static double estimate_variance(Usage *usage, int *index, int runs, FieldCode fc) {
+  double mean = estimate_mean(usage, index, runs, fc);
+  double sum = 0;
+  for (int i = 0; i < runs; i++)
+    sum += pow(get_int64(usage, index[i], fc) - mean, 2);
+  return sum / (runs - 1);
+}
+
+double ADscore(Usage *usage, int start, int end) {
+  int runs = end - start;
+  if (runs < 2) PANIC("insufficient data to analyze");
+  int *index = make_index(usage, start, end, compare_totaltime);
+  double mean = estimate_mean(usage, index, runs, F_TOTAL);
+  double variance = estimate_variance(usage, index, runs, F_TOTAL);
+  printf("Estimated mean = %-8.1f\n", mean);
+  printf("Estimated variance = %-8.1f\n", variance);
+//   for (int i = 0; i < runs; i++)
+//     printf("%" PRId64 "\n", get_int64(usage, index[i], F_TOTAL));
+  // Yi = (Xi-μ)/σ
+  double stddev = sqrt(variance);
+  double *Y = malloc(runs * sizeof(double));
+  if (!Y) PANIC_OOM();
+  for (int i = 0; i < runs; i++)
+    Y[i] = (get_int64(usage, index[i], F_TOTAL) - mean) / stddev;
+  double *Z = malloc(runs * sizeof(double));
+  if (!Z) PANIC_OOM();
+  for (int i = 0; i < runs; i++)
+    Z[i] = zscore(Y[i]);
+  // A² = -n - (1/n) Σ( (2i-1)ln(Zi) + (2(n-i)+1)ln(1-Zi) )
+  double sum = 0;
+  for (int i = 0; i < runs; i++)
+    sum += (2*(i+1)-1)*log(Z[i]) + (2*(runs-(i+1)+1))*log(1.0-Z[i]);
+  double A = -runs - (sum / runs);
+  printf("A (uncorrected) = %-8.1f\n", A);
+  // A⃰² = A²(1 + 4/n + 25/n²)
+  A = A * (1 + 4/runs + 25/(runs * runs));
+  printf("A (corrected) = %-8.1f\n", A);
+  double c = confidence(A, runs);
+  printf("Confidence = %-4.2f\n", c);
+  free(index);
+  return 0.0;
+}

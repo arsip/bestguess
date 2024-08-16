@@ -60,13 +60,20 @@ int reduce_data(void) {
   while ((s[count] = summarize(usage, &next))) {
     announce_command(get_string(usage, prev, F_CMD), count+1);
     print_summary(s[count], false);
-    print_graph(s[count], usage, prev, next);
+    //print_graph(s[count], usage, prev, next);
+    printf("\n");
+    ADscore(usage, prev, next);
     printf("\n");
     prev = next;
     if (++count == MAXCMDS) USAGE("too many commands");
   }
 
   print_overall_summary(s, 0, count);
+
+//   printf("\n");
+//   write_summary_header(output);
+//   for (int i = 0; i < count; i++)
+//     write_summary_line(output, s[i]);
 
   for (int i = 0; i < count; i++) free_summary(s[i]);
   free_usage_array(usage);
