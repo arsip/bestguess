@@ -35,6 +35,10 @@ typedef struct Summary {
   Measures  icsw;
   Measures  tcsw;
   Measures  wall;
+  double    est_mean;		// Estimated
+  double    est_stddev;		// Estimated
+  double    ADscore;		// Anderson-Darling normality
+  double    p_normal;		// p-value of "not normal"
 } Summary;
 
 Summary *summarize(Usage *usage, int *next);
@@ -44,6 +48,5 @@ double zscore(double z);
 int    zzscore(int scaled_z);
 void   print_zscore_table(void);
 
-double nonnormal_pvalue(Usage *usage, int start, int end);
 
 #endif

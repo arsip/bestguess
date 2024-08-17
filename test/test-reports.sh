@@ -3,6 +3,8 @@
 
 SHOWOUTPUT=
 
+prog=../bestguess
+
 printf "%s\n"   '--------------------------------------'
 printf "%s\n"   'Report tests (terminal output)'
 printf "%s\n\n" '--------------------------------------'
@@ -38,21 +40,21 @@ function contains {
 # ------------------------------------------------------------------
 
 # Default report
-ok ./bestguess /bin/bash
+ok "$prog" /bin/bash
 contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
 
 # Brief report
-ok ./bestguess -b /bin/bash
+ok "$prog" -b /bin/bash
 contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
 
 # Graph
-ok ./bestguess -bg /bin/bash
+ok "$prog" -bg /bin/bash
 contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" "0     " "     max"
 
 for warmups in $(seq 0 5); do
     for runs in $(seq 0 5); do
 	# Default report
-	ok ./bestguess -w $warmups -r $runs /bin/bash
+	ok "$prog" -w $warmups -r $runs /bin/bash
 	if [[ $runs -eq 0 ]]; then
 	    contains "No data"
 	else
@@ -60,14 +62,14 @@ for warmups in $(seq 0 5); do
 	fi
 
 	# Brief report
-	ok ./bestguess -w $warmups -r $runs -b /bin/bash
+	ok "$prog" -w $warmups -r $runs -b /bin/bash
 	if [[ $runs -eq 0 ]]; then
 	    contains "No data"
 	else
 	    contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
 	fi
 	# Graph
-	ok ./bestguess -w $warmups -r $runs -bg /bin/bash
+	ok "$prog" -w $warmups -r $runs -bg /bin/bash
 	if [[ $runs -eq 0 ]]; then
 	    contains "No data"
 	else

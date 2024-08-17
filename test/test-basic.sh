@@ -1,6 +1,8 @@
 #/bin/bash
 #  -*- Mode: Shell-script; -*-                                            
 
+prog="../bestguess"
+
 printf "%s\n"   '--------------------------------------'
 printf "%s\n"   'Basic tests, e.g. checking exit status'
 printf "%s\n\n" '--------------------------------------'
@@ -43,38 +45,38 @@ function panic {
     fi
 }
 
-usage   ./bestguess
-usage   ./bestguess -foo
-usage   ./bestguess -r abc
-usage   ./bestguess -w abc
-usage   ./bestguess -r -1
-usage   ./bestguess -w -1
-usage   ./bestguess -r 1048577
-usage   ./bestguess -w 1048577
-usage   ./bestguess --no-such-option
-usage   ./bestguess -d
+usage   "$prog"
+usage   "$prog" -foo
+usage   "$prog" -r abc
+usage   "$prog" -w abc
+usage   "$prog" -r -1
+usage   "$prog" -w -1
+usage   "$prog" -r 1048577
+usage   "$prog" -w 1048577
+usage   "$prog" --no-such-option
+usage   "$prog" -d
 
-ok      ./bestguess -h
-ok      ./bestguess -r 0
-ok      ./bestguess -w 0
-ok      ./bestguess -r 1
-ok      ./bestguess -w 1
-ok      ./bestguess -r 10000
-ok      ./bestguess -w 10000
-ok      ./bestguess -r 1048576
-ok      ./bestguess -w 1048576
+ok      "$prog" -h
+ok      "$prog" -r 0
+ok      "$prog" -w 0
+ok      "$prog" -r 1
+ok      "$prog" -w 1
+ok      "$prog" -r 10000
+ok      "$prog" -w 10000
+ok      "$prog" -r 1048576
+ok      "$prog" -w 1048576
 
 # Bad shell programs '-fasdkl' and foobarbaz
-usage   ./bestguess -S -fasdkl ls -l
-runtime ./bestguess -S -fasdkl "ls -l"
-runtime ./bestguess -S foobarbaz 'ls -l'
-runtime ./bestguess -S foobarbaz 'ls -l'
+usage   "$prog" -S -fasdkl ls -l
+runtime "$prog" -S -fasdkl "ls -l"
+runtime "$prog" -S foobarbaz 'ls -l'
+runtime "$prog" -S foobarbaz 'ls -l'
 
 # Command cannot be executed
-runtime ./bestguess thisprogramshouldnotexist
-runtime ./bestguess /thisprogramshouldnotexist
-runtime ./bestguess ./thisprogramshouldnotexist
-runtime ./bestguess ./nosuchdirectory/thisprogramshouldnotexist
+runtime "$prog" thisprogramshouldnotexist
+runtime "$prog" /thisprogramshouldnotexist
+runtime "$prog" ./thisprogramshouldnotexist
+runtime "$prog" ./nosuchdirectory/thisprogramshouldnotexist
 
 
 

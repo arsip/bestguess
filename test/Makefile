@@ -3,18 +3,16 @@
 ## The 'bestguess' project
 ##
 
-PROGRAMS=optiontest
+PROGRAMS=optiontest bestguess
 SRCDIR=../src
 OBJECTS=$(SRCDIR)/optable.o
 
 default: $(PROGRAMS)
 
-test: $(PROGRAMS) run
-
 help:
 	@echo "Useful makefile targets (test directory)"
 	@echo "  default Build test programs"
-	@echo "  run     Build and run test programs"
+	@echo "  test    Build and run test programs"
 	@echo "  clean   Deletes old compilation files"
 	@echo "  deps    Rebuilds dependency info in Makefile.depends"
 	@echo "  tags    Rebuilds tag files e.g. for Emacs"
@@ -52,11 +50,16 @@ CFLAGS= -std=c99 -fPIC \
 
 # -----------------------------------------------------------------------------
 
+bestguess:
+	$(MAKE) -C $(SRCDIR) bestguess
+
 optiontest: TAGS optiontest.o $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $@.c $(OBJECTS) 
 
-run: $(PROGRAMS)
-	./optiontest
+test: $(PROGRAMS)
+	@./optiontest && \
+	./test-basic.sh && ./test-reports.sh && ./test-rawdata.sh
+
 
 # ------------------------------------------------------------------
 

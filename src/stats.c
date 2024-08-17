@@ -160,41 +160,6 @@ void free_summary(Summary *s) {
   free(s);
 }
 
-//
-// (1) Summarizing starts at index '*next'
-// (2) And continues until 'cmd' changes
-// (3) '*next' is set to the index where 'cmd' changed
-// (4) We assume that 'shell' is the same for each execution of 'cmd'
-//
-Summary *summarize(Usage *usage, int *next) {
-  if (!next) PANIC_NULL();
-  // No data to summarize if 'usage' is NULL or 'next' is out of range
-  if (!usage) return NULL;
-  if ((*next < 0) || (*next >= usage->next)) return NULL;
-  int i;
-  char *cmd;
-  int first = *next;
-  Summary *s = new_summary();
-  cmd = get_string(usage, first, F_CMD);
-  s->cmd = strndup(cmd, MAXCMDLEN);
-  s->shell = strndup(get_string(usage, first, F_SHELL), MAXCMDLEN);
-  for (i = first; i < usage->next; i++) {
-    if (strncmp(cmd, get_string(usage, i, F_CMD), MAXCMDLEN) != 0) break;
-    s->runs++;
-    s->fail_count += (get_int64(usage, i, F_CODE) != 0);
-  }
-  *next = i;
-  measure(usage, first, i, F_TOTAL, compare_totaltime, &s->total);
-  measure(usage, first, i, F_USER, compare_usertime, &s->user);
-  measure(usage, first, i, F_SYSTEM, compare_systemtime, &s->system);
-  measure(usage, first, i, F_MAXRSS, compare_maxrss, &s->maxrss);
-  measure(usage, first, i, F_VCSW, compare_vcsw, &s->vcsw);
-  measure(usage, first, i, F_ICSW, compare_icsw, &s->icsw);
-  measure(usage, first, i, F_TCSW, compare_tcsw, &s->tcsw);
-  measure(usage, first, i, F_WALL, compare_wall, &s->wall);
-  return s;
-}
-
 // -----------------------------------------------------------------------------
 // Z score calculation via table
 // -----------------------------------------------------------------------------
@@ -394,38 +359,13 @@ void print_zscore_table(void) {
 // from normality at the tails is the major problem, many
 // statisticians would use Anderson-Darling as the first choice."
 
-// const int ADconfidence[5][6] = {{  10,   514,   578,   683,   779,   926 },
-// 				{  20,   528,   591,   704,   815,   969 },
-// 				{  50,   546,   616,   735,   861,  1021 },
-// 				{ 100,   559,   631,   754,   884,  1047 },
-// 				{  -1,   576,   656,   787,   918,  1092 }};
-
-// static double p_value(double A, int runs) {
-//   double confidences[] = {0.0, 0.15, 0.10, 0.05, 0.025, 0.01};
-//   // Find the right row
-//   int row = 0;
-//   for (; row < 4; row++) {
-//     int n = ADconfidence[row][0];
-//     if (runs <= n) break;
-//   }
-//   printf("Using row for %d data points\n", ADconfidence[row][0]);
-//   int Aint = round(A * 1000.0);
-//   printf("Aint = %d\n", Aint);
-//   int col = 5;
-//   for (; col > 0; col--)
-//     if (Aint >= ADconfidence[row][col]) {
-//       printf("  Found that %d >= %d in column %d\n", Aint, ADconfidence[row][col], col);
-//       return confidences[col];
-//     }
-//   // One indicates "not to a known (in the table) p-value"
-//   return 1.0;
-// }
-
-// Alternative to the table-based p-value calculator above.
-//
 // Calculating p-value for normal distribution based on AD score.  See
 // e.g. https://real-statistics.com/non-parametric-tests/goodness-of-fit-tests/anderson-darling-test/
-
+//
+// Compute p-value that the null hypothesis (distribution is normal)
+// is false.  A low p-value is a high likelihood, e.g. 0.01 indicates
+// a 1% chance that the distribution we examined was actually normal.
+//
 static double calculate_p(double AD) {
   if (AD <= 0.2) return 1.0 - exp(-13.436 + 101.14*AD - 223.73*AD*AD);
   if (AD <= 0.34) return 1.0 - exp(-8.318 + 42.796*AD - 59.938*AD*AD);
@@ -434,20 +374,26 @@ static double calculate_p(double AD) {
 }
 
 // Estimate mean: μ = (1/n) Σ(Xi)
-static double estimate_mean(Usage *usage, int *index, int runs, FieldCode fc) {
+static double estimate_mean(Usage *usage,
+			    int start,
+			    int end,
+			    FieldCode fc) {
   double sum = 0;
-  for (int i = 0; i < runs; i++)
-    sum += get_int64(usage, index[i], fc);
-  return sum / runs;
+  for (int i = start; i < end; i++)
+    sum += get_int64(usage, i, fc);
+  return sum / (end - start);
 }
 
 // Estimate variance: σ² = (1/(n-1)) Σ(Xi-μ)²
-static double estimate_variance(Usage *usage, int *index, int runs, FieldCode fc) {
-  double mean = estimate_mean(usage, index, runs, fc);
+static double estimate_variance(Usage *usage,
+				int start,
+				int end,
+				FieldCode fc,
+				double mean) {
   double sum = 0;
-  for (int i = 0; i < runs; i++)
-    sum += pow(get_int64(usage, index[i], fc) - mean, 2);
-  return sum / (runs - 1);
+  for (int i = start; i < end; i++)
+    sum += pow(get_int64(usage, i, fc) - mean, 2);
+  return sum / (end - start - 1);
 }
 
 // Wikipedia cites the book below for the claim that a minimum of 8
@@ -458,37 +404,27 @@ static double estimate_variance(Usage *usage, int *index, int runs, FieldCode fc
 // D'Agostino, R.B.; Stephens, M.A. (eds.). Goodness-of-Fit
 // Techniques. New York: Marcel Dekker. ISBN 0-8247-7487-6.
 
-#define EPSILON 1.0
-
-static double ADscore(Usage *usage, int start, int end) {
+static double ADscore(Usage *usage,
+		      int start,
+		      int end,
+		      FieldCode fc,
+		      double mean,
+		      double stddev) {
+  assert((end - start) > 7);
   int runs = end - start;
-  if (runs < 8) return 0.0; // Insufficient data for calculation
   int *index = make_index(usage, start, end, compare_totaltime);
-  double mean = estimate_mean(usage, index, runs, F_TOTAL);
-  double variance = estimate_variance(usage, index, runs, F_TOTAL);
-  printf("Range %" PRId64 " .. %" PRId64 "\n",
-	 get_int64(usage, index[0], F_TOTAL),
-	 get_int64(usage, index[runs-1], F_TOTAL));
-  printf("Estimated mean = %-8.1f\n", mean);
-  printf("Estimated variance = %-8.1f\n", variance);
-  if (variance < EPSILON) {
-    printf("Variance too small for calculation %8.6f\n", variance);
-    return 0.0;
-  }
-//   for (int i = 0; i < runs; i++)
-//     printf("%" PRId64 "\n", get_int64(usage, index[i], F_TOTAL));
-  // Yi = (Xi-μ)/σ
-  double stddev = sqrt(variance);
-  printf("Estimated stddev = %-8.1f\n", stddev);
+//   printf("Range %" PRId64 " .. %" PRId64 "\n",
+// 	 get_int64(usage, index[0], fc),
+// 	 get_int64(usage, index[runs-1], fc));
   double *Y = malloc(runs * sizeof(double));
   if (!Y) PANIC_OOM();
   for (int i = 0; i < runs; i++)
-    Y[i] = (get_int64(usage, index[i], F_TOTAL) - mean) / stddev;
-  //
-  for (int i = 0; i < runs; i++)
-    printf("Sample[%d] = %" PRId64 ", Y[%d] = %7.4f\n",
-	   index[i], get_int64(usage, index[i], F_TOTAL), index[i]-start, Y[i]);
-  //
+    Y[i] = (get_int64(usage, index[i], fc) - mean) / stddev;
+
+//   for (int i = 0; i < runs; i++)
+//     printf("Sample[%d] = %" PRId64 ", Y[%d] = %7.4f\n",
+// 	   index[i], get_int64(usage, index[i], fc), index[i]-start, Y[i]);
+
   double *Z = malloc(runs * sizeof(double));
   if (!Z) PANIC_OOM();
   for (int i = 0; i < runs; i++)
@@ -498,25 +434,88 @@ static double ADscore(Usage *usage, int start, int end) {
   for (int i = 0; i < runs; i++)
     sum += (2*(i+1)-1)*log(Z[i]) + (2*(runs-(i+1))+1)*log(1.0-Z[i]);
   double A = -runs - (sum / runs);
-  printf("A (uncorrected) = %-8.4f\n", A);
+  //  printf("A (uncorrected) = %-8.4f\n", A);
   // A⃰² = A²(1 + 0.75/n + 2.25/n²)
   A = A * (1 + 0.75/runs + 2.25/(runs * runs));
-  printf("A (corrected) = %-8.4f\n", A);
+  //  printf("A (corrected) = %-8.4f\n", A);
   free(index);
   return A;
 }
 
-// Compute p-value that the null hypothesis (distribution is normal)
-// is false.  A low p-value is a high confidence, e.g. 0.01 indicates
-// a 1% chance that the distribution we examined was actually normal.
-double nonnormal_pvalue(Usage *usage, int start, int end) {
-  int runs = end - start;
-  if (runs < 8) return 1.0;	// Insufficient data
-  double AD = ADscore(usage, start, end);
-//   double p_calculated = calculate_p(AD);
-//   double p_tabular = p_value(AD, runs);
-//   printf("p-value calculated: %8.4f\n", p_calculated);
-//   printf("p-value tabular:    %8.4f\n", p_tabular);
-  return calculate_p(AD);
-}
+// Supplement to the Summary statistics
+// Analysis *analyze(Usage *usage, int start, int end) {
+//   int runs = end - start;
+//   if (runs < 8) return NULL; // Insufficient data for calculation
+//   Analysis *a = malloc(sizeof(Analysis));
+//   if (!a) PANIC_OOM();
+//   double mean = estimate_mean(usage, start, end, F_TOTAL);
+//   double variance = estimate_variance(usage, start, end, mean, F_TOTAL);
+//   printf("Estimated mean = %-8.1f\n", mean);
+//   printf("Estimated variance = %-8.1f\n", variance);
+//   if (variance < EPSILON) {
+//     printf("Variance too small for calculation %8.6f\n", variance);
+//     return NULL;
+//   }
+//   double stddev = sqrt(variance);
+//   printf("Estimated stddev = %-8.1f\n", stddev);
+//   double A = calculate_ADscore(usage, start, end, mean, stddev);
 
+//   a->est_mean = mean;
+//   a->est_stddev = stddev;
+//   a->ADscore = A;
+//   a->p_normal = calculate_p(A);
+
+//   return a;
+// }
+
+// -----------------------------------------------------------------------------
+// Compute statistical summary of a sample (collection of data points)
+// -----------------------------------------------------------------------------
+
+//
+// (1) Summarizing starts at index '*next'
+// (2) And continues until 'cmd' changes
+// (3) '*next' is set to the index where 'cmd' changed
+// (4) We assume that 'shell' is the same for each execution of 'cmd'
+//
+Summary *summarize(Usage *usage, int *next) {
+  if (!next) PANIC_NULL();
+  // No data to summarize if 'usage' is NULL or 'next' is out of range
+  if (!usage) return NULL;
+  if ((*next < 0) || (*next >= usage->next)) return NULL;
+  int i;
+  char *cmd;
+  int first = *next;
+  Summary *s = new_summary();
+  cmd = get_string(usage, first, F_CMD);
+  s->cmd = strndup(cmd, MAXCMDLEN);
+  s->shell = strndup(get_string(usage, first, F_SHELL), MAXCMDLEN);
+  for (i = first; i < usage->next; i++) {
+    if (strncmp(cmd, get_string(usage, i, F_CMD), MAXCMDLEN) != 0) break;
+    s->runs++;
+    s->fail_count += (get_int64(usage, i, F_CODE) != 0);
+  }
+  *next = i;
+  measure(usage, first, i, F_TOTAL, compare_totaltime, &s->total);
+  measure(usage, first, i, F_USER, compare_usertime, &s->user);
+  measure(usage, first, i, F_SYSTEM, compare_systemtime, &s->system);
+  measure(usage, first, i, F_MAXRSS, compare_maxrss, &s->maxrss);
+  measure(usage, first, i, F_VCSW, compare_vcsw, &s->vcsw);
+  measure(usage, first, i, F_ICSW, compare_icsw, &s->icsw);
+  measure(usage, first, i, F_TCSW, compare_tcsw, &s->tcsw);
+  measure(usage, first, i, F_WALL, compare_wall, &s->wall);
+  if (s->runs > 7) {
+    s->est_mean = estimate_mean(usage, first, i, F_TOTAL);
+    s->est_stddev = sqrt(estimate_variance(usage, first, i, F_TOTAL, s->est_mean));
+    s->ADscore = ADscore(usage, first, i, F_TOTAL, s->est_mean, s->est_stddev);
+    s->p_normal = calculate_p(s->ADscore);
+    // TODO: How close to zero is too small a variance for ADscore to
+    // be meaningful?
+  } else {
+    s->est_mean = 0.0;
+    s->est_stddev = 0.0;
+    s->ADscore = 0.0;
+    s->p_normal = 1.0;
+  }
+  return s;
+}

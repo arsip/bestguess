@@ -21,7 +21,10 @@ clean:
 	-rm -f $(PROGRAM)
 	@$(MAKE) -C $(SRCDIR) clean
 
-install deps tags test config help:
+install deps tags config help:
 	@$(MAKE) -C $(SRCDIR) $@
+
+test:
+	@$(MAKE) -C $(TESTDIR) $@
 
 .PHONY: default debug release clean install deps tags test config help

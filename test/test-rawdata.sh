@@ -3,6 +3,8 @@
 
 SHOWOUTPUT=
 
+prog=../bestguess
+
 printf "%s\n"   '--------------------------------------'
 printf "%s\n"   'Raw data output tests'
 printf "%s\n\n" '--------------------------------------'
@@ -36,7 +38,7 @@ function contains {
 # RAW DATA output
 # ------------------------------------------------------------------
 ofile=$(mktemp)
-ok ./bestguess -o "$ofile" /bin/bash
+ok "$prog" -o "$ofile" /bin/bash
 lines=$(wc -l "$ofile" | awk '{print $1}')
 if [[ $lines -ne 2 ]]; then
     printf "Expected 2 lines in output file, saw $lines \n"

@@ -60,11 +60,15 @@ int reduce_data(void) {
   while ((s[count] = summarize(usage, &next))) {
     announce_command(get_string(usage, prev, F_CMD), count+1);
     print_summary(s[count], false);
-    //print_graph(s[count], usage, prev, next);
+    if (config.show_graph) print_graph(s[count], usage, prev, next);
     printf("\n");
-    printf("Have %d data points\n", next - prev);
-    printf("Confidence that distribution is not normal: %4.1f%%\n",
-	   100 * (1.0 - nonnormal_pvalue(usage, prev, next)));
+    printf("Have %d data points\n", s[count]->runs);
+    if (s[count]->p_normal <= 0.10)
+      printf("Distribution is not normal (p = %5.3f)\n",
+	     s[count]->p_normal);
+    else
+      printf("Distribution could be normal (p = %5.3f)\n",
+	     s[count]->p_normal);
     printf("\n");
     prev = next;
     if (++count == MAXCMDS) USAGE("too many commands");
