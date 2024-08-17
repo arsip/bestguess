@@ -62,7 +62,9 @@ int reduce_data(void) {
     print_summary(s[count], false);
     //print_graph(s[count], usage, prev, next);
     printf("\n");
-    ADscore(usage, prev, next);
+    printf("Have %d data points\n", next - prev);
+    printf("Confidence that distribution is not normal: %4.1f%%\n",
+	   100 * (1.0 - nonnormal_pvalue(usage, prev, next)));
     printf("\n");
     prev = next;
     if (++count == MAXCMDS) USAGE("too many commands");

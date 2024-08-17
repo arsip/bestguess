@@ -44,7 +44,6 @@ double zscore(double z);
 int    zzscore(int scaled_z);
 void   print_zscore_table(void);
 
-double ADscore(Usage *usage, int start, int end);
-
+double nonnormal_pvalue(Usage *usage, int start, int end);
 
 #endif

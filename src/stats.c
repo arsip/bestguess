@@ -365,6 +365,8 @@ void print_zscore_table(void) {
 // When neither the mean or variance of the sample distribution are
 // known, a correction is applied to give a final distance measurement
 // of: A⃰² = A²(1 + 4/n + 25/n²)
+// 
+// Or this alternative: A⃰² = A²(1 + 0.75/n + 2.25/n²)
 //
 // I'll use d (for distance) to represent the quantity A⃰².
 //
@@ -382,28 +384,53 @@ void print_zscore_table(void) {
 //     100	0.559	0.631	0.754	0.884	1.047
 //     ∞	0.576	0.656	0.787	0.918	1.092
 //
-const int ADconfidence[5][6] = {{  10,   514,   578,   683,   779,   926 },
-				{  20,   528,   591,   704,   815,   969 },
-				{  50,   546,   616,   735,   861,  1021 },
-				{ 100,   559,   631,   754,   884,  1047 },
-				{  -1,   576,   656,   787,   918,  1092 }};
+// FWIW:
+//
+// https://support.minitab.com/en-us/minitab/help-and-how-to/statistics
+// /basic-statistics/supporting-topics/normality/test-for-normality/
+//
+// "Anderson-Darling tends to be more effective in detecting
+// departures in the tails of the distribution. Usually, if departure
+// from normality at the tails is the major problem, many
+// statisticians would use Anderson-Darling as the first choice."
 
-static double confidence(double A, int runs) {
-  double confidences[] = {0.0, 0.15, 0.10, 0.05, 0.025, 0.01};
-  // Find the right row
-  int row = 0;
-  for (; row < 4; row++) {
-    int n = ADconfidence[row][0];
-    if (runs <= n) break;
-  }
-  int Aint = round(A * 1000.0);
-  printf("Aint = %d\n", Aint);
-  int col = 5;
-  for (; col > 0; col--)
-    if (Aint >= ADconfidence[row][col])
-      return confidences[col];
-  // Zero will indicate "not to a known confidence level"
-  return 0.0;
+// const int ADconfidence[5][6] = {{  10,   514,   578,   683,   779,   926 },
+// 				{  20,   528,   591,   704,   815,   969 },
+// 				{  50,   546,   616,   735,   861,  1021 },
+// 				{ 100,   559,   631,   754,   884,  1047 },
+// 				{  -1,   576,   656,   787,   918,  1092 }};
+
+// static double p_value(double A, int runs) {
+//   double confidences[] = {0.0, 0.15, 0.10, 0.05, 0.025, 0.01};
+//   // Find the right row
+//   int row = 0;
+//   for (; row < 4; row++) {
+//     int n = ADconfidence[row][0];
+//     if (runs <= n) break;
+//   }
+//   printf("Using row for %d data points\n", ADconfidence[row][0]);
+//   int Aint = round(A * 1000.0);
+//   printf("Aint = %d\n", Aint);
+//   int col = 5;
+//   for (; col > 0; col--)
+//     if (Aint >= ADconfidence[row][col]) {
+//       printf("  Found that %d >= %d in column %d\n", Aint, ADconfidence[row][col], col);
+//       return confidences[col];
+//     }
+//   // One indicates "not to a known (in the table) p-value"
+//   return 1.0;
+// }
+
+// Alternative to the table-based p-value calculator above.
+//
+// Calculating p-value for normal distribution based on AD score.  See
+// e.g. https://real-statistics.com/non-parametric-tests/goodness-of-fit-tests/anderson-darling-test/
+
+static double calculate_p(double AD) {
+  if (AD <= 0.2) return 1.0 - exp(-13.436 + 101.14*AD - 223.73*AD*AD);
+  if (AD <= 0.34) return 1.0 - exp(-8.318 + 42.796*AD - 59.938*AD*AD);
+  if (AD <  0.6) return exp(0.9177 - 4.279*AD - 1.38*AD*AD);
+  else return exp(1.2937 - 5.709*AD + 0.0186*AD*AD);
 }
 
 // Estimate mean: μ = (1/n) Σ(Xi)
@@ -423,22 +450,45 @@ static double estimate_variance(Usage *usage, int *index, int runs, FieldCode fc
   return sum / (runs - 1);
 }
 
-double ADscore(Usage *usage, int start, int end) {
+// Wikipedia cites the book below for the claim that a minimum of 8
+// data points is needed.
+// https://en.wikipedia.org/wiki/Anderson–Darling_test#cite_note-RBD86-6
+// 
+// Ralph B. D'Agostino (1986). "Tests for the Normal Distribution". In
+// D'Agostino, R.B.; Stephens, M.A. (eds.). Goodness-of-Fit
+// Techniques. New York: Marcel Dekker. ISBN 0-8247-7487-6.
+
+#define EPSILON 1.0
+
+static double ADscore(Usage *usage, int start, int end) {
   int runs = end - start;
-  if (runs < 2) PANIC("insufficient data to analyze");
+  if (runs < 8) return 0.0; // Insufficient data for calculation
   int *index = make_index(usage, start, end, compare_totaltime);
   double mean = estimate_mean(usage, index, runs, F_TOTAL);
   double variance = estimate_variance(usage, index, runs, F_TOTAL);
+  printf("Range %" PRId64 " .. %" PRId64 "\n",
+	 get_int64(usage, index[0], F_TOTAL),
+	 get_int64(usage, index[runs-1], F_TOTAL));
   printf("Estimated mean = %-8.1f\n", mean);
   printf("Estimated variance = %-8.1f\n", variance);
+  if (variance < EPSILON) {
+    printf("Variance too small for calculation %8.6f\n", variance);
+    return 0.0;
+  }
 //   for (int i = 0; i < runs; i++)
 //     printf("%" PRId64 "\n", get_int64(usage, index[i], F_TOTAL));
   // Yi = (Xi-μ)/σ
   double stddev = sqrt(variance);
+  printf("Estimated stddev = %-8.1f\n", stddev);
   double *Y = malloc(runs * sizeof(double));
   if (!Y) PANIC_OOM();
   for (int i = 0; i < runs; i++)
     Y[i] = (get_int64(usage, index[i], F_TOTAL) - mean) / stddev;
+  //
+  for (int i = 0; i < runs; i++)
+    printf("Sample[%d] = %" PRId64 ", Y[%d] = %7.4f\n",
+	   index[i], get_int64(usage, index[i], F_TOTAL), index[i]-start, Y[i]);
+  //
   double *Z = malloc(runs * sizeof(double));
   if (!Z) PANIC_OOM();
   for (int i = 0; i < runs; i++)
@@ -446,14 +496,27 @@ double ADscore(Usage *usage, int start, int end) {
   // A² = -n - (1/n) Σ( (2i-1)ln(Zi) + (2(n-i)+1)ln(1-Zi) )
   double sum = 0;
   for (int i = 0; i < runs; i++)
-    sum += (2*(i+1)-1)*log(Z[i]) + (2*(runs-(i+1)+1))*log(1.0-Z[i]);
+    sum += (2*(i+1)-1)*log(Z[i]) + (2*(runs-(i+1))+1)*log(1.0-Z[i]);
   double A = -runs - (sum / runs);
-  printf("A (uncorrected) = %-8.1f\n", A);
-  // A⃰² = A²(1 + 4/n + 25/n²)
-  A = A * (1 + 4/runs + 25/(runs * runs));
-  printf("A (corrected) = %-8.1f\n", A);
-  double c = confidence(A, runs);
-  printf("Confidence = %-4.2f\n", c);
+  printf("A (uncorrected) = %-8.4f\n", A);
+  // A⃰² = A²(1 + 0.75/n + 2.25/n²)
+  A = A * (1 + 0.75/runs + 2.25/(runs * runs));
+  printf("A (corrected) = %-8.4f\n", A);
   free(index);
-  return 0.0;
+  return A;
 }
+
+// Compute p-value that the null hypothesis (distribution is normal)
+// is false.  A low p-value is a high confidence, e.g. 0.01 indicates
+// a 1% chance that the distribution we examined was actually normal.
+double nonnormal_pvalue(Usage *usage, int start, int end) {
+  int runs = end - start;
+  if (runs < 8) return 1.0;	// Insufficient data
+  double AD = ADscore(usage, start, end);
+//   double p_calculated = calculate_p(AD);
+//   double p_tabular = p_value(AD, runs);
+//   printf("p-value calculated: %8.4f\n", p_calculated);
+//   printf("p-value tabular:    %8.4f\n", p_tabular);
+  return calculate_p(AD);
+}
+
