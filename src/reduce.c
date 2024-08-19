@@ -68,8 +68,21 @@ int reduce_data(void) {
 	   s[count]->runs, s[count]->total.min, s[count]->total.max);
 
     int64_t IQR = s[count]->total.Q3 - s[count]->total.Q1;
-    printf("Inter-quartile range = %" PRId64 " (%6.4f%% of full range)\n",
-	   IQR, ((double) IQR / (double) (s[count]->total.max - s[count]->total.min)) * 100.0);
+    printf("Inter-quartile range = %" PRId64 "ns (%4.2f%% of median)\n",
+	   IQR, ((double) IQR / (double) s[count]->total.median) * 100.0);
+
+    printf("Inter-quartile range [%" PRId64 ", %" PRId64 "]\n",
+	   s[count]->total.Q1, s[count]->total.Q3);
+    
+    // How far below and above the median
+    int64_t IQ1delta = s[count]->total.median - s[count]->total.Q1;
+    int64_t IQ3delta = s[count]->total.Q3 - s[count]->total.median;
+    printf("Inter-quartile range [median - %" PRId64 ", median + %" PRId64 "]\n",
+	   IQ1delta, IQ3delta);
+
+    printf("Inter-quartile range [median - %4.2f%%, median + %4.2f%%]\n",
+	   ((double) IQ1delta * 100.0 / (double) s[count]->total.median),
+	   ((double) IQ3delta * 100.0 / (double) s[count]->total.median));
 
     if (s[count]->total.ADscore > 0) {
       if (s[count]->total.p_normal <= 0.10)
@@ -82,23 +95,14 @@ int reduce_data(void) {
       printf("Unable to test for normality\n");
     }
 
-    // Standard deviation has same units as the data, so we can
-    // express it as a percentage of the mean.
-    //
-    // TODO: What is a good value for this warning?
-    double stddev_ratio = s[count]->total.est_stddev / s[count]->total.est_mean;
-    if (stddev_ratio < 0.001) {
-      printf("Warning: Low estimated variance ratio %3.2f%%\n", stddev_ratio * 100.0);
+    if (s[count]->total.est_stddev < 0) {
+      printf("Warning: Low estimated variance\n");
     }
 
-    if (s[count]->total.skew > 0) {
-      if (fabs(s[count]->total.skew) > 0.2)
-	printf("Non-parametric skew is significant at %4.2f\n", s[count]->total.skew);
-      else
-	printf("Non-parametric skew not significant at %4.2f\n", s[count]->total.skew);
-    } else {
-      printf("No skew (very low variance)\n");
-    }
+    if (fabs(s[count]->total.skew) > 0.2)
+      printf("Non-parametric skew is significant at %4.2f\n", s[count]->total.skew);
+    else
+      printf("Non-parametric skew not significant at %4.2f\n", s[count]->total.skew);
       
     printf("\n");
     prev = next;

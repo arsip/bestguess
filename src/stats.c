@@ -266,10 +266,10 @@ static int64_t *ranked_samples(Usage *usage,
     return X;
 }
 
-#define FLOAT_EPSILON 0.00001
-static bool float_equal(double a, double b) {
-  return fabs(a - b) < FLOAT_EPSILON;
-}
+// #define FLOAT_EPSILON 0.00001
+// static bool float_equal(double a, double b) {
+//   return fabs(a - b) < FLOAT_EPSILON;
+// }
 
 // TODO: How close to zero is too small a stddev (or variance) for
 // ADscore to be meaningful?
@@ -303,27 +303,26 @@ static void measure(Usage *usage,
 
   // Estimates of descriptors of the data distribution 
   m->est_mean = estimate_mean(X, runs);
-  if (runs > 1) {
+  if (runs > 1)
     m->est_stddev = estimate_stddev(X, runs, m->est_mean);
-    if (float_equal(m->est_stddev, 0.0))
-      m->skew = -1;
-    else
-      m->skew = (m->est_mean - m->median) / m->est_stddev;
-  } else {
+  else
     m->est_stddev = -1;
-    m->skew = -1;
-  }
+
   // Compute Anderson-Darling distance from normality if we have
   // enough data points.  The literature suggests that 8 suffices.
-  // Also, if the estimated stddev is too low, the calculate is not
+  // Also, if the estimated stddev is too low, the ADscore is not
   // meaningful (and numerically unstable) so we skip it.
+  //
+  // Skew depends on having a variance that is not "too low".
   if ((runs >= N_THRESHOLD) &&
       ((m->est_stddev / m->est_mean) > STDDEV_PCT_THRESHOLD)) {
     m->ADscore = AD_normality(X, runs, m->est_mean, m->est_stddev);
     m->p_normal = calculate_p(m->ADscore);
+    m->skew = (m->est_mean - m->median) / m->est_stddev;
   } else {
     m->ADscore = -1;
     m->p_normal = -1;
+    m->skew = 0;
   }
   free(X);
   return;
