@@ -91,11 +91,15 @@ int reduce_data(void) {
       printf("Warning: Low estimated variance ratio %3.2f%%\n", stddev_ratio * 100.0);
     }
 
-    if (fabs(s[count]->total.skew) > 0.2)
-      printf("Non-parametric skew is significant at %4.2f\n", s[count]->total.skew);
-    else
-      printf("Non-parametric skew not significant at %4.2f\n", s[count]->total.skew);
-
+    if (s[count]->total.skew > 0) {
+      if (fabs(s[count]->total.skew) > 0.2)
+	printf("Non-parametric skew is significant at %4.2f\n", s[count]->total.skew);
+      else
+	printf("Non-parametric skew not significant at %4.2f\n", s[count]->total.skew);
+    } else {
+      printf("No skew (very low variance)\n");
+    }
+      
     printf("\n");
     prev = next;
     if (++count == MAXCMDS) USAGE("too many commands");

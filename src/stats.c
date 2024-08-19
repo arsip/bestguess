@@ -118,24 +118,13 @@ static double AD_from_Y(int n,		      // number of data points
 			double *Y,	      // standardized ranked data
 			double (F)(double)) { // CDF function
   assert(Y && (n > 0));
-  double *Z = malloc(n * sizeof(double));
-  if (!Z) PANIC_OOM();
-  for (int i = 0; i < n; i++)
-    Z[i] = F(Y[i]);
-  // A² = -n - (1/n) Σ( (2i-1)ln(Zi) + (2(n-i)+1)ln(1-Zi) )
-
-//   for (int i = 0; i < n; i++) printf("Z[%d] = %8.4f\n", i, Z[i]);
-//   fflush(NULL);
-  
   double S = 0;
   for (int i = 1; i <= n; i++)
-    S += (2*i-1) * log(Z[i-1]) + (2*(n-i)+1) * log(1.0-Z[i-1]);
+    S += (2*i-1) * log(F(Y[i-1])) + (2*(n-i)+1) * log(1.0-F(Y[i-1]));
   S = S/n;
   double A = -n - S;
-  // A⃰² = A²(1 + 0.75/n + 2.25/n²)
+  // Recommended correction factor
   A = A * (1 + 0.75/n + 2.25/(n * n));
-  //A = A * (1 + 4.0/n + 25.0/(n*n));
-  free(Z);
   return A;
 }
 
@@ -277,6 +266,11 @@ static int64_t *ranked_samples(Usage *usage,
     return X;
 }
 
+#define FLOAT_EPSILON 0.00001
+static bool float_equal(double a, double b) {
+  return fabs(a - b) < FLOAT_EPSILON;
+}
+
 // TODO: How close to zero is too small a stddev (or variance) for
 // ADscore to be meaningful?
 
@@ -311,7 +305,10 @@ static void measure(Usage *usage,
   m->est_mean = estimate_mean(X, runs);
   if (runs > 1) {
     m->est_stddev = estimate_stddev(X, runs, m->est_mean);
-    m->skew = (m->est_mean - m->median) / m->est_stddev;
+    if (float_equal(m->est_stddev, 0.0))
+      m->skew = -1;
+    else
+      m->skew = (m->est_mean - m->median) / m->est_stddev;
   } else {
     m->est_stddev = -1;
     m->skew = -1;
@@ -490,68 +487,6 @@ void print_zscore_table(void) {
   }
   printf("\n");
 }
-
-#if 0
-static double uniform_CDF(double x) {
-  return x;
-}
-
-#define FLOAT_EPSILON 0.00001
-static bool float_equal(double a, double b) {
-  return fabs(a - b) < FLOAT_EPSILON;
-}
-
-// Kolmogorov–Smirnov statistic for testing that a distribution is
-// uniform: 𝐷𝑛 = max over 𝑖 of 𝑚𝑎𝑥(|𝑥𝑖 − 𝑖/𝑛|, |𝑥𝑖 − (𝑖−1)/𝑛)
-//
-// https://en.wikipedia.org/wiki/Kolmogorov–Smirnov_test
-// "if the sample comes from distribution F(x), then Dn converges to 0
-// almost surely"
-//
-// https://www.statisticshowto.com/kolmogorov-smirnov-test/
-// "In order for the test to work, you must specify the location,
-// scale, and shape parameters. If these parameters are estimated from
-// the data, it invalidates the test."
-
-
-//
-// Applying AD to test against a uniform distribution, where the CDF
-// is F(Xi) = (Xi-Xmin)/(Xmax-Xmin).
-//
-static double AD_uniform(int n,         // number of data points
-			 double *X) {   // ranked data points
-  assert(n > 7);
-  double A;
-  double *Y = malloc(n * sizeof(double));
-  if (!Y) PANIC_OOM();
-  // Use unbiased estimator for maximum?
-  //double Xmax = X[n-1] + (X[n-1]/n) + 1;
-  double Xmax = X[n-1];
-  double Xmin = X[0];
-  double Xrange = Xmax - Xmin;
-  for (int i = 0; i < n; i++) {
-    //Y[i] = (X[i]-Xmin+1) / (Xrange+1);
-    Y[i] = (X[i]-Xmin) / Xrange;
-    //printf("Y[%d] = %8.5f\n", i, Y[i]);
-  }
-  // Removing from consideration points equal to the min and equal to
-  // the max because they trigger a log(0) calculation in ADscore.
-  int minidx = 1;
-  for (; minidx < n; minidx++)
-    if (!float_equal(X[minidx], Xmin)) break;
-  int maxidx = n-1;
-  for (; maxidx >= 0; maxidx--)
-    if (!float_equal(X[maxidx], Xmax)) break;
-  printf("minidx = %d, maxidx = %d\n", minidx, maxidx);
-  int available = maxidx - minidx;
-  if (available >= 8) 
-    A = AD_from_Y(available, &(Y[minidx]), uniform_CDF);
-  else
-    A = 0.0;
-  free(Y);
-  return A;
-}
-#endif
 
 // -----------------------------------------------------------------------------
 // Compute statistical summary of a sample (collection of data points)
