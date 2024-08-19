@@ -161,7 +161,7 @@ int64_t rmajflt(struct rusage *ru) {
 }
 
 // The arg order for comparators passed to qsort_r differs between
-// linux and macos.
+// linux and macOS.
 #ifdef __linux__
 #define MAKE_COMPARATOR(name, fieldcode)				\
   int compare_name(const void *idx_ptr1,				\

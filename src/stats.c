@@ -7,19 +7,20 @@
 #include "bestguess.h"
 #include "utils.h"
 #include "stats.h"
+
+#include <stdbool.h>
 #include <string.h>
 #include <math.h>
 #include <assert.h>
 
 /* 
-   Note: For a log-normal distribution, the geometric mean is the
-   median value and is a more useful measure of the "typical" value
-   than is the arithmetic mean.  We may not have a log normal
-   distribution, however.
+   Note: For skewed distributions, the median is a more useful measure
+   of the "typical" value than is the arithmetic mean. 
 
-   If we had to choose a single number to characterize a distribution
-   of runtimes, the mode (or modes) may be the most useful.  It
-   represents the most common value, after all!
+   But if we had to choose a single number to characterize a
+   distribution of runtimes, the mode (or modes) may be the most
+   useful as it represents the most common value.  That is, the mode
+   is the most "typical" runtime.
 
    However, if we are most concerned with the long tail, then the 99th
    percentile value should be highlighted.
@@ -30,24 +31,146 @@
 
  */
 
-static int64_t median(Usage *usage,
-		      FieldCode fc,
-		      int *indices,
-		      int start, int end) {
-  int runs = end - start;
-  int half = runs / 2;
-  if (runs == (runs/2) * 2)
-    return (get_int64(usage, indices[half - 1], fc)
-	    + get_int64(usage, indices[half], fc)) / 2;
-  return get_int64(usage, indices[half], fc);
+// -----------------------------------------------------------------------------
+// Testing a sample distribution for normality
+// -----------------------------------------------------------------------------
+
+// https://en.wikipedia.org/wiki/Anderson–Darling_test
+//
+// Input: Xi are samples, order from smallest to largest
+//        n is the number of samples
+//        i ranges from 1..n inclusive
+//
+// Estimate mean of sample distribution: μ = (1/n) Σ(Xi)
+// Estimate variance: σ² = (1/(n-1)) Σ(Xi-μ)²
+//
+// Standardize Xi as: Yi = (Xi-μ)/σ
+//
+// Compute F(Yi) where F is the CDF for (in this case) the normal
+// distribution, and is the Z-score for each Yi. Let Zi = F(Yi).
+//
+// To compare our distribution (the samples Xi) to a normal
+// distribution, we compute the distance A² as follows:
+//
+// A² = -n - (1/n) Σ( (2i-1)ln(Zi) + (2(n-i)+1)ln(1-Zi) )
+//
+// When neither the mean or variance of the sample distribution are
+// known, a correction is applied to give a final distance measurement
+// of: A⃰² = A²(1 + 4/n + 25/n²)
+// 
+// Or this alternative: A⃰² = A²(1 + 0.75/n + 2.25/n²)
+//
+// We'll the alternative correction, and the term 'AD score' to mean
+// the quantity A⃰².
+//
+// The hypothesis that our sample distribution is normal is rejected
+// if the AD score.  Wikipedia cites the book below for the
+// alternative correction mentioned above, and these critical values:
+// 
+//         p value  0.10   0.05   0.025   0.01  0.005
+//  critical value  0.631  0.754  0.884  1.047  1.159
+//
+// Ralph B. D'Agostino (1986). "Tests for the Normal Distribution". In
+// D'Agostino, R.B.; Stephens, M.A. (eds.). Goodness-of-Fit
+// Techniques. New York: Marcel Dekker. ISBN 0-8247-7487-6.
+//
+// The calculate_p() function produces the needed critical values:
+//                   p value  0.10    0.05    0.025   0.01    0.005
+// calculated critical value  0.1001  0.0498  0.0238  0.0094  0.0050
+
+// FWIW:
+//
+// https://support.minitab.com/en-us/minitab/help-and-how-to/statistics
+// /basic-statistics/supporting-topics/normality/test-for-normality/
+//
+// "Anderson-Darling tends to be more effective in detecting
+// departures in the tails of the distribution. Usually, if departure
+// from normality at the tails is the major problem, many
+// statisticians would use Anderson-Darling as the first choice."
+
+//
+// Calculating p-value for normal distribution based on AD score.  See
+// e.g. https://real-statistics.com/non-parametric-tests/goodness-of-fit-tests/anderson-darling-test/
+// or https://www.statisticshowto.com/anderson-darling-test/
+//
+// The null hypothesis is that the sample distribution is normal.  A
+// low p-value is a high likelihood that the distribution is NOT
+// normal.  E.g. p = 0.01 indicates a 1% chance that the distribution
+// we examined is actually normal, or a 99% chance it is NOT normal.
+//
+static double calculate_p(double AD) {
+  if (AD <= 0.2) return 1.0 - exp(-13.436 + 101.14*AD - 223.73*AD*AD);
+  if (AD <= 0.34) return 1.0 - exp(-8.318 + 42.796*AD - 59.938*AD*AD);
+  if (AD <  0.6) return exp(0.9177 - 4.279*AD - 1.38*AD*AD);
+  else return exp(1.2937 - 5.709*AD + 0.0186*AD*AD);
 }
+
+//
+// Wikipedia cites the book below for the claim that a minimum of 8
+// data points is needed.
+// https://en.wikipedia.org/wiki/Anderson–Darling_test#cite_note-RBD86-6
+// 
+// Ralph B. D'Agostino (1986). "Tests for the Normal Distribution". In
+// D'Agostino, R.B.; Stephens, M.A. (eds.). Goodness-of-Fit
+// Techniques. New York: Marcel Dekker. ISBN 0-8247-7487-6.
+//
+static double AD_from_Y(int n,		      // number of data points
+			double *Y,	      // standardized ranked data
+			double (F)(double)) { // CDF function
+  assert(Y && (n > 0));
+  double *Z = malloc(n * sizeof(double));
+  if (!Z) PANIC_OOM();
+  for (int i = 0; i < n; i++)
+    Z[i] = F(Y[i]);
+  // A² = -n - (1/n) Σ( (2i-1)ln(Zi) + (2(n-i)+1)ln(1-Zi) )
+
+//   for (int i = 0; i < n; i++) printf("Z[%d] = %8.4f\n", i, Z[i]);
+//   fflush(NULL);
+  
+  double S = 0;
+  for (int i = 1; i <= n; i++)
+    S += (2*i-1) * log(Z[i-1]) + (2*(n-i)+1) * log(1.0-Z[i-1]);
+  S = S/n;
+  double A = -n - S;
+  // A⃰² = A²(1 + 0.75/n + 2.25/n²)
+  A = A * (1 + 0.75/n + 2.25/(n * n));
+  //A = A * (1 + 4.0/n + 25.0/(n*n));
+  free(Z);
+  return A;
+}
+
+static double AD_normality(int64_t *X,    // ranked data points
+			   int n,         // number of data points
+			   double mean,
+			   double stddev) {
+  assert(X && (n > 0));
+  double *Y = malloc(n * sizeof(double));
+  if (!Y) PANIC_OOM();
+  for (int i = 0; i < n; i++) 
+    Y[i] = ((double) X[i] - mean) / stddev;
+  double A = AD_from_Y(n, Y, zscore);
+  free(Y);
+  return A;
+}
+
+// -----------------------------------------------------------------------------
+// Attributes of the distribution that we can calculate directly
+// -----------------------------------------------------------------------------
 
 static int64_t avg(int64_t a, int64_t b) {
   return (a + b) / 2;
 }
 
-#define VALUEAT(i, fc) (get_int64(usage, indices[i], fc))
-#define WIDTH(i, j, fc) (VALUEAT(j, fc) - VALUEAT(i, fc))
+static int64_t median(int64_t *X, int n) {
+  assert(X && (n > 0));
+  int half = n / 2;
+  if (n == (n/2) * 2)
+    return avg(X[half - 1], X[half]);
+  return X[half];
+}
+
+#define VALUEAT(i) (X[i])
+#define WIDTH(i, j) (VALUEAT(j) - VALUEAT(i))
 
 // "Half sample" technique for mode estimation.  The base cases are
 // when number of samples, 𝑛, is 1, 2, or 3.  When 𝑛 > 3, there is a
@@ -58,40 +181,38 @@ static int64_t avg(int64_t a, int64_t b) {
 //
 // See https://arxiv.org/abs/math/0505419
 //
-// Note that the data must be sorted, and for that we use 'indices'.
+// Note that the data, X, must be sorted.
 //
-static int64_t estimate_mode(Usage *usage,
-			     FieldCode fc,
-			     int *indices,
-			     int n) {
+static int64_t estimate_mode(int64_t *X, int n) {
+  assert(X && (n > 0));
   // n = number of samples being examined
   // h = size of "half sample" (floor of n/2)
   // idx = start index of samples being examined
   // limit = end index one beyond last sample being examined
   int64_t wmin = 0;
+  int idx = 0;
   int limit, h;
-  int idx;
 
  tailcall:
   if (n == 1) {
-    return VALUEAT(idx, fc);
+    return VALUEAT(idx);
   } else if (n == 2) {
-    return avg(VALUEAT(idx, fc), VALUEAT(idx+1, fc));
+    return avg(VALUEAT(idx), VALUEAT(idx+1));
   } else if (n == 3) {
     // Break a tie in favor of lower value
-    if (WIDTH(idx, idx+1, fc) <= WIDTH(idx+1, idx+2, fc))
-      return avg(VALUEAT(idx, fc), VALUEAT(idx+1, fc));
+    if (WIDTH(idx, idx+1) <= WIDTH(idx+1, idx+2))
+      return avg(VALUEAT(idx), VALUEAT(idx+1));
     else
-      return avg(VALUEAT(idx+1, fc), VALUEAT(idx+2, fc));
+      return avg(VALUEAT(idx+1), VALUEAT(idx+2));
   }
   h = n / 2;	     // floor
-  wmin = WIDTH(idx, idx+h, fc);
+  wmin = WIDTH(idx, idx+h);
   // Search for half sample with smallest width
   limit = idx+h;
   for (int i = idx+1; i < limit; i++) {
     // Break ties in favor of lower value
-    if (WIDTH(i, i+h, fc) < wmin) {
-      wmin = WIDTH(i, i+h, fc);
+    if (WIDTH(i, i+h) < wmin) {
+      wmin = WIDTH(i, i+h);
       idx = i;
     }
   }
@@ -100,21 +221,38 @@ static int64_t estimate_mode(Usage *usage,
 }
 
 // Returns -1 when there are insufficient samples
-static int64_t percentile(int pct,
-			  Usage *usage,
-			  FieldCode fc,
-			  int *indices,
-			  int runs) {
-  if (pct < 90) PANIC("Error: refuse to calculate percentiles less than 90");
+static int64_t percentile(int pct, int64_t *X, int n) {
+  assert(X && (n > 0));
+  if (pct < 0) PANIC("Error: unable to calculate percentiles less than 0");
   if (pct > 99) PANIC("Error: unable to calculate percentiles greater than 99");
   // Number of samples needed for a percentile calculation
   int samples = 100 / (100 - pct);
-  if (runs < samples) return -1;
-  int idx = runs - (runs / samples);
-  return get_int64(usage, indices[idx], fc);
+  if (n < samples) return -1;
+  int idx = n - (n / samples);
+  return X[idx];
+}
+
+// Estimate the sample mean: μ = (1/n) Σ(Xi)
+static double estimate_mean(int64_t *X, int n) {
+  assert(X && (n > 0));
+  double sum = 0;
+  for (int i = 0; i < n; i++)
+    sum += X[i];
+  return sum / n;
+}
+
+// Estimate the sample variance: σ² = (1/(n-1)) Σ(Xi-μ)²
+// Return σ, the estimated standard deviation.
+static double estimate_stddev(int64_t *X, int n, double est_mean) {
+  assert(X && (n > 0));
+  double sum = 0;
+  for (int i = 0; i < n; i++)
+    sum += pow(X[i] - est_mean, 2);
+  return sqrt(sum / (n - 1));
 }
 
 static int *make_index(Usage *usage, int start, int end, Comparator compare) {
+  assert(usage);
   int runs = end - start;
   if (runs <= 0) PANIC("invalid start/end");
   int *index = malloc(runs * sizeof(int));
@@ -124,9 +262,30 @@ static int *make_index(Usage *usage, int start, int end, Comparator compare) {
   return index;
 }
 
+static int64_t *ranked_samples(Usage *usage,
+			       int start,
+			       int end,
+			       FieldCode fc,
+			       Comparator comparator) {
+    int *index = make_index(usage, start, end, comparator);
+    int runs = end - start;
+    int64_t *X = malloc(runs * sizeof(double));
+    if (!X) PANIC_OOM();
+    for (int i = 0; i < runs; i++)
+      X[i] = get_int64(usage, index[i], fc);
+    free(index);
+    return X;
+}
+
+// TODO: How close to zero is too small a stddev (or variance) for
+// ADscore to be meaningful?
+
+#define STDDEV_PCT_THRESHOLD 0.001 // 0.1%
+#define N_THRESHOLD 8
+
 //
-// Produce a statistical summary (stored in 'meas') over all runs.
-// Time values are single int64_t fields storing microseconds.
+// Produce a statistical summary (stored in 'm') over all runs.  Time
+// values are single int64_t fields storing microseconds.
 //
 static void measure(Usage *usage,
 		    int start,
@@ -136,14 +295,40 @@ static void measure(Usage *usage,
 		    Measures *m) {
   int runs = end - start;
   if (runs < 1) PANIC("no data to analyze");
-  int *index = make_index(usage, start, end, compare);
-  m->median = median(usage, fc, index, start, end);
-  m->min = get_int64(usage, index[0], fc);
-  m->max = get_int64(usage, index[runs - 1], fc);
-  m->mode = estimate_mode(usage, fc, index, runs);
-  m->pct95 = percentile(95, usage, fc, index, runs);
-  m->pct99 = percentile(99, usage, fc, index, runs);
-  free(index);
+  int64_t *X = ranked_samples(usage, start, end, fc, compare);
+
+  // Directly measured attributes of the data distribution
+  m->median = median(X, runs);
+  m->min = X[0];
+  m->max = X[runs - 1];
+  m->mode = estimate_mode(X, runs);
+  m->pct95 = percentile(95, X, runs);
+  m->pct99 = percentile(99, X, runs);
+  m->Q1 = percentile(25, X, runs);
+  m->Q3 = percentile(75, X, runs);
+
+  // Estimates of descriptors of the data distribution 
+  m->est_mean = estimate_mean(X, runs);
+  if (runs > 1) {
+    m->est_stddev = estimate_stddev(X, runs, m->est_mean);
+    m->skew = (m->est_mean - m->median) / m->est_stddev;
+  } else {
+    m->est_stddev = -1;
+    m->skew = -1;
+  }
+  // Compute Anderson-Darling distance from normality if we have
+  // enough data points.  The literature suggests that 8 suffices.
+  // Also, if the estimated stddev is too low, the calculate is not
+  // meaningful (and numerically unstable) so we skip it.
+  if ((runs >= N_THRESHOLD) &&
+      ((m->est_stddev / m->est_mean) > STDDEV_PCT_THRESHOLD)) {
+    m->ADscore = AD_normality(X, runs, m->est_mean, m->est_stddev);
+    m->p_normal = calculate_p(m->ADscore);
+  } else {
+    m->ADscore = -1;
+    m->p_normal = -1;
+  }
+  free(X);
   return;
 }
 
@@ -306,167 +491,67 @@ void print_zscore_table(void) {
   printf("\n");
 }
 
-// -----------------------------------------------------------------------------
-// Testing a sample distribution for normality
-// -----------------------------------------------------------------------------
-
-// https://en.wikipedia.org/wiki/Anderson–Darling_test
-//
-// Input: Xi are samples, order from smallest to largest
-//        n is the number of samples
-//        i ranges from 1..n inclusive
-//
-// Estimate mean of sample distribution: μ = (1/n) Σ(Xi)
-// Estimate variance: σ² = (1/(n-1)) Σ(Xi-μ)²
-//
-// Standardize Xi as: Yi = (Xi-μ)/σ
-// Compute Z-score for each Yi using a table: call them Zi
-//
-// To compare our distribution (the samples Xi) to a normal
-// distribution, we compute the distance A² as follows:
-//
-// A² = -n - (1/n) Σ( (2i-1)ln(Zi) + (2(n-i)+1)ln(1-Zi) )
-//
-// When neither the mean or variance of the sample distribution are
-// known, a correction is applied to give a final distance measurement
-// of: A⃰² = A²(1 + 4/n + 25/n²)
-// 
-// Or this alternative: A⃰² = A²(1 + 0.75/n + 2.25/n²)
-//
-// I'll use d (for distance) to represent the quantity A⃰².
-//
-// The hypothesis that our sample distribution is normal is rejected
-// is computed by looking up d in the table below, using the row
-// appropriate for the number of samples.  The column headings are
-// p-values.  E.g. for 20 samples, if d > 0.969, then we can reject
-// the hypothesis that we have a normal distribution with p=0.01,
-// i.e. with 99% confidence.
-//
-// 	n	15%	10%	5%	2.5%	1%
-//     10	0.514	0.578	0.683	0.779	0.926
-//     20	0.528	0.591	0.704	0.815	0.969
-//     50	0.546	0.616	0.735	0.861	1.021
-//     100	0.559	0.631	0.754	0.884	1.047
-//     ∞	0.576	0.656	0.787	0.918	1.092
-//
-// FWIW:
-//
-// https://support.minitab.com/en-us/minitab/help-and-how-to/statistics
-// /basic-statistics/supporting-topics/normality/test-for-normality/
-//
-// "Anderson-Darling tends to be more effective in detecting
-// departures in the tails of the distribution. Usually, if departure
-// from normality at the tails is the major problem, many
-// statisticians would use Anderson-Darling as the first choice."
-
-// Calculating p-value for normal distribution based on AD score.  See
-// e.g. https://real-statistics.com/non-parametric-tests/goodness-of-fit-tests/anderson-darling-test/
-//
-// Compute p-value that the null hypothesis (distribution is normal)
-// is false.  A low p-value is a high likelihood, e.g. 0.01 indicates
-// a 1% chance that the distribution we examined was actually normal.
-//
-static double calculate_p(double AD) {
-  if (AD <= 0.2) return 1.0 - exp(-13.436 + 101.14*AD - 223.73*AD*AD);
-  if (AD <= 0.34) return 1.0 - exp(-8.318 + 42.796*AD - 59.938*AD*AD);
-  if (AD <  0.6) return exp(0.9177 - 4.279*AD - 1.38*AD*AD);
-  else return exp(1.2937 - 5.709*AD + 0.0186*AD*AD);
+#if 0
+static double uniform_CDF(double x) {
+  return x;
 }
 
-// Estimate mean: μ = (1/n) Σ(Xi)
-static double estimate_mean(Usage *usage,
-			    int start,
-			    int end,
-			    FieldCode fc) {
-  double sum = 0;
-  for (int i = start; i < end; i++)
-    sum += get_int64(usage, i, fc);
-  return sum / (end - start);
+#define FLOAT_EPSILON 0.00001
+static bool float_equal(double a, double b) {
+  return fabs(a - b) < FLOAT_EPSILON;
 }
 
-// Estimate variance: σ² = (1/(n-1)) Σ(Xi-μ)²
-static double estimate_variance(Usage *usage,
-				int start,
-				int end,
-				FieldCode fc,
-				double mean) {
-  double sum = 0;
-  for (int i = start; i < end; i++)
-    sum += pow(get_int64(usage, i, fc) - mean, 2);
-  return sum / (end - start - 1);
-}
+// Kolmogorov–Smirnov statistic for testing that a distribution is
+// uniform: 𝐷𝑛 = max over 𝑖 of 𝑚𝑎𝑥(|𝑥𝑖 − 𝑖/𝑛|, |𝑥𝑖 − (𝑖−1)/𝑛)
+//
+// https://en.wikipedia.org/wiki/Kolmogorov–Smirnov_test
+// "if the sample comes from distribution F(x), then Dn converges to 0
+// almost surely"
+//
+// https://www.statisticshowto.com/kolmogorov-smirnov-test/
+// "In order for the test to work, you must specify the location,
+// scale, and shape parameters. If these parameters are estimated from
+// the data, it invalidates the test."
 
-// Wikipedia cites the book below for the claim that a minimum of 8
-// data points is needed.
-// https://en.wikipedia.org/wiki/Anderson–Darling_test#cite_note-RBD86-6
-// 
-// Ralph B. D'Agostino (1986). "Tests for the Normal Distribution". In
-// D'Agostino, R.B.; Stephens, M.A. (eds.). Goodness-of-Fit
-// Techniques. New York: Marcel Dekker. ISBN 0-8247-7487-6.
 
-static double ADscore(Usage *usage,
-		      int start,
-		      int end,
-		      FieldCode fc,
-		      double mean,
-		      double stddev) {
-  assert((end - start) > 7);
-  int runs = end - start;
-  int *index = make_index(usage, start, end, compare_totaltime);
-//   printf("Range %" PRId64 " .. %" PRId64 "\n",
-// 	 get_int64(usage, index[0], fc),
-// 	 get_int64(usage, index[runs-1], fc));
-  double *Y = malloc(runs * sizeof(double));
+//
+// Applying AD to test against a uniform distribution, where the CDF
+// is F(Xi) = (Xi-Xmin)/(Xmax-Xmin).
+//
+static double AD_uniform(int n,         // number of data points
+			 double *X) {   // ranked data points
+  assert(n > 7);
+  double A;
+  double *Y = malloc(n * sizeof(double));
   if (!Y) PANIC_OOM();
-  for (int i = 0; i < runs; i++)
-    Y[i] = (get_int64(usage, index[i], fc) - mean) / stddev;
-
-//   for (int i = 0; i < runs; i++)
-//     printf("Sample[%d] = %" PRId64 ", Y[%d] = %7.4f\n",
-// 	   index[i], get_int64(usage, index[i], fc), index[i]-start, Y[i]);
-
-  double *Z = malloc(runs * sizeof(double));
-  if (!Z) PANIC_OOM();
-  for (int i = 0; i < runs; i++)
-    Z[i] = zscore(Y[i]);
-  // A² = -n - (1/n) Σ( (2i-1)ln(Zi) + (2(n-i)+1)ln(1-Zi) )
-  double sum = 0;
-  for (int i = 0; i < runs; i++)
-    sum += (2*(i+1)-1)*log(Z[i]) + (2*(runs-(i+1))+1)*log(1.0-Z[i]);
-  double A = -runs - (sum / runs);
-  //  printf("A (uncorrected) = %-8.4f\n", A);
-  // A⃰² = A²(1 + 0.75/n + 2.25/n²)
-  A = A * (1 + 0.75/runs + 2.25/(runs * runs));
-  //  printf("A (corrected) = %-8.4f\n", A);
-  free(index);
+  // Use unbiased estimator for maximum?
+  //double Xmax = X[n-1] + (X[n-1]/n) + 1;
+  double Xmax = X[n-1];
+  double Xmin = X[0];
+  double Xrange = Xmax - Xmin;
+  for (int i = 0; i < n; i++) {
+    //Y[i] = (X[i]-Xmin+1) / (Xrange+1);
+    Y[i] = (X[i]-Xmin) / Xrange;
+    //printf("Y[%d] = %8.5f\n", i, Y[i]);
+  }
+  // Removing from consideration points equal to the min and equal to
+  // the max because they trigger a log(0) calculation in ADscore.
+  int minidx = 1;
+  for (; minidx < n; minidx++)
+    if (!float_equal(X[minidx], Xmin)) break;
+  int maxidx = n-1;
+  for (; maxidx >= 0; maxidx--)
+    if (!float_equal(X[maxidx], Xmax)) break;
+  printf("minidx = %d, maxidx = %d\n", minidx, maxidx);
+  int available = maxidx - minidx;
+  if (available >= 8) 
+    A = AD_from_Y(available, &(Y[minidx]), uniform_CDF);
+  else
+    A = 0.0;
+  free(Y);
   return A;
 }
-
-// Supplement to the Summary statistics
-// Analysis *analyze(Usage *usage, int start, int end) {
-//   int runs = end - start;
-//   if (runs < 8) return NULL; // Insufficient data for calculation
-//   Analysis *a = malloc(sizeof(Analysis));
-//   if (!a) PANIC_OOM();
-//   double mean = estimate_mean(usage, start, end, F_TOTAL);
-//   double variance = estimate_variance(usage, start, end, mean, F_TOTAL);
-//   printf("Estimated mean = %-8.1f\n", mean);
-//   printf("Estimated variance = %-8.1f\n", variance);
-//   if (variance < EPSILON) {
-//     printf("Variance too small for calculation %8.6f\n", variance);
-//     return NULL;
-//   }
-//   double stddev = sqrt(variance);
-//   printf("Estimated stddev = %-8.1f\n", stddev);
-//   double A = calculate_ADscore(usage, start, end, mean, stddev);
-
-//   a->est_mean = mean;
-//   a->est_stddev = stddev;
-//   a->ADscore = A;
-//   a->p_normal = calculate_p(A);
-
-//   return a;
-// }
+#endif
 
 // -----------------------------------------------------------------------------
 // Compute statistical summary of a sample (collection of data points)
@@ -504,18 +589,6 @@ Summary *summarize(Usage *usage, int *next) {
   measure(usage, first, i, F_ICSW, compare_icsw, &s->icsw);
   measure(usage, first, i, F_TCSW, compare_tcsw, &s->tcsw);
   measure(usage, first, i, F_WALL, compare_wall, &s->wall);
-  if (s->runs > 7) {
-    s->est_mean = estimate_mean(usage, first, i, F_TOTAL);
-    s->est_stddev = sqrt(estimate_variance(usage, first, i, F_TOTAL, s->est_mean));
-    s->ADscore = ADscore(usage, first, i, F_TOTAL, s->est_mean, s->est_stddev);
-    s->p_normal = calculate_p(s->ADscore);
-    // TODO: How close to zero is too small a variance for ADscore to
-    // be meaningful?
-  } else {
-    s->est_mean = 0.0;
-    s->est_stddev = 0.0;
-    s->ADscore = 0.0;
-    s->p_normal = 1.0;
-  }
+
   return s;
 }

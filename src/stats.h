@@ -19,6 +19,13 @@ typedef struct Measures {
   int64_t median;
   int64_t pct95;
   int64_t pct99;
+  int64_t Q1;
+  int64_t Q3;
+  double  est_mean;	// Estimated
+  double  est_stddev;	// Estimated
+  double  ADscore;	// Anderson-Darling normality (distance)
+  double  p_normal;	// p-value of ADscore
+  double  skew;		// non-parametric skew
 } Measures;
 
 // Statistical summary of a set of runs of a single command
@@ -35,10 +42,6 @@ typedef struct Summary {
   Measures  icsw;
   Measures  tcsw;
   Measures  wall;
-  double    est_mean;		// Estimated
-  double    est_stddev;		// Estimated
-  double    ADscore;		// Anderson-Darling normality
-  double    p_normal;		// p-value of "not normal"
 } Summary;
 
 Summary *summarize(Usage *usage, int *next);

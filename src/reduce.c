@@ -9,6 +9,7 @@
 #include "csv.h"
 #include "reports.h"		// TEMP!
 #include "reduce.h"
+#include "math.h"
 
 int reduce_data(void) {
   FILE *input = NULL, *output = NULL;
@@ -62,13 +63,39 @@ int reduce_data(void) {
     print_summary(s[count], false);
     if (config.show_graph) print_graph(s[count], usage, prev, next);
     printf("\n");
-    printf("Have %d data points\n", s[count]->runs);
-    if (s[count]->p_normal <= 0.10)
-      printf("Distribution is not normal (p = %5.3f)\n",
-	     s[count]->p_normal);
+
+    printf("Have %d data points in range %" PRId64 "..%" PRId64 "\n",
+	   s[count]->runs, s[count]->total.min, s[count]->total.max);
+
+    int64_t IQR = s[count]->total.Q3 - s[count]->total.Q1;
+    printf("Inter-quartile range = %" PRId64 " (%6.4f%% of full range)\n",
+	   IQR, ((double) IQR / (double) (s[count]->total.max - s[count]->total.min)) * 100.0);
+
+    if (s[count]->total.ADscore > 0) {
+      if (s[count]->total.p_normal <= 0.10)
+	printf("Distribution is NOT normal ");
+      else
+	printf("Distribution could be normal ");
+      printf("(ADscore %6.4f) with p = %6.4f\n",
+	     s[count]->total.ADscore, s[count]->total.p_normal);
+    } else {
+      printf("Unable to test for normality\n");
+    }
+
+    // Standard deviation has same units as the data, so we can
+    // express it as a percentage of the mean.
+    //
+    // TODO: What is a good value for this warning?
+    double stddev_ratio = s[count]->total.est_stddev / s[count]->total.est_mean;
+    if (stddev_ratio < 0.001) {
+      printf("Warning: Low estimated variance ratio %3.2f%%\n", stddev_ratio * 100.0);
+    }
+
+    if (fabs(s[count]->total.skew) > 0.2)
+      printf("Non-parametric skew is significant at %4.2f\n", s[count]->total.skew);
     else
-      printf("Distribution could be normal (p = %5.3f)\n",
-	     s[count]->p_normal);
+      printf("Non-parametric skew not significant at %4.2f\n", s[count]->total.skew);
+
     printf("\n");
     prev = next;
     if (++count == MAXCMDS) USAGE("too many commands");
