@@ -119,6 +119,39 @@ int reduce_data(void) {
   for (int i = 0; i < count; i++) free_summary(s[i]);
   free_usage_array(usage);
 
+  printf("\n");
+  Measures m;
+  m.min = 5;
+  m.Q1 = 10;
+  m.median = 13;
+  m.Q3 = 16;
+  m.max = 20;
+  print_boxplot(&m, 0, 20, 72);
+  print_boxplot(&m, 5, 30, 72);
+
+  m.min = 3;
+  m.Q1 = 5;
+  m.median = 10;
+  m.Q3 = 13;
+  m.max = 20;
+  print_boxplot(&m, 0, 30, 30);
+
+  m.min = 3;
+  m.Q1 = 5;
+  m.median = 5;
+  m.Q3 = 13;
+  m.max = 25;
+  print_boxplot(&m, 0, 30, 30);
+
+  m.min = 3;
+  m.Q1 = 5;
+  m.median = 13;
+  m.Q3 = 13;
+  m.max = 25;
+  print_boxplot(&m, 0, 30, 30);
+  
+
+  
   if (config.input_filename) fclose(input);
   if (config.output_filename) fclose(output);
 

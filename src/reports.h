@@ -15,5 +15,7 @@ void announce_command(const char *cmd, int number);
 void print_summary(Summary *s, bool briefly);
 void print_graph(Summary *s, Usage *usagedata, int start, int end);
 void print_overall_summary(Summary *summaries[], int start, int end);
+void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width);
+
 
 #endif

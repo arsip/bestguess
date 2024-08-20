@@ -9,6 +9,7 @@
 #include "reports.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 void announce_command(const char *cmd, int number) {
   printf("Command %d: %s\n", number, *cmd ? cmd : "(empty)");
@@ -246,4 +247,102 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
   }
 
   fflush(stdout);
+}
+
+//           Q0  Q1  Q2  Q3      Q4
+//               ┌───┬────┐
+//           ├╌╌╌┤   │    ├╌╌╌╌╌╌╌╌┤
+//               └───┴────┘
+
+static void print_ticks(int Q0, int Q1, int Q2, int Q3, int Q4) {
+  printf("0         1         2         3         4         5         6         7\n");
+  printf("0123456789012345678901234567890123456789012345678901234567890123456789012\n");
+  printf("%*s", Q0+1, "<");
+  printf("%*s", Q1 - Q0 - (Q1 == Q2), (Q1 == Q2) ? "" : "|");
+  printf("%*s", Q2 - Q1, "X");
+  printf("%*s", Q3 - Q2, (Q2 == Q3) ? "" : "|");
+  printf("%*s", Q4 - Q3, ">");
+  printf("\n");
+}
+
+void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width) {
+  if (!m) PANIC_NULL();
+  if (width < 10) {
+    printf("Width %d too narrow for plot\n", width);
+    return;
+  }
+  if ((m->min < axismin) || (m->max > axismax)) {
+    printf("Measurement min/max outside of axis min/max values");
+    return;
+  }
+  double scale = (double) width / (double) (axismax - axismin);
+
+  int64_t IQR = m->Q3 - m->Q1;
+  int boxwidth = round((double) IQR * scale);
+  int minpos = (double) m->min * scale;
+  int wleft = round((double) (m->Q1 - m->min) * scale);
+  int boxleft = minpos + wleft;
+  int median = (double) m->median * scale;
+  int medpos = median - minpos - wleft; // position in the box
+  int boxright = boxleft + boxwidth;
+  int wright = round((double) (m->max - m->Q3) * scale);
+  int maxpos = boxright + wright;
+
+  print_ticks(minpos, boxleft, median, boxright, maxpos);
+
+  // Will we show the median as its own character?
+  int show_median = 1;
+  if ((median == boxleft) || (median == boxright))
+    show_median = 0;
+
+  // Top line
+  printf("%*s", minpos + wleft, "");
+  if (boxwidth > 0) {
+    if (median == boxleft) printf("╓");
+    else printf("┌");
+    for (int j = 1; j < medpos; j++) printf("─");
+    if (show_median) printf("┬");
+    for (int j = 1; j < boxwidth - medpos; j++) printf("─");
+    if (median == boxright) printf("╖");
+    else printf("┐");
+  }
+  printf("\n");
+  // Middle line
+  printf("%*s", minpos, "");
+  if (wleft > 0) printf("├");
+  for (int j = 1; j < wleft; j++) printf("╌");
+  if (boxwidth == 0) {
+    printf("┼");
+  } else if (boxwidth == 1) {
+    if (median == boxleft) printf("╢");
+    else printf("┤");
+    if (median == boxright) printf("╟");
+    else printf("├");
+  } else {
+    if (median == boxleft) printf("╢");
+    else printf("┤");
+  }
+  for (int j = 1; j < medpos; j++) printf(" ");
+  if (show_median) printf("│");
+  for (int j = 1; j < boxwidth - medpos; j++) printf(" ");
+
+  if (median == boxright) printf("╟");
+  else printf("├");
+
+  for (int j = 1; j < wright; j++) printf("╌");
+  if (wright > 0) printf("┤");
+  printf("\n");
+
+  // Bottom line
+  printf("%*s", minpos + wleft, "");
+  if (boxwidth > 0) {
+    if (median == boxleft) printf("╙");
+    else printf("└");
+    for (int j = 1; j < medpos; j++) printf("─");
+    if (show_median) printf("┴");
+    for (int j = 1; j < boxwidth - medpos; j++) printf("─");
+    if (median == boxright) printf("╜");
+    else printf("┘");
+  }
+  printf("\n");
 }
