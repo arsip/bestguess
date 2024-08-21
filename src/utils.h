@@ -17,6 +17,9 @@
 // 1024 * 1024 = How many things are in a mega-thing
 #define MEGA 1048576
 
+int64_t min64(int64_t a, int64_t b);
+int64_t max64(int64_t a, int64_t b);
+
 // -----------------------------------------------------------------------------
 // Raw data output file (CSV) follows Usage struct contents
 // -----------------------------------------------------------------------------

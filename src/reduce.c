@@ -22,8 +22,9 @@ int reduce_data(void) {
   const int n = 10000;
   for (int i=0; i < n; i++) {
     double z = (((double) i) - ((double) n / 2.0)) / 500.0;
-    if ((zscore(z) < 0.0) || (zscore(z) > 1.0))
-      printf("**** ALERT! Z-score for %6.3f is %8.5f\n", z, zscore(z));
+    if ((normalCDF(z) < 0.0) || (normalCDF(z) > 1.0))
+      printf("**** ALERT! CDF value for z-score of %6.3f is %8.5f\n",
+	     z, normalCDF(z));
   }
 
 //   printf("Relevant configuration:\n");
@@ -56,57 +57,33 @@ int reduce_data(void) {
 
   Summary *s[MAXCMDS];
   int next = 0;
-  int prev = 0;
   int count = 0;
+  int prev = 0;
   while ((s[count] = summarize(usage, &next))) {
     announce_command(get_string(usage, prev, F_CMD), count+1);
     print_summary(s[count], false);
     if (config.show_graph) print_graph(s[count], usage, prev, next);
     printf("\n");
-
-    printf("Have %d data points in range %" PRId64 "..%" PRId64 "\n",
-	   s[count]->runs, s[count]->total.min, s[count]->total.max);
-
-    int64_t IQR = s[count]->total.Q3 - s[count]->total.Q1;
-    printf("Inter-quartile range = %" PRId64 "ns (%4.2f%% of median)\n",
-	   IQR, ((double) IQR / (double) s[count]->total.median) * 100.0);
-
-    printf("Inter-quartile range [%" PRId64 ", %" PRId64 "]\n",
-	   s[count]->total.Q1, s[count]->total.Q3);
-    
-    // How far below and above the median
-    int64_t IQ1delta = s[count]->total.median - s[count]->total.Q1;
-    int64_t IQ3delta = s[count]->total.Q3 - s[count]->total.median;
-    printf("Inter-quartile range [median - %" PRId64 ", median + %" PRId64 "]\n",
-	   IQ1delta, IQ3delta);
-
-    printf("Inter-quartile range [median - %4.2f%%, median + %4.2f%%]\n",
-	   ((double) IQ1delta * 100.0 / (double) s[count]->total.median),
-	   ((double) IQ3delta * 100.0 / (double) s[count]->total.median));
-
-    if (s[count]->total.ADscore > 0) {
-      if (s[count]->total.p_normal <= 0.10)
-	printf("Distribution is NOT normal ");
-      else
-	printf("Distribution could be normal ");
-      printf("(ADscore %6.4f) with p = %6.4f\n",
-	     s[count]->total.ADscore, s[count]->total.p_normal);
-    } else {
-      printf("Unable to test for normality\n");
-    }
-
-    if (s[count]->total.est_stddev < 0) {
-      printf("Warning: Low estimated variance\n");
-    }
-
-    if (fabs(s[count]->total.skew) > 0.2)
-      printf("Non-parametric skew is significant at %4.2f\n", s[count]->total.skew);
-    else
-      printf("Non-parametric skew not significant at %4.2f\n", s[count]->total.skew);
-      
-    printf("\n");
+    print_distribution_report(&(s[count]->total), s[count]->runs);
     prev = next;
     if (++count == MAXCMDS) USAGE("too many commands");
+  }
+  next = 0;
+  count = 0;
+  int64_t axismin = INT64_MAX;
+  int64_t axismax = INT64_MIN;
+  while ((s[count] = summarize(usage, &next))) {
+    Measures *m = &(s[count]->total);
+    axismin = min64(m->min, axismin);
+    axismax = max64(m->max, axismax);
+    count++;
+  }
+  print_boxplot_scale(axismin, axismax, 80);
+  next = 0;
+  count = 0;
+  while ((s[count] = summarize(usage, &next))) {
+    print_boxplot(&(s[count]->total), axismin, axismax, 80);
+    count++;
   }
 
   print_overall_summary(s, 0, count);
@@ -118,8 +95,9 @@ int reduce_data(void) {
 
   for (int i = 0; i < count; i++) free_summary(s[i]);
   free_usage_array(usage);
-
   printf("\n");
+
+#if 0
   Measures m;
   m.min = 5;
   m.Q1 = 10;
@@ -149,9 +127,29 @@ int reduce_data(void) {
   m.Q3 = 13;
   m.max = 25;
   print_boxplot(&m, 0, 30, 30);
-  
 
+  m.min = 0;
+  m.Q1 = 5;
+  m.median = 13;
+  m.Q3 = 13;
+  m.max = 25;
+  print_boxplot(&m, 0, 30, 30);
+
+  m.min = 0;
+  m.Q1 = 5;
+  m.median = 13;
+  m.Q3 = 13;
+  m.max = 30;
+  print_boxplot(&m, 0, 30, 30);
   
+  m.min = 0;
+  m.Q1 = 5;
+  m.median = 13;
+  m.Q3 = 13;
+  m.max = 80;
+  print_boxplot(&m, 0, 80, 80);
+#endif  
+
   if (config.input_filename) fclose(input);
   if (config.output_filename) fclose(output);
 

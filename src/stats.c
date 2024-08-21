@@ -123,7 +123,7 @@ static double AD_from_Y(int n,		      // number of data points
     S += (2*i-1) * log(F(Y[i-1])) + (2*(n-i)+1) * log(1.0-F(Y[i-1]));
   S = S/n;
   double A = -n - S;
-  // Recommended correction factor
+  // Recommended correction factor for our critical p-values
   A = A * (1 + 0.75/n + 2.25/(n * n));
   return A;
 }
@@ -135,9 +135,17 @@ static double AD_normality(int64_t *X,    // ranked data points
   assert(X && (n > 0));
   double *Y = malloc(n * sizeof(double));
   if (!Y) PANIC_OOM();
-  for (int i = 0; i < n; i++) 
+  for (int i = 0; i < n; i++) {
     Y[i] = ((double) X[i] - mean) / stddev;
-  double A = AD_from_Y(n, Y, zscore);
+    if (Y[i] != Y[i]) {
+      PANIC("Got NaN.  Should not have attempted AD test.");
+    }
+    if (fabs(Y[i]) > 4) {
+      free(Y);
+      return -1;
+    }
+  }
+  double A = AD_from_Y(n, Y, normalCDF);
   free(Y);
   return A;
 }
@@ -274,8 +282,15 @@ static int64_t *ranked_samples(Usage *usage,
 // TODO: How close to zero is too small a stddev (or variance) for
 // ADscore to be meaningful?
 
-#define STDDEV_PCT_THRESHOLD 0.001 // 0.1%
-#define N_THRESHOLD 8
+#define LOWMEAN_THRESHOLD 0.1	   // Good for integer number of microsecs
+#define LOWSTDDEV_THRESHOLD 0.1    // Somewhat arbitrary
+#define N_THRESHOLD 8		   // Per guidance on using AD test
+
+static bool lowvariance(double mean, double stddev) {
+  assert(stddev >= -1e-6);
+  return (fabs(mean) < LOWMEAN_THRESHOLD)
+    || (stddev < LOWSTDDEV_THRESHOLD);
+}
 
 //
 // Produce a statistical summary (stored in 'm') over all runs.  Time
@@ -306,24 +321,39 @@ static void measure(Usage *usage,
   if (runs > 1)
     m->est_stddev = estimate_stddev(X, runs, m->est_mean);
   else
-    m->est_stddev = -1;
+    m->est_stddev = 0;
 
   // Compute Anderson-Darling distance from normality if we have
   // enough data points.  The literature suggests that 8 suffices.
   // Also, if the estimated stddev is too low, the ADscore is not
   // meaningful (and numerically unstable) so we skip it.
   //
-  // Skew depends on having a variance that is not "too low".
-  if ((runs >= N_THRESHOLD) &&
-      ((m->est_stddev / m->est_mean) > STDDEV_PCT_THRESHOLD)) {
-    m->ADscore = AD_normality(X, runs, m->est_mean, m->est_stddev);
-    m->p_normal = calculate_p(m->ADscore);
-    m->skew = (m->est_mean - m->median) / m->est_stddev;
-  } else {
-    m->ADscore = -1;
-    m->p_normal = -1;
-    m->skew = 0;
+  // Skew also depends on having a variance that is not "too low".
+  m->code = 0;
+  if (runs < N_THRESHOLD)
+    SET(m->code, CODE_SMALLN);
+  if (lowvariance(m->est_mean, m->est_stddev))
+    SET(m->code, CODE_LOWVARIANCE);
+
+  assert(m->skew == 0.0);
+  if (m->code != 0) goto noscore;
+
+  m->skew = (m->est_mean - m->median) / m->est_stddev;
+
+  m->ADscore = AD_normality(X, runs, m->est_mean, m->est_stddev);
+  // Off-the-charts z-scores are detected when we try to measure the
+  // AD score.
+  if (m->ADscore == -1) {
+    SET(m->code, CODE_HIGHZ);
+    goto noscore;
   }
+  m->p_normal = calculate_p(m->ADscore);
+  free(X);
+  return;
+
+ noscore:
+  m->ADscore = -1;
+  m->p_normal = -1;
   free(X);
   return;
 }
@@ -443,24 +473,23 @@ Ztable[] = {2, 2, 2, 2, 3, 3, 3, 3, 3, 3,
 	    99995, 99995, 99996, 99996, 99996, 99996, 99996, 99996, 99997, 99997, 
 	    99997, 99997, 99997, 99997, 99997, 99997, 99998, 99998, 99998, 99998};
 
-// Since Z is a name for the integers, the name zzscore is apt.
-int zzscore(int scaled_z) {
+static int integer_normalCDF(int scaled_z) {
   if (scaled_z < -409) return 0;
   if (scaled_z > 409) return 100000;
   return Ztable[scaled_z + 409];
 }
 
-double zscore(double z) {
+double normalCDF(double z) {
   int scaled_z = round(z * 1000.0);
   int units = scaled_z % 10;
   int lower = scaled_z - ((units < 0) ? (units + 10) : units);
   int upper = lower + 10;
-  double diff = zzscore(upper/10) - zzscore(lower/10);
+  double diff = integer_normalCDF(upper/10) - integer_normalCDF(lower/10);
   if (units < 0) units = 10 + units;
-  double score = zzscore(lower/10) + ((double) units/10.0 * diff);
-  assert(zzscore(upper/10) >= score);
-  assert(zzscore(lower/10) <= score);
-  return score / 10e4;
+  double value = integer_normalCDF(lower/10) + ((double) units/10.0 * diff);
+  assert(integer_normalCDF(upper/10) >= value);
+  assert(integer_normalCDF(lower/10) <= value);
+  return value / 10e4;
 }
 
 __attribute__((unused))
@@ -479,7 +508,7 @@ void print_zscore_table(void) {
       for (int b = 0; b <= 9; b++) {
 	int zz = a * 10 + ((a <= 0) ? -b : b);
 	if (j == 1) zz = a * 10 + b;
-	printf("%7.5f  ", zscore(zz / 100.0));
+	printf("%7.5f  ", normalCDF(zz / 100.0));
       }
       printf("\n");
     }

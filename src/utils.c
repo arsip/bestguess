@@ -447,3 +447,16 @@ FILE *maybe_open(const char *filename, const char *mode) {
   }
   return f;
 }
+
+// -----------------------------------------------------------------------------
+// Misc
+// -----------------------------------------------------------------------------
+
+int64_t min64(int64_t a, int64_t b) {
+  return (a < b) ? a : b;
+}
+
+int64_t max64(int64_t a, int64_t b) {
+  return (a > b) ? a : b;
+}
+

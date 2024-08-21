@@ -25,7 +25,8 @@ typedef struct Measures {
   double  est_stddev;	// Estimated
   double  ADscore;	// Anderson-Darling normality (distance)
   double  p_normal;	// p-value of ADscore
-  double  skew;		// non-parametric skew
+  double  skew;		// Non-parametric skew
+  uint8_t code;		// Info about ADscore and skew
 } Measures;
 
 // Statistical summary of a set of runs of a single command
@@ -44,11 +45,20 @@ typedef struct Summary {
   Measures  wall;
 } Summary;
 
+// bitmasks
+#define HAS(byte, flagname) (((uint8_t)1)<<(flagname) & byte)
+#define SET(byte, flagname) do {		\
+    byte = (byte) | (((uint8_t)1)<<(flagname));	\
+  } while (0)
+// flags for 'code' in Measures 
+#define CODE_HIGHZ 0
+#define CODE_SMALLN 1
+#define CODE_LOWVARIANCE 2
+
 Summary *summarize(Usage *usage, int *next);
 void     free_summary(Summary *s);
 
-double zscore(double z);
-int    zzscore(int scaled_z);
+double normalCDF(double z);
 void   print_zscore_table(void);
 
 

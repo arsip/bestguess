@@ -16,6 +16,7 @@ void print_summary(Summary *s, bool briefly);
 void print_graph(Summary *s, Usage *usagedata, int start, int end);
 void print_overall_summary(Summary *summaries[], int start, int end);
 void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width);
-
+void print_boxplot_scale(int64_t axismin, int64_t axismax, int width);
+void print_distribution_report(Measures *m, int n);
 
 #endif

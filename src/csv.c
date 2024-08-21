@@ -190,35 +190,35 @@ void write_line(FILE *f, Usage *usage, int idx) {
   X(S_SHELL, "Shell")			\
   X(S_RUNS, "Runs (ct)")		\
   X(S_FAILED, "Failed (ct)")		\
-  X(S_TOTALMODE, "Total mode (us)")	\
-  X(S_TOTALMIN,  "Total min (us)")	\
-  X(S_TOTALMED, "Total median (us)")	\
-  X(S_TOTALP95, "Total p95 (us)")	\
-  X(S_TOTALP99, "Total p99 (us)")	\
-  X(S_TOTALMAX, "Total max (us)")	\
-  X(S_USERMODE, "User mode (us)")	\
-  X(S_USERMIN, "User min (us)")		\
-  X(S_USERMED, "User median (us)")	\
-  X(S_USERP95, "User p95 (us)")		\
-  X(S_USERP99, "User p99 (us)")		\
-  X(S_USERMAX, "User max (us)")		\
-  X(S_SYSTEMMODE, "System mode (us)")	\
-  X(S_SYSTEMMIN, "System min (us)")	\
-  X(S_SYSTEMMED, "System median (us)")	\
-  X(S_SYSTEMP95, "System p95 (us)")	\
-  X(S_SYSTEMP99, "System p99 (us)")	\
-  X(S_SYSTEMMAX,"System max (us)")		\
+  X(S_TOTALMODE, "Total mode (μs)")	\
+  X(S_TOTALMIN,  "Total min (μs)")	\
+  X(S_TOTALMED, "Total median (μs)")	\
+  X(S_TOTALP95, "Total p95 (μs)")	\
+  X(S_TOTALP99, "Total p99 (μs)")	\
+  X(S_TOTALMAX, "Total max (μs)")	\
+  X(S_USERMODE, "User mode (μs)")	\
+  X(S_USERMIN, "User min (μs)")		\
+  X(S_USERMED, "User median (μs)")	\
+  X(S_USERP95, "User p95 (μs)")		\
+  X(S_USERP99, "User p99 (μs)")		\
+  X(S_USERMAX, "User max (μs)")		\
+  X(S_SYSTEMMODE, "System mode (μs)")	\
+  X(S_SYSTEMMIN, "System min (μs)")	\
+  X(S_SYSTEMMED, "System median (μs)")	\
+  X(S_SYSTEMP95, "System p95 (μs)")	\
+  X(S_SYSTEMP99, "System p99 (μs)")	\
+  X(S_SYSTEMMAX,"System max (μs)")		\
   X(S_MAXRSSMODE, "Max RSS mode (bytes)")	\
   X(S_MAXRSSMIN, "Max RSS min (bytes)")		\
   X(S_MAXRSSMED, "Max RSS median (bytes)")	\
   X(S_MAXRSSP95, "Max RSS p95 (bytes)")		\
   X(S_MAXRSSP99, "Max RSS p99 (bytes)")		\
   X(S_MAXRSSMAX, "Max RSS max (bytes)")		\
-  X(S_VCSWMODE, "Vol Ctx Sw mode (us)")		\
+  X(S_VCSWMODE, "Vol Ctx Sw mode (μs)")		\
   X(S_VCSWMIN, "Vol Ctx Sw min (ct)")		\
   X(S_VCSWMED, "Vol Ctx Sw median (ct)")	\
-  X(S_VCSWP95, "Vol Ctx Sw p95 (us)")		\
-  X(S_VCSWP99, "Vol Ctx Sw p99 (us)")		\
+  X(S_VCSWP95, "Vol Ctx Sw p95 (μs)")		\
+  X(S_VCSWP99, "Vol Ctx Sw p99 (μs)")		\
   X(S_VCSWMAX, "Vol Ctx Sw max (ct)")		\
   X(S_ICSWMODE, "Invol Ctx Sw mode (ct)")	\
   X(S_ICSWMIN, "Invol Ctx Sw min (ct)")		\
@@ -232,12 +232,12 @@ void write_line(FILE *f, Usage *usage, int idx) {
   X(S_TCSWP95, "Total Ctx Sw p95 (ct)")		\
   X(S_TCSWP99, "Total Ctx Sw p99 (ct)")		\
   X(S_TCSWMAX, "Total Ctx Sw max (ct)")	        \
-  X(S_WALLMODE, "Wall mode (us)")		\
-  X(S_WALLMIN, "Wall min (us)")		        \
-  X(S_WALLMED, "Wall median (us)")		\
-  X(S_WALLP95, "Wall p95 (us)")		        \
-  X(S_WALLP99, "Wall p99 (us)")		        \
-  X(S_WALLMAX, "Wall max (us)")			\
+  X(S_WALLMODE, "Wall mode (μs)")		\
+  X(S_WALLMIN, "Wall min (μs)")		        \
+  X(S_WALLMED, "Wall median (μs)")		\
+  X(S_WALLP95, "Wall p95 (μs)")		        \
+  X(S_WALLP99, "Wall p99 (μs)")		        \
+  X(S_WALLMAX, "Wall max (μs)")			\
   X(S_LAST,    "SENTINEL")
 
 #define FIRST(a, b) a,
