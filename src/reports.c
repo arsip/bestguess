@@ -23,13 +23,16 @@ void announce_command(const char *cmd, int number) {
 #define GAP   "   "
 #define UNITS 1
 #define NOUNITS 0
+// Round to one decimal place
+#define ROUND1(intval, divisor) \
+  (round((double)((intval) * 10) / (divisor)) / 10.0)
 
-#define LEFTBAR do {					\
-    printf("%s", config.brief_summary ? "  " : "│ ");		\
+#define LEFTBAR(briefly) do {			\
+    printf("%s", briefly ? "  " : "│ ");	\
   } while (0)
 
-#define RIGHTBAR do {					\
-    printf("%s", config.brief_summary ? "\n" : "   │\n");	\
+#define RIGHTBAR(briefly) do {			\
+    printf("%s", briefly ? "\n" : "   │\n");	\
   } while (0)
 
 #define PRINT_(fmt_s, fmt_ms, field) do {				\
@@ -39,21 +42,21 @@ void announce_command(const char *cmd, int number) {
       printf(sec ? fmt_s : fmt_ms, field);				\
   } while (0)
 
-#define PRINTMODE(field) do {					\
-    PRINT_(FMTs, FMT, (double)((field) / divisor));		\
+#define PRINTMODE(field, briefly) do {				\
+    PRINT_(FMTs, FMT, ROUND1(field, divisor));			\
     printf(" %-3s", units);					\
     printf(GAP);						\
-    LEFTBAR;							\
+    LEFTBAR(briefly);						\
   } while (0)
 
 #define PRINTTIME(field) do {					\
-    PRINT_(FMTs, FMT, (double)((field) / divisor));		\
+    PRINT_(FMTs, FMT, ROUND1(field, divisor));			\
     printf(GAP);						\
   } while (0)
 
-#define PRINTTIMENL(field) do {					\
-    PRINT_(FMTs, FMT, (double)((field) / divisor));		\
-    RIGHTBAR;							\
+#define PRINTTIMENL(field, briefly) do {			\
+    PRINT_(FMTs, FMT, ROUND1(field, divisor));			\
+    RIGHTBAR(briefly);						\
   } while (0)
 
 #define PRINTCOUNT(field, showunits) do {			\
@@ -62,7 +65,7 @@ void announce_command(const char *cmd, int number) {
     else if (divisor == 1) {					\
       printf("%6" PRId64, (field));				\
     } else {							\
-      printf(FMTs, (double)((field) / divisor));		\
+      printf(FMTs, ROUND1(field, divisor));			\
     }								\
     if (showunits) printf(" %-3s", units);			\
   } while (0)
@@ -91,7 +94,7 @@ void print_summary(Summary *s, bool briefly) {
   }
 
   printf(LABEL, "Total CPU time");
-  PRINTMODE(s->total.mode);
+  PRINTMODE(s->total.mode, briefly);
   PRINTTIME(s->total.min);
   PRINTTIME(s->total.median);
 
@@ -99,30 +102,30 @@ void print_summary(Summary *s, bool briefly) {
     PRINTTIME(s->total.pct95);
     PRINTTIME(s->total.pct99);
   }
-  PRINTTIMENL(s->total.max);
+  PRINTTIMENL(s->total.max, briefly);
 
   if (!briefly) {
     printf(LABEL, "User time");
-    PRINTMODE(s->user.mode);
+    PRINTMODE(s->user.mode, briefly);
     PRINTTIME(s->user.min);
     PRINTTIME(s->user.median);
 
     PRINTTIME(s->user.pct95);
     PRINTTIME(s->user.pct99);
-    PRINTTIMENL(s->user.max);
+    PRINTTIMENL(s->user.max, briefly);
 
     printf(LABEL, "System time");
-    PRINTMODE(s->system.mode);
+    PRINTMODE(s->system.mode, briefly);
     PRINTTIME(s->system.min);
     PRINTTIME(s->system.median);
 
     PRINTTIME(s->system.pct95);
     PRINTTIME(s->system.pct99);
-    PRINTTIMENL(s->system.max);
+    PRINTTIMENL(s->system.max, briefly);
   }
 
   printf(LABEL, "Wall clock");
-  PRINTMODE(s->wall.mode);
+  PRINTMODE(s->wall.mode, briefly);
   PRINTTIME(s->wall.min);
   PRINTTIME(s->wall.median);
 
@@ -130,7 +133,7 @@ void print_summary(Summary *s, bool briefly) {
     PRINTTIME(s->wall.pct95);
     PRINTTIME(s->wall.pct99);
   }
-  PRINTTIMENL(s->wall.max);
+  PRINTTIMENL(s->wall.max, briefly);
 
   if (!briefly) {
     divisor = MEGA;
@@ -141,14 +144,14 @@ void print_summary(Summary *s, bool briefly) {
       units = "GiB";
     }
     printf(LABEL, "Max RSS");
-    PRINTMODE(s->maxrss.mode);
+    PRINTMODE(s->maxrss.mode, briefly);
     PRINTTIME(s->maxrss.min);
     PRINTTIME(s->maxrss.median);
 
     // Misusing PRINTTIME because it does the right thing
     PRINTTIME(s->maxrss.pct95);
     PRINTTIME(s->maxrss.pct99);
-    PRINTTIMENL(s->maxrss.max);
+    PRINTTIMENL(s->maxrss.max, briefly);
 
     divisor = 1;
     units = "ct";
@@ -250,46 +253,98 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
   fflush(stdout);
 }
 
-//           Q0  Q1  Q2  Q3      Q4
-//               ┌───┬────┐
-//           ├╌╌╌┤   │    ├╌╌╌╌╌╌╌╌┤
-//               └───┴────┘
+// Boxplot convention:
+//
+//  Q0  Q1  Q2  Q3      Q4
+//      ┌───┬────┐
+//  ├╌╌╌┤   │    ├╌╌╌╌╌╌╌╌┤
+//      └───┴────┘
 
-#define WIDTHMIN 20
+// These macros control how the boxplot looks, and are somewhat arbitrary.
+#define WIDTHMIN 40
 #define TICKSPACING 10
+#define LABELWIDTH 4
 #define AXISLINE "────────────────────────────────────────────────────────────"
 
-// TEMP: Assuming input is microseconds, printing in ms.  Generalize later.
-void print_boxplot_scale(int64_t axismin, int64_t axismax, int width) {
-  if (width < WIDTHMIN) {
-    printf("Width %d too narrow for plot\n", width);
-    return;
+static void print_boxplot_labels(int axismin, int axismax, int width) {
+  //
+  // Print tick mark labels for x-axis
+  //
+  width = width - (LABELWIDTH - 1);
+  int ticks = 1 + width / TICKSPACING;
+  double incr = round((double) (TICKSPACING * (axismax - axismin)) / (double) width);
+  for (int i = 0; i < ticks; i++) {
+    printf("%*.0f%*s",
+	   LABELWIDTH, round((double) axismin + (i * incr)),
+	   TICKSPACING - LABELWIDTH, "");
   }
-  printf("%-8.1f", (double) axismin / 1000.0);
-  printf("%*s %8.1f\n", width - 16, "", (double) axismax / 1000.0);
-  printf("├");
-  int bytesperunit = (uint8_t) AXISLINE[0] >> 6; // Assumes UTF-8
-  assert((strlen(AXISLINE) / bytesperunit) > TICKSPACING);
-  for (int i = 1; i < (width - 1);) {
-    if (i % TICKSPACING == 0) {
-      printf("┼");
-      i++;
-    } else {
-      printf("%.*s", (TICKSPACING - 1) * bytesperunit, AXISLINE);
-      i += TICKSPACING - 1;
-    }
-  }
-  printf("┤\n");
+  printf("\n");
 }
 
-__attribute__((unused))
-static void print_ticks(int Q0, int Q1, int Q2, int Q3, int Q4) {
-  printf("Field width to boxleft is %d\n", Q1 - Q0 - (Q1 == Q2));
+// Tick marks are labeled with as integers with LABELWIDTH digits.
+// E.g. when LABELWIDTH is 4, the highest tick mark label is 9999.
+// The argument 'width' is the total terminal (or desired) width,
+// beyond which we will not print.
+void print_boxplot_scale(int axismin, int axismax, int width, int labelplacement) {
+  if (width < WIDTHMIN) {
+    printf("Requested width (%d) too narrow for plot\n", width);
+    return;
+  }
+  if (labelplacement == BOXPLOT_LABEL_ABOVE)
+    print_boxplot_labels(axismin, axismax, width);
+  //
+  // Print axis graphic
+  //
+  printf("%*s├", (LABELWIDTH - 1), "");
+  int currpos = LABELWIDTH;
+  int bytesperunit = (uint8_t) AXISLINE[0] >> 6; // Assumes UTF-8
+  assert((strlen(AXISLINE) / bytesperunit) > TICKSPACING);
 
-  for (int i = 0; i < 9; i++) printf("%d         ", i);
+  int ticks = 1 + width / TICKSPACING;
+  // Already printed first visual tick mark, will print last one later
+  for (int i = 0; i < (ticks - 2); i++) {
+    printf("%.*s┼", (TICKSPACING - 1) * bytesperunit, AXISLINE);
+    currpos += TICKSPACING;
+  }
+
+  printf("%.*s", (TICKSPACING - 1) * bytesperunit, AXISLINE);
+  currpos += TICKSPACING;
+  if (currpos < width) 
+    printf("┼%.*s", (width - currpos) * bytesperunit, AXISLINE);
+  else
+    printf("┤");
   printf("\n");
-  for (int i = 0; i < 9; i++) printf("0123456789");
-  printf("\n");
+
+  if (labelplacement == BOXPLOT_LABEL_BELOW)
+    print_boxplot_labels(axismin, axismax, width);
+
+}
+
+//
+// To facilitate debugging how boxplots are printed:
+//
+// Call print_ticks() with the POSITIONS (e.g. 0..79 for a terminal
+// width of 80) of each quartile value.
+//
+__attribute__((unused))
+void print_ticks(Measures *m, int width) {
+  // IMPORTANT: We are truncating int64's down to ints here!  This
+  // will only work, obvi, if the values are small, which is what is
+  // needed for printing.
+  int Q0 = m->min;
+  int Q1 = m->Q1;
+  int Q2 = m->median;
+  int Q3 = m->Q3;
+  int Q4 = m->max;
+  int indent = LABELWIDTH - 1;
+  width -= indent;
+  printf("%*s", indent, "");
+  for (int i = 0; i < (width / 10); i++) printf("%d         ", i);
+  if ((width % 10) == 1) printf("%d         ", width/10);
+  printf("\n%*s", indent, "");
+  for (int i = 0; i < (width / 10); i++) printf("0123456789");
+  printf("%.*s", width % 10, "0123456789");
+  printf("\n%*s", indent, "");
   if (Q1 > Q0) printf("%*s", Q0+1, "<");
   printf("%*s", Q1 - Q0 - (Q1 == Q2), (Q1 == Q2) ? "" : "|");
   printf("%*s", Q2 - Q1, "X");
@@ -297,6 +352,9 @@ static void print_ticks(int Q0, int Q1, int Q2, int Q3, int Q4) {
   if (Q4 > Q3) printf("%*s", Q4 - Q3, ">");
   printf("\n");
 }
+
+
+#define SCALE(val) (round(((double) (val) * scale)))
 
 void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width) {
   if (!m) PANIC_NULL();
@@ -308,85 +366,85 @@ void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width) {
     printf("Measurement min/max outside of axis min/max values");
     return;
   }
-  double scale = (double) width / (double) (axismax - axismin);
+  int indent = LABELWIDTH - 1;
+  width -= indent;
+  double scale = (double) (width - 1) / (double) (axismax - axismin);
 
-  int64_t IQR = m->Q3 - m->Q1;
-  int boxwidth = round((double) IQR * scale);
-  int minpos = round((double) (m->min - axismin) * scale);
-  int wleft = round((double) (m->Q1 - m->min) * scale);
-  int boxleft = minpos + wleft;
-  int medpos = round((double) (m->median - axismin) * scale);
-  int meddelta = medpos - minpos - wleft; // position in the box
-  int boxright = boxleft + boxwidth;
-  int wright = round((double) (m->max - m->Q3) * scale);
-  int maxpos = boxright + wright;
-
-//   printf("scale = %8.4f, IQR = %" PRId64 "\n", scale, IQR);
-//   printf("minpos = %d, wleftpos = %d, boxleft = %d, medpos = %d, boxright = %d, maxpos = %d\n",
-// 	 minpos, wleft, boxleft, medpos, boxright, maxpos);
-//   print_ticks(minpos, boxleft, medpos, boxright, maxpos);
+  int minpos = SCALE(m->min - axismin);
+  int boxleft = SCALE(m->Q1 - axismin);
+  int median = SCALE(m->median - axismin);
+  int boxright = SCALE(m->Q3 - axismin);
+  int maxpos = SCALE(m->max - axismin);
+  int boxwidth = boxright - boxleft;
+//   printf("BOXPLOT scale = %4.3f  min/Q1/med/Q3/max: %.2f %.2f %.2f %.2f %.2f\n",
+// 	 scale,
+// 	 scale * (double)(m->min - axismin),
+// 	 scale * (double)(m->Q1 - axismin),
+// 	 scale * (double)(m->median - axismin),
+// 	 scale * (double)(m->Q3 - axismin),
+// 	 scale * (double)(m->max - axismin));
 
   // Will we show the median as its own character?
   int show_median = 1;
-  if ((medpos == boxleft) || (medpos == boxright))
+  if ((median == boxleft) || (median == boxright))
     show_median = 0;
 
   // Top line
-  printf("%*s", minpos + wleft, "");
+  printf("%*s", indent + boxleft, "");
   if (boxwidth > 0) {
-    if (medpos == boxleft) printf("╓");
+    if (median == boxleft) printf("╓");
     else printf("┌");
-    for (int j = 1; j < meddelta; j++) printf("─");
+    for (int j = 1; j < median - boxleft ; j++) printf("─");
     if (show_median) printf("┬");
-    for (int j = 1; j < boxwidth - meddelta; j++) printf("─");
-    if (medpos == boxright) printf("╖");
+    for (int j = 1; j < boxright - median; j++) printf("─");
+    if (median == boxright) printf("╖");
     else printf("┐");
   }
   printf("\n");
   // Middle line
   if (minpos == maxpos) {
-    printf("%*s\n", minpos, "┼");
+    printf("%*s\n", indent + minpos, "┼");
   } else {
-    printf("%*s", minpos, "");
-    if (wleft > 0) printf("├");
-    for (int j = 1; j < wleft; j++) printf("╌");
+    printf("%*s", indent + minpos, "");
+    if (boxleft > minpos) printf("├");
+    for (int j = 1; j < boxleft - minpos; j++) printf("╌");
     if (boxwidth == 0) {
       printf("┼");
     } else if (boxwidth == 1) {
-      if (medpos == boxleft) printf("╢");
+      if (median == boxleft) printf("╢");
       else printf("┤");
-      if (medpos == boxright) printf("╟");
+      if (median == boxright) printf("╟");
       else printf("├");
     } else {
-      if (medpos == boxleft) printf("╢");
+      if (median == boxleft) printf("╢");
       else printf("┤");
     }
-    for (int j = 1; j < meddelta; j++) printf(" ");
+    for (int j = 1; j < median - boxleft; j++) printf(" ");
     if (show_median) printf("│");
-    for (int j = 1; j < boxwidth - meddelta; j++) printf(" ");
+    for (int j = 1; j < boxright - median; j++) printf(" ");
 
-    if (medpos == boxright) printf("╟");
+    if (median == boxright) printf("╟");
     else printf("├");
 
-    for (int j = 1; j < wright; j++) printf("╌");
-    if (wright > 0) printf("┤");
+    for (int j = 1; j < (maxpos - boxright); j++) printf("╌");
+    if ((maxpos - boxright) > 0) printf("┤");
     printf("\n");
   }
   // Bottom line
-  printf("%*s", minpos + wleft, "");
+  printf("%*s", indent + boxleft, "");
   if (boxwidth > 0) {
-    if (medpos == boxleft) printf("╙");
+    if (median == boxleft) printf("╙");
     else printf("└");
-    for (int j = 1; j < meddelta; j++) printf("─");
+    for (int j = 1; j < median - boxleft; j++) printf("─");
     if (show_median) printf("┴");
-    for (int j = 1; j < boxwidth - meddelta; j++) printf("─");
-    if (medpos == boxright) printf("╜");
+    for (int j = 1; j < boxright - median; j++) printf("─");
+    if (median == boxright) printf("╜");
     else printf("┘");
   }
   printf("\n");
 }
 
-#define MS(nanoseconds) (round(((double) (nanoseconds) / 1000.0)))
+#define MS(nanoseconds) (ROUND1(nanoseconds, 1000.0))
 #define MSFMT "%8.1fms"
 #define COLSEP "  "
 #define SKEWSIGNIFICANCE 0.20

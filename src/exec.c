@@ -183,16 +183,24 @@ static int run(const char *cmd, Usage *usage, int idx) {
   if (!config.ignore_failure && WEXITSTATUS(status)) {
 
     if (use_shell) 
-      fprintf(stderr, "Executing command under %s produced non-zero exit code %d.\n",
+      fprintf(stderr,
+	      "\nExecuting command under %s produced"
+	      " non-zero exit code %d.\n",
 	      args->args[0], WEXITSTATUS(status));
     else
-      fprintf(stderr, "Executing command produced non-zero exit code %d.\n",
+      fprintf(stderr,
+	      "\nExecuting command produced non-zero"
+	      " exit code %d.\n",
 	      WEXITSTATUS(status));
 
     if (use_shell && !ends_in(config.shell, " -c"))
-      fprintf(stderr, "Note that shells commonly require the '-c' option to run a command.\n");
+      fprintf(stderr,
+	      "Note that shells commonly require the"
+	      " '-c' option to run a command.\n");
     else
-      fprintf(stderr, "Use the -i/--ignore-failure option to ignore non-zero exit codes.\n");
+      fprintf(stderr,
+	      "Use the -i/--ignore-failure option to"
+	      " ignore non-zero exit codes.\n");
 
     exit(ERR_RUNTIME);
   }

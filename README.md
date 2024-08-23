@@ -54,6 +54,7 @@ These Hyperfine options are effectively the same in BestGuess:
   * `-w`, `--warmup`
   * `-r`, `--runs`
   * `-i`, `--ignore-failure`
+  * `-S`, `--shell` (see caveat below)
   * `--show-output`
 
 Key changes from Hyperfine:
@@ -69,7 +70,7 @@ Key changes from Hyperfine:
 	  it must be the entire shell command, e.g. `/bin/bash -c`.
   * Some options are _new_ because they support unique BestGuess features.
     * `-o`, `--output <FILE>` (save data for individual executions)
-    * `-i`, `--input <FILE>` (read commands, or more commands, from a file)
+    * `-f`, `--file <FILE>` (read commands, or more commands, from a file)
     * `-b`, `--brief` (print a brief instead of full summary to the terminal)
     * `-f`, `--file` (read additional commands from a file)
     * `--groups` (summarize commands from file in groups separated by blank lines)

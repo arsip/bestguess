@@ -78,14 +78,19 @@ int reduce_data(void) {
     axismax = max64(m->max, axismax);
     count++;
   }
-  print_boxplot_scale(axismin, axismax, 80);
+  int width = 84;
+  int scale_min = round((double) axismin / 1000.0);
+  int scale_max = round((double) axismax / 1000.0);
+  print_boxplot_scale(scale_min, scale_max, width, BOXPLOT_LABEL_ABOVE);
   next = 0;
   count = 0;
   while ((s[count] = summarize(usage, &next))) {
-    print_boxplot(&(s[count]->total), axismin, axismax, 80);
+    print_boxplot(&(s[count]->total), axismin, axismax, width);
     count++;
   }
-
+  print_boxplot_scale(scale_min, scale_max, width, BOXPLOT_LABEL_BELOW);
+  printf("\n");
+  
   print_overall_summary(s, 0, count);
 
 //   printf("\n");
@@ -97,58 +102,79 @@ int reduce_data(void) {
   free_usage_array(usage);
   printf("\n");
 
-#if 0
   Measures m;
   m.min = 5;
   m.Q1 = 10;
   m.median = 13;
   m.Q3 = 16;
   m.max = 20;
-  print_boxplot(&m, 0, 20, 72);
-  print_boxplot(&m, 5, 30, 72);
+
+  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
+  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_ABOVE);
+  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
+  print_boxplot(&m, 0, width-3, width);
+  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
 
   m.min = 3;
   m.Q1 = 5;
   m.median = 10;
   m.Q3 = 13;
   m.max = 20;
-  print_boxplot(&m, 0, 30, 30);
+  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
+  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
+  print_boxplot(&m, 0, width-3, width);
+  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
 
   m.min = 3;
   m.Q1 = 5;
   m.median = 5;
   m.Q3 = 13;
   m.max = 25;
-  print_boxplot(&m, 0, 30, 30);
+  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
+  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
+  print_boxplot(&m, 0, width-3, width);
+  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
 
   m.min = 3;
   m.Q1 = 5;
   m.median = 13;
   m.Q3 = 13;
   m.max = 25;
-  print_boxplot(&m, 0, 30, 30);
+  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
+  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
+  print_boxplot(&m, 0, width-3, width);
+  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
 
   m.min = 0;
   m.Q1 = 5;
   m.median = 13;
   m.Q3 = 13;
   m.max = 25;
-  print_boxplot(&m, 0, 30, 30);
-
+  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
+  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
+  print_boxplot(&m, 0, width-3, width);
+  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
+  
   m.min = 0;
   m.Q1 = 5;
   m.median = 13;
   m.Q3 = 13;
   m.max = 30;
-  print_boxplot(&m, 0, 30, 30);
+  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
+  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
+  print_boxplot(&m, 0, width-3, width);
+  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
   
   m.min = 0;
   m.Q1 = 5;
   m.median = 13;
   m.Q3 = 13;
   m.max = 80;
-  print_boxplot(&m, 0, 80, 80);
-#endif  
+  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
+  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
+  print_boxplot(&m, 0, width-3, width);
+  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
+
 
   if (config.input_filename) fclose(input);
   if (config.output_filename) fclose(output);
