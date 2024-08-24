@@ -3,6 +3,10 @@
 ## The 'bestguess' project
 ##
 
+# PROGRAM and REPORTPROGRAM should be set by the Makefile that calls this one
+PROGRAM?=bestguess
+REPORTPROGRAM?=bestreport
+
 OBJECTS= utils.o optable.o exec.o csv.o stats.o reports.o reduce.o
 
 default: debug
@@ -38,7 +42,13 @@ install: $(PROGRAM)
 	  echo "Failed to copy $(PROGRAM)"; \
 	  exit -1;\
 	fi; \
-	printf "Copied $(PROGRAM) to $(DESTDIR)/bin\n";
+	printf "Copied $(PROGRAM) to $(DESTDIR)/bin\n"; \
+	ln -fs "$(DESTDIR)/bin/$(PROGRAM)" "$(DESTDIR)/bin/$(REPORTPROGRAM)"; \
+        if [[ $$? -ne 0 ]]; then \
+	  echo "Failed to create symlink from $(PROGRAM) to $(REPORTPROGRAM)"; \
+	  exit -1;\
+	fi; \
+	printf "Linked $(REPORTPROGRAM) in $(DESTDIR)/bin\n";
 
 # -----------------------------------------------------------------------------
 RELEASE_MODE ?= false
@@ -85,6 +95,7 @@ deps:
 
 clean:
 	-rm -f *.o *.gcda *.gcov *.gcno
+	-rm -f $(PROGRAM) $(REPORTPROGRAM)
 
 tags TAGS: *.[ch]
 	@if ! type "etags" > /dev/null 2>&1; then \

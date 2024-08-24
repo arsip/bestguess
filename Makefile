@@ -12,14 +12,14 @@ default: debug
 
 debug: clean
 	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=false $(PROGRAM) && \
-	cp $(SRCDIR)/$(PROGRAM) . && \
-	ln -s $(PROGRAM) $(REPORTPROGRAM)
+	ln -s $(SRCDIR)/$(PROGRAM) $(PROGRAM) && \
+	ln -s $(SRCDIR)/$(PROGRAM) $(REPORTPROGRAM)
 
 
 release: clean
 	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=true $(PROGRAM) && \
-	cp $(SRCDIR)/$(PROGRAM) . && \
-	ln -s $(PROGRAM) $(REPORTPROGRAM)
+	ln -s $(SRCDIR)/$(PROGRAM) $(PROGRAM) && \
+	ln -s $(SRCDIR)/$(PROGRAM) $(REPORTPROGRAM)
 
 
 # ------------------------------------------------------------------

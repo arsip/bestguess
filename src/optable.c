@@ -337,11 +337,19 @@ void optable_printhelp(const char *progname) {
   int i;
   optable_printusage(progname);
   printf("\n");
-  for (i = optable_iter_start(); i >= 0; i = optable_iter_next(i))
-    printf("  %1s%-1s  --%-14s  %s\n",
+  for (i = optable_iter_start(); i >= 0; i = optable_iter_next(i)) {
+    printf("  %1s%-1s  --%-14s  ",
 	   optable_shortname(i) ? "-" : " ",
 	   optable_shortname(i) ?: "",
-	   optable_longname(i),
-	   optable_helptext(i));
+	   optable_longname(i));
+    const char *help = optable_helptext(i);
+    const char *nl;
+    while ((nl = strchr(help, '\n'))) {
+      printf("%.*s\n", (int) (nl - help), help);
+      help = nl + 1;
+      printf("%*s", 24, "");
+    }
+    printf("%s\n", help);
+  } // for each program option
   fflush(stdout);
 }

@@ -54,11 +54,14 @@ Config config = {
 #define HELP_HFCSV "Write Hyperfine-style summary to CSV <FILE>"
 #define HELP_PREPARE "Execute <COMMAND> before each benchmarked command"
 #define HELP_ACTION							\
-  "When the Bestguess executables are installed under\n"		\
-  "custom names, an <action> option is required.  Normally,\n"		\
-  "the `bestguess` command runs an experiment (executes commands)\n"	\
-  "and the `bestreport` command reads raw timing data from a CSV\n"	\
-  "file to produce various reports.\n"
+  "In rare circumstances, the Bestguess executables\n"			\
+  "are installed under custom names.  In that case, the\n"		\
+  "<ACTION> option is required.  See the manual for more." 
+
+// "Normally,\n"								\
+//   "the `bestguess` command runs an experiment (executes commands)\n"	\
+//   "and the `bestreport` command reads raw timing data from a CSV\n"	\
+//   "file to produce various reports."
 
 static void init_options(void) {
   optable_add(OPT_WARMUP,     "w",  "warmup",         1, HELP_WARMUP);
@@ -201,26 +204,29 @@ static void process_args(int argc, char **argv) {
 	break;
       case OPT_VERSION:
 	check_option_value(val, n);
-	config.action = actionVersion;
-	return;
+	if (config.action != actionHelp)
+	  config.action = actionVersion;
+	break;
       case OPT_HELP:
 	check_option_value(val, n);
 	config.action = actionHelp;
 	return;
       case OPT_ACTION:
 	check_option_value(val, n);
-	if (strcmp(val, CLI_OPTION_EXPERIMENT) == 0) {
-	  config.action = actionExperiment;
-	} else if (strcmp(val, CLI_OPTION_REPORT) == 0) {
-	  config.action = actionReport;
-	} else {
-	  char *message;
-	  asprintf(&message,
-		   "Valid actions are:\n"
-		   "%-8s  run an experiment (measure runtimes of commands)\n"
-		   "%-8s  read raw timing data from a CSV file and produce reports\n",
-		   CLI_OPTION_EXPERIMENT, CLI_OPTION_REPORT);
-	  USAGE(message);
+	if (config.action != actionHelp) {
+	  if (strcmp(val, CLI_OPTION_EXPERIMENT) == 0) {
+	    config.action = actionExperiment;
+	  } else if (strcmp(val, CLI_OPTION_REPORT) == 0) {
+	    config.action = actionReport;
+	  } else {
+	    char *message;
+	    asprintf(&message,
+		     "Valid actions are:\n"
+		     "%-8s  run an experiment (measure runtimes of commands)\n"
+		     "%-8s  read raw timing data from a CSV file and produce reports\n",
+		     CLI_OPTION_EXPERIMENT, CLI_OPTION_REPORT);
+	    USAGE(message);
+	  }
 	}
 	break;
       default:
@@ -244,13 +250,8 @@ int main(int argc, char *argv[]) {
   init_options();
   process_args(argc, argv);	// Set the 'config' parms
   
-  printf("config.action = %d, first cmd = %d\n",
-	 config.action, config.first_command);
-
   if (config.action == actionNone)
     config.action = action_from_progname(progname);
-
-  printf("config.action is now = %d", config.action);
 
   // Check for help first, in case the user supplies conflicting
   // options like -v -h.
