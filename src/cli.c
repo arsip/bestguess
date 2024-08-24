@@ -7,6 +7,7 @@
 #include "bestguess.h"
 #include "cli.h"
 #include "utils.h"
+#include "reports.h"
 #include "optable.h"
 #include <stdio.h>
 #include <string.h>
@@ -224,7 +225,7 @@ static void init_report_options(void) {
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
   optable_add(OPT_REPORT,     "R",  "report",         1, HELP_REPORT);
-  optable_add(OPT_BOXPLOT,    "b",  "boxplot",        0, HELP_BOXPLOT);
+  optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_ALL,        "a",  "all",            0, HELP_ALL);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
@@ -277,8 +278,17 @@ void process_report_options(int argc, char **argv) {
 	break;
       case OPT_REPORT:
 	check_option_value(val, n);
-	config.report = strdup(val);
-	break;
+	if (val && (strcmp(val, "full") == 0)) {
+	  config.report = REPORT_FULL;
+	  break;
+	} else if (val && (strcmp(val, "summary") == 0)) {
+	  config.report = REPORT_SUMMARY;
+	  break;
+	} else {
+	  USAGE("Valid report types are:\n"
+		"full     print boxplots and all descriptive statistics\n"
+		"summary  print summary as generated when data was collected");
+	}
       case OPT_BOXPLOT:
 	check_option_value(val, n);
 	config.boxplot = true;

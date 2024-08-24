@@ -80,7 +80,7 @@ typedef struct Config {
   char *prep_command;
   const char *shell;
   bool groups;
-  char *report;
+  int  report;
   bool boxplot;
   bool all;
 } Config;

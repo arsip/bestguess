@@ -7,7 +7,7 @@
 PROGRAM?=bestguess
 REPORTPROGRAM?=bestreport
 
-OBJECTS= cli.o utils.o optable.o exec.o csv.o stats.o reports.o reduce.o
+OBJECTS= cli.o utils.o optable.o exec.o csv.o stats.o reports.o
 
 default: debug
 

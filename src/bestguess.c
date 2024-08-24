@@ -7,7 +7,7 @@
 
 #include "bestguess.h"
 
-const char *progversion = "0.5.2";
+const char *progversion = "0.5.5";
 const char *progname = "bestguess";
 
 #include "csv.h"
@@ -40,7 +40,7 @@ Config config = {
   .prep_command = NULL,
   .shell = "",
   .groups = false,
-  .report = NULL,
+  .report = -1,
   .boxplot = false,
   .all = false
 };
@@ -116,7 +116,7 @@ int main(int argc, char *argv[]) {
       case actionReport:
 	optable_setusage("[options] <datafile1> ...");
 	process_report_options(argc, argv);
-	reduce_data(argc, argv);
+	report(argc, argv);
 	break;
       default:
 	PANIC("Action not set");
