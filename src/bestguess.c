@@ -98,19 +98,20 @@ static void check_option_value(const char *val, int n) {
 static const char *base(const char *str) {
   if (!str) PANIC_NULL();
   const char *p = str;
-  while (*p++);
+  while (*p) p++;
   while (p >= str)
     if (*p == '/') break;
     else p--;
-  return (*p == '/') ? p+1 : str;
+  const char *ans = (*p == '/') ? p+1 : str;
+  return ans;
 }
 
 // If installed program name is 'bestguess' then by default run an
 // experiment.  If 'bestreport' then by default produce a report.
-static Action action_from_progname(void) {
-  if (strcmp(base(progname), PROGNAME_EXPERIMENT) == 0)
+static Action action_from_progname(const char *executable) {
+  if (strcmp(base(executable), PROGNAME_EXPERIMENT) == 0)
     return actionExperiment;
-  else if (strcmp(base(progname), PROGNAME_REPORT) == 0)
+  else if (strcmp(base(executable), PROGNAME_REPORT) == 0)
     return actionReport;
   return actionNone;
 }
@@ -243,8 +244,13 @@ int main(int argc, char *argv[]) {
   init_options();
   process_args(argc, argv);	// Set the 'config' parms
   
+  printf("config.action = %d, first cmd = %d\n",
+	 config.action, config.first_command);
+
   if (config.action == actionNone)
-    config.action = action_from_progname();
+    config.action = action_from_progname(progname);
+
+  printf("config.action is now = %d", config.action);
 
   // Check for help first, in case the user supplies conflicting
   // options like -v -h.

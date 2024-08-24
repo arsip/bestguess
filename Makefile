@@ -3,22 +3,30 @@
 ## The 'bestguess' project for command-line benchmarking
 ##
 
-PROGRAM=bestguess
+export PROGRAM=bestguess
+export REPORTPROGRAM=bestreport
 SRCDIR=src
 TESTDIR=test
 
 default: debug
 
 debug: clean
-	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=false $(PROGRAM) && cp $(SRCDIR)/$(PROGRAM) .
+	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=false $(PROGRAM) && \
+	cp $(SRCDIR)/$(PROGRAM) . && \
+	ln -s $(PROGRAM) $(REPORTPROGRAM)
+
 
 release: clean
-	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=true $(PROGRAM) && cp $(SRCDIR)/$(PROGRAM) .
+	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=true $(PROGRAM) && \
+	cp $(SRCDIR)/$(PROGRAM) . && \
+	ln -s $(PROGRAM) $(REPORTPROGRAM)
+
 
 # ------------------------------------------------------------------
 
+
 clean:
-	-rm -f $(PROGRAM)
+	-rm -f $(PROGRAM) $(REPORTPROGRAM)
 	@$(MAKE) -C $(SRCDIR) clean
 
 install deps tags config help:
