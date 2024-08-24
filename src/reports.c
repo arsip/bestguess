@@ -13,8 +13,36 @@
 #include <string.h>
 #include <math.h>
 
-void announce_command(const char *cmd, int number) {
-  printf("Command %d: %s\n", number, *cmd ? cmd : "(empty)");
+#define SECOND(a, b, c) b,
+const char *ReportOptionName[] = {XReports(SECOND)};
+#undef SECOND
+#define THIRD(a, b, c) c,
+const char *ReportOptionDesc[] = {XReports(THIRD)};
+#undef THIRD
+
+ReportCode interpret_report_option(const char *op) {
+  for (ReportCode i = REPORT_NONE; i < REPORT_ERROR; i++)
+    if (strcmp(op, ReportOptionName[i]) == 0) return i;
+  return REPORT_ERROR;
+}
+
+// Caller must the returned string
+char *report_options(void) {
+  size_t bufsize = 1000;
+  char *buf = malloc(bufsize);
+  if (!buf) PANIC_OOM();
+  int len = snprintf(buf, bufsize, "Valid report types are");
+  for (ReportCode i = REPORT_NONE; i < REPORT_ERROR; i++) {
+    bufsize -= len;
+    len += snprintf(buf + len, bufsize, "\n  %-8s %s",
+		    ReportOptionName[i], ReportOptionDesc[i]);
+  }
+  return buf;
+}
+
+
+void announce_command(const char *cmd, int index) {
+  printf("Command %d: %s\n", index + 1, *cmd ? cmd : "(empty)");
 }
 
 #define FMT "%6.1f"
@@ -255,6 +283,10 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
   fflush(stdout);
 }
 
+// -----------------------------------------------------------------------------
+// Box plots
+// -----------------------------------------------------------------------------
+
 // Boxplot convention:
 //
 //  Q0  Q1  Q2  Q3      Q4
@@ -262,11 +294,18 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
 //  ├╌╌╌┤   │    ├╌╌╌╌╌╌╌╌┤
 //      └───┴────┘
 
+
 // These macros control how the boxplot looks, and are somewhat arbitrary.
 #define WIDTHMIN 40
 #define TICKSPACING 10
 #define LABELWIDTH 4
 #define AXISLINE "────────────────────────────────────────────────────────────"
+
+static void print_boxplot_command(const char *cmd, int index, int width) {
+  printf("  %*d: %.*s\n",
+	 LABELWIDTH, index + 1,
+	 width - LABELWIDTH - 3, *cmd ? cmd : "(empty)");
+}
 
 static void print_boxplot_labels(int axismin, int axismax, int width) {
   //
@@ -452,8 +491,9 @@ void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width) {
 #define SKEWSIGNIFICANCE 0.20
 #define INDENT "  "
 
+// TODO: Scale the values if too many ms?
 void print_descriptive_stats(Measures *m, int n) {
-  printf(INDENT "About the distribution:\n\n");
+  printf(INDENT "About the distribution of total CPU time:\n\n");
 
   printf(INDENT "     Min         Q₁         Median       Q₃          Max   \n");
   printf(INDENT MSFMT COLSEP MSFMT COLSEP MSFMT COLSEP MSFMT COLSEP MSFMT "\n",
@@ -467,7 +507,7 @@ void print_descriptive_stats(Measures *m, int n) {
   printf(INDENT "N (data points) = %d\n", n);
   int64_t IQR = m->Q3 - m->Q1;
   int64_t range = m->max - m->min;
-  printf(INDENT "Inter-quartile range = %0.2f (%0.2f%% of total range)\n",
+  printf(INDENT "Inter-quartile range = %0.2fms (%0.2f%% of total range)\n",
 	 MS(IQR), (MS(IQR) * 100.0/ MS(range)));
 
   // How far below and above the median
@@ -479,7 +519,7 @@ void print_descriptive_stats(Measures *m, int n) {
   if (m->code == 0) {
     if (m->ADscore > 0)
       printf(INDENT "Distribution %s normal (AD score %4.2f) with p = %6.4f\n",
-	     (m->p_normal <= 0.10) ? "is NOT" : "could be",
+	     (m->p_normal <= 0.05) ? "is NOT" : "could be",
 	     m->ADscore,
 	     m->p_normal);
     else
@@ -576,23 +616,25 @@ void report(int argc, char **argv) {
   int count = 0;
   int prev = 0;
   while ((s[count] = summarize(usage, &next))) {
-    announce_command(get_string(usage, prev, F_CMD), count+1);
-    if (config.report >= 0) {
-      print_summary(s[count], config.brief_summary && !config.all);
+    if (config.report != REPORT_NONE) {
+      announce_command(s[count]->cmd, count);
+      print_summary(s[count], (config.report == REPORT_BRIEF));
       printf("\n");
     }
     if (config.show_graph) {
+      if (config.report == REPORT_NONE)
+	announce_command(s[count]->cmd, count);
       print_graph(s[count], usage, prev, next);
       printf("\n");
     }
     if (config.report == REPORT_FULL) {
-      printf("\n");
       print_descriptive_stats(&(s[count]->total), s[count]->runs);
+      printf("\n");
     }
     prev = next;
     if (++count == MAXCMDS) USAGE("too many commands");
   }
-  if (config.boxplot || config.all) {
+  if (config.boxplot) {
     next = 0;
     count = 0;
     int64_t axismin = INT64_MAX;
@@ -610,6 +652,7 @@ void report(int argc, char **argv) {
     next = 0;
     count = 0;
     while ((s[count] = summarize(usage, &next))) {
+      print_boxplot_command(s[count]->cmd, count, width);
       print_boxplot(&(s[count]->total), axismin, axismax, width);
       count++;
     }

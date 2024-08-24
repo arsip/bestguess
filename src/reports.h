@@ -13,8 +13,23 @@
 // How many input files of data are we willing to read?
 #define MAXDATAFILES 400
 
-#define REPORT_FULL    0
-#define REPORT_SUMMARY 1
+#define XReports(X)                                                             \
+  /* REPORT_NONE must be first */                                               \
+   X(REPORT_NONE,    "none",    "No report")                                    \
+   X(REPORT_BRIEF,   "brief",   "Brief report with wall clock and CPU time")    \
+   X(REPORT_SUMMARY, "summary", "Summary as when data was collected (default)") \
+   X(REPORT_FULL,    "full",    "Summary and distribution analysis)")           \
+  /* REPORT_ERROR must be last */                                               \
+   X(REPORT_ERROR,    NULL, "SENTINEL"    )    
+
+#define FIRST(a, b, c) a,
+typedef enum { XReports(FIRST) } ReportCode;
+#undef FIRST
+extern const char *ReportOptionName[];
+extern const char *ReportOptionDesc[];
+
+char *report_options(void);
+ReportCode interpret_report_option(const char *op);
 
 void report(int argc, char **argv);
 

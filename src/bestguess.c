@@ -14,7 +14,6 @@ const char *progname = "bestguess";
 #include "stats.h"
 #include "utils.h"
 #include "exec.h"
-#include "reduce.h"
 #include "optable.h"
 #include "reports.h"
 #include "cli.h"
@@ -40,9 +39,8 @@ Config config = {
   .prep_command = NULL,
   .shell = "",
   .groups = false,
-  .report = -1,
+  .report = REPORT_SUMMARY,
   .boxplot = false,
-  .all = false
 };
 
 // -----------------------------------------------------------------------------

@@ -215,18 +215,15 @@ void process_exec_options(int argc, char **argv) {
 // ACTION 'report' (process raw data, producing reports)
 // -----------------------------------------------------------------------------
 
-#define HELP_REPORT "Select statistics report type: summary or full"
 #define HELP_BOXPLOT "Show box plots of timing data"
-#define HELP_ALL "Show all descriptive statistics and box plots"
 
 static void init_report_options(void) {
   optable_add(OPT_BRIEF,      "b",  "brief",          0, HELP_BRIEF);
   optable_add(OPT_GRAPH,      "g",  "graph",          0, HELP_GRAPH);
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
-  optable_add(OPT_REPORT,     "R",  "report",         1, HELP_REPORT);
+  optable_add(OPT_REPORT,     "R",  "report",         1, report_options());
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
-  optable_add(OPT_ALL,        "a",  "all",            0, HELP_ALL);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
@@ -278,24 +275,13 @@ void process_report_options(int argc, char **argv) {
 	break;
       case OPT_REPORT:
 	check_option_value(val, n);
-	if (val && (strcmp(val, "full") == 0)) {
-	  config.report = REPORT_FULL;
-	  break;
-	} else if (val && (strcmp(val, "summary") == 0)) {
-	  config.report = REPORT_SUMMARY;
-	  break;
-	} else {
-	  USAGE("Valid report types are:\n"
-		"full     print boxplots and all descriptive statistics\n"
-		"summary  print summary as generated when data was collected");
-	}
+	config.report = interpret_report_option(val);
+	if (config.report == REPORT_ERROR)
+	  USAGE(report_options());
+	break;
       case OPT_BOXPLOT:
 	check_option_value(val, n);
 	config.boxplot = true;
-	break;
-      case OPT_ALL:
-	check_option_value(val, n);
-	config.all = true;
 	break;
       case OPT_VERSION:
       case OPT_HELP:

@@ -82,7 +82,6 @@ typedef struct Config {
   bool groups;
   int  report;
   bool boxplot;
-  bool all;
 } Config;
 
 extern Config config;

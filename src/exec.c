@@ -219,7 +219,7 @@ static Summary *run_command(int num,
 
   if (!config.output_to_stdout) {
     // Internally, num is 0-based.  Users should see 1-based numbering.
-    announce_command(cmd, num+1);
+    announce_command(cmd, num);
     fflush(stdout);
   }
 
