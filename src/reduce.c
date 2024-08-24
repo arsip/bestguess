@@ -11,30 +11,15 @@
 #include "reduce.h"
 #include "math.h"
 
-int reduce_data(void) {
-  FILE *input = NULL, *output = NULL;
+// TODO: We index into input[] starting at config.first, not 0
 
-  // TEMP:
-  // print_zscore_table();
+void reduce_data(int argc, char **argv) {
+  FILE *input[MAXDATAFILES] = {NULL};
 
-
-  // Just a way to test our assertions:
-  const int n = 10000;
-  for (int i=0; i < n; i++) {
-    double z = (((double) i) - ((double) n / 2.0)) / 500.0;
-    if ((normalCDF(z) < 0.0) || (normalCDF(z) > 1.0))
-      printf("**** ALERT! CDF value for z-score of %6.3f is %8.5f\n",
-	     z, normalCDF(z));
-  }
-
-//   printf("Relevant configuration:\n");
-//   printf("  Input filename:  %s\n", config.input_filename);
-//   printf("  Output filename: %s\n", config.output_filename);
-
-  input = maybe_open(config.input_filename, "r");
-  output = maybe_open(config.output_filename, "w");
-  if (!output) output = stdout;
-  if (!input) input = stdin;
+  if ((config.first == 0) || (config.first == argc))
+    USAGE("No data files to read");
+  if (config.first >= MAXDATAFILES)
+    USAGE("Too many data files");
 
   // The arg to 'new_usage_array' is the initial allocation, as the
   // array grows dynamically.
@@ -43,26 +28,30 @@ int reduce_data(void) {
   char *buf = malloc(buflen);
   if (!buf) PANIC_OOM();
   CSVrow *row;
-  // Header
-  row = read_CSVrow(input, buf, buflen);
-  if (!row) ERROR("No data read");
-  // Rows
-  while ((row = read_CSVrow(input, buf, buflen))) {
-    int idx = usage_next(usage);
-    set_string(usage, idx, F_CMD, CSVfield(row, F_CMD));
-    set_string(usage, idx, F_SHELL, CSVfield(row, F_SHELL));
-    for (int fc = F_CODE; fc < F_TOTAL; fc++) {
-      set_int64(usage, idx, fc, strtoint64(CSVfield(row, fc)));
+
+  for (int i = config.first; i < argc; i++) {
+    input[i] = maybe_open(argv[i], "r");
+    if (!input[i]) PANIC_NULL();
+    // Skip CSV header
+    row = read_CSVrow(input[i], buf, buflen);
+    if (!row) ERROR("No data read from file %s", argv[i]);
+    // Read all the rows
+    while ((row = read_CSVrow(input[i], buf, buflen))) {
+      int idx = usage_next(usage);
+      set_string(usage, idx, F_CMD, CSVfield(row, F_CMD));
+      set_string(usage, idx, F_SHELL, CSVfield(row, F_SHELL));
+      for (int fc = F_CODE; fc < F_TOTAL; fc++) {
+	set_int64(usage, idx, fc, strtoint64(CSVfield(row, fc)));
+      }
+      set_int64(usage, idx, F_TOTAL, get_int64(usage, idx, F_USER) + get_int64(usage, idx, F_SYSTEM));
+      set_int64(usage, idx, F_TCSW, get_int64(usage, idx, F_ICSW) + get_int64(usage, idx, F_VCSW));
+      free_CSVrow(row);
+      //write_line(output, usage, idx);
     }
-    set_int64(usage, idx, F_TOTAL, get_int64(usage, idx, F_USER) + get_int64(usage, idx, F_SYSTEM));
-    set_int64(usage, idx, F_TCSW, get_int64(usage, idx, F_ICSW) + get_int64(usage, idx, F_VCSW));
-    free_CSVrow(row);
-    //write_line(output, usage, idx);
   }
+
   free(buf);
-
-  if (usage->next == 0) ERROR("No data read");
-
+  if (usage->next == 0) ERROR("No data read.  Exiting...");
 
   Summary *s[MAXCMDS];
   int next = 0;
@@ -184,10 +173,8 @@ int reduce_data(void) {
   print_boxplot(&m, 0, width-3, width);
   print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
 
+  for (int i = config.first; i < argc; i++) fclose(input[i]);
 
-  if (config.input_filename) fclose(input);
-  if (config.output_filename) fclose(output);
-
-  return 0;
+  return;
 }
 

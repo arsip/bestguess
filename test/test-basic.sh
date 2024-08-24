@@ -81,7 +81,7 @@ runtime "$prog" ./nosuchdirectory/thisprogramshouldnotexist
 
 
 if [[ $allpassed -eq 1 ]]; then 
-    printf "All tests passed.\n"
+    printf "All tests passed.\n\n"
     exit 0
 else
     exit -1

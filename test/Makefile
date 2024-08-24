@@ -57,7 +57,7 @@ optiontest: TAGS optiontest.o $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $@.c $(OBJECTS) 
 
 test: $(PROGRAMS)
-	@./optiontest && \
+	@./optiontest
 	./test-basic.sh && ./test-reports.sh && ./test-rawdata.sh
 
 

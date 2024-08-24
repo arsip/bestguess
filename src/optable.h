@@ -58,6 +58,7 @@ const char *optable_helptext(int n);
 int  optable_iter_start(void);
 int  optable_iter_next(int i);
 
+void optable_reset(void);
 int  optable_add(int n,
 		 const char *sname,
 		 const char *lname,

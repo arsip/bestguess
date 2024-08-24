@@ -9,7 +9,6 @@
 
 #include "bestguess.h"
 #include "stats.h"
-#include <stdbool.h>
 
 void announce_command(const char *cmd, int number);
 void print_summary(Summary *s, bool briefly);

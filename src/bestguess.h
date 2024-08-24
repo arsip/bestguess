@@ -12,6 +12,8 @@
 
 #include <stdlib.h>
 #include <inttypes.h>
+#include <stdbool.h>
+#include <string.h>
 
 extern const char *progversion;
 extern const char *progname;
@@ -56,52 +58,33 @@ extern const char *progname;
 
 typedef enum Action {
   actionNone,		   // No program action was chosen by the user
-  actionExperiment,	   // Run an experiment (measure commands)
+  actionExecute,	   // Run an experiment (measure commands)
   actionReport,		   // Report on already-collected raw data
-  actionVersion,	   // Print Bestguess version
-  actionHelp,		   // Print Bestguess help
 } Action;
 
 typedef struct Config {
   int action;
-  int brief_summary;
-  int show_graph;
+  int helpversion;
+  bool brief_summary;
+  bool show_graph;
   int runs;
   int warmups;
-  int first_command;
-  int show_output;
-  int ignore_failure;
-  int output_to_stdout;
+  int first;
+  bool show_output;
+  bool ignore_failure;
+  bool output_to_stdout;
   char *input_filename;
   char *output_filename;
   char *csv_filename;
   char *hf_filename;
   char *prep_command;
   const char *shell;
-  int groups;
+  bool groups;
+  char *report;
+  bool boxplot;
+  bool all;
 } Config;
 
 extern Config config;
-
-// The order of the options below is the order they will appear in the
-// printed help text.
-enum Options { 
-  OPT_WARMUP,
-  OPT_RUNS,
-  OPT_PREP,
-  OPT_OUTPUT,
-  OPT_FILE,
-  OPT_GROUPS,
-  OPT_BRIEF,
-  OPT_GRAPH,
-  OPT_SHOWOUTPUT,
-  OPT_IGNORE,
-  OPT_SHELL,
-  OPT_CSV,			// BestGuess format CSV
-  OPT_HFCSV,			// Hyperfine format CSV
-  OPT_ACTION,			// E.g. run, report
-  OPT_VERSION,
-  OPT_HELP,
-};
 
 #endif

@@ -5,6 +5,7 @@
 //  Copyright (C) Jamie A. Jennings, 2024
 
 #include "exec.h"
+#include "cli.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -297,8 +298,8 @@ void run_all_commands(int argc, char **argv) {
   if (csv_output) write_summary_header(csv_output);
   if (hf_output) write_hf_header(hf_output);
 
-  if (config.first_command > 0) {
-    for (int k = config.first_command; k < argc; k++) {
+  if (config.first > 0) {
+    for (int k = config.first; k < argc; k++) {
       summaries[n] = run_command(n, argv[k], output, csv_output, hf_output);
       if (++n == MAXCMDS) goto toomany;
     }

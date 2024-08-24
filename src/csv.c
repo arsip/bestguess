@@ -7,8 +7,6 @@
 #include "csv.h"
 #include "utils.h"
 #include <limits.h>
-#include <stdbool.h>
-#include <string.h>
 #include <assert.h>
 
 int CSVfields(CSVrow *row) {

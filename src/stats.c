@@ -7,9 +7,6 @@
 #include "bestguess.h"
 #include "utils.h"
 #include "stats.h"
-
-#include <stdbool.h>
-#include <string.h>
 #include <math.h>
 #include <assert.h>
 

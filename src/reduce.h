@@ -7,9 +7,10 @@
 #ifndef reduce_h
 #define reduce_h
 
-#include "bestguess.h"
+// How many input files of data are we willing to read?
+#define MAXDATAFILES 400
 
-int reduce_data(void);
+void reduce_data(int argc, char **argv);
 
 #endif
 

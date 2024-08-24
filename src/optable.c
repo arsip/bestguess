@@ -124,6 +124,10 @@ void optable_free(void) {
   Argv = NULL;
 }
 
+void optable_reset(void) {
+  optable_free();
+}  
+
 // Return error code: 1 for out of memory, 0 for success
 static int table_init(void) {
   const size_t initsize = 40;

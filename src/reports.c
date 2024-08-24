@@ -218,7 +218,7 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
   // Need at least two commands in order to have a comparison
   if ((end - start) < 2) {
     // Command groups are a feature of commands read from a file
-    if (config.input_filename && (config.action == actionExperiment)) {
+    if (config.input_filename && (config.action == actionExecute)) {
       printf("Command group contains only one command\n");
     }
     return;
