@@ -265,7 +265,8 @@ static Summary *run_command(int num,
 void run_all_commands(int argc, char **argv) {
   // 'n' is the number of summaries == number of commands
   int n = 0;
-  char buf[MAXCMDLEN];
+  char *buf = malloc(MAXCMDLEN);
+  if (!buf) PANIC_OOM();
   Summary *summaries[MAXCMDS];
   FILE *input = NULL, *output = NULL, *csv_output = NULL, *hf_output = NULL;
 
@@ -307,9 +308,12 @@ void run_all_commands(int argc, char **argv) {
   int group_start = 0;
   if (input) {
     while ((cmd = fgets(buf, MAXCMDLEN, input))) {
+      // fgets() guarantees a NUL-terminated string
       size_t len = strlen(cmd);
       if ((len > 0) && (cmd[len-1] == '\n')) {
 	cmd[len-1] = '\0';
+      } else {
+	ERROR("Read error on input file (max command length is %d bytes)", MAXCMDLEN);
       }
       if ((!*cmd) && config.groups) {
 	// Blank line in input file AND groups option is set
@@ -337,6 +341,7 @@ void run_all_commands(int argc, char **argv) {
   if (input) fclose(input);
 
   for (int i = 0; i < n; i++) free_summary(summaries[i]);
+  free(buf);
   return;
 
  toomany:

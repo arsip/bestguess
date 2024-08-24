@@ -7,7 +7,7 @@
 
 #include "bestguess.h"
 
-const char *progversion = "0.5.1";
+const char *progversion = "0.5.2";
 const char *progname = "bestguess";
 
 #include "csv.h"
@@ -22,7 +22,7 @@ const char *progname = "bestguess";
 #include <string.h>
 
 Config config = {
-  .reducing_mode = 0,
+  .action = actionNone,
   .brief_summary = 0,
   .show_graph = 0,
   .runs = 1,
@@ -53,6 +53,12 @@ Config config = {
 #define HELP_CSV "Write statistical summary to CSV <FILE>"
 #define HELP_HFCSV "Write Hyperfine-style summary to CSV <FILE>"
 #define HELP_PREPARE "Execute <COMMAND> before each benchmarked command"
+#define HELP_ACTION							\
+  "When the Bestguess executables are installed under\n"		\
+  "custom names, an <action> option is required.  Normally,\n"		\
+  "the `bestguess` command runs an experiment (executes commands)\n"	\
+  "and the `bestreport` command reads raw timing data from a CSV\n"	\
+  "file to produce various reports.\n"
 
 static void init_options(void) {
   optable_add(OPT_WARMUP,     "w",  "warmup",         1, HELP_WARMUP);
@@ -68,6 +74,7 @@ static void init_options(void) {
   optable_add(OPT_SHELL,      "S",  "shell",          1, HELP_SHELL);
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
+  optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
@@ -87,7 +94,29 @@ static void check_option_value(const char *val, int n) {
   }
 }
 
-static int process_args(int argc, char **argv) {
+// Cheap version of basename() for Unix only
+static const char *base(const char *str) {
+  if (!str) PANIC_NULL();
+  const char *p = str;
+  while (*p++);
+  while (p >= str)
+    if (*p == '/') break;
+    else p--;
+  return (*p == '/') ? p+1 : str;
+}
+
+// If installed program name is 'bestguess' then by default run an
+// experiment.  If 'bestreport' then by default produce a report.
+static Action action_from_progname(void) {
+  if (strcmp(base(progname), PROGNAME_EXPERIMENT) == 0)
+    return actionExperiment;
+  else if (strcmp(base(progname), PROGNAME_REPORT) == 0)
+    return actionReport;
+  return actionNone;
+}
+
+// Process the CLI args and set 'config' parameters
+static void process_args(int argc, char **argv) {
   int n, i;
   const char *val;
 
@@ -98,12 +127,6 @@ static int process_args(int argc, char **argv) {
   while ((i = optable_next(&n, &val, i))) {
     if (n < 0) {
       if (val) {
-	// Command argument, not an option or switch
-	if ((i == 1) && (strcmp(val, PROCESS_DATA_COMMAND) == 0)) {
-	  if (DEBUG) printf("*** Reducing mode ***\n");
-	  config.reducing_mode = 1;
-	  continue;
-	}
 	if (!config.first_command) config.first_command = i;
 	continue;
       }
@@ -177,22 +200,37 @@ static int process_args(int argc, char **argv) {
 	break;
       case OPT_VERSION:
 	check_option_value(val, n);
-	return n;
-	break;
+	config.action = actionVersion;
+	return;
       case OPT_HELP:
 	check_option_value(val, n);
-	return n;
+	config.action = actionHelp;
+	return;
+      case OPT_ACTION:
+	check_option_value(val, n);
+	if (strcmp(val, CLI_OPTION_EXPERIMENT) == 0) {
+	  config.action = actionExperiment;
+	} else if (strcmp(val, CLI_OPTION_REPORT) == 0) {
+	  config.action = actionReport;
+	} else {
+	  char *message;
+	  asprintf(&message,
+		   "Valid actions are:\n"
+		   "%-8s  run an experiment (measure runtimes of commands)\n"
+		   "%-8s  read raw timing data from a CSV file and produce reports\n",
+		   CLI_OPTION_EXPERIMENT, CLI_OPTION_REPORT);
+	  USAGE(message);
+	}
 	break;
       default:
 	PANIC("invalid option index %d\n", n);
     }
   }
-  return -1;
+  return;
 }
 
 int main(int argc, char *argv[]) {
 
-  int immediate, code;
   if (argc) progname = argv[0];
   optable_setusage("[options] <cmd> ...");
 
@@ -201,24 +239,32 @@ int main(int argc, char *argv[]) {
     USAGE("For more information, try %s --help\n", progname);
   }
 
+  int code = 0;
   init_options();
-  immediate = process_args(argc, argv);
+  process_args(argc, argv);	// Set the 'config' parms
   
-  if (immediate == OPT_VERSION) {
-    printf("%s %s\n", progname, progversion);
-    exit(0);
-  } else if (immediate == OPT_HELP) {
-    optable_printhelp(progname);
-    exit(0);
-  }
+  if (config.action == actionNone)
+    config.action = action_from_progname();
 
-  if (config.reducing_mode) {
-    code = reduce_data();
-    exit(code);
-  } else {
-    run_all_commands(argc, argv);
+  // Check for help first, in case the user supplies conflicting
+  // options like -v -h.
+  switch (config.action) {
+    case actionHelp:
+      optable_printhelp(progname);
+      break;
+    case actionVersion:
+      printf("%s %s\n", progname, progversion);
+      break;
+    case actionExperiment:
+      run_all_commands(argc, argv);
+      break;
+    case actionReport:
+      code = reduce_data();
+      break;
+    default:
+      PANIC("Action not set");
   }
 
   optable_free();
-  return 0;
+  return code;
 }

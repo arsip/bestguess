@@ -36,13 +36,18 @@ int reduce_data(void) {
   if (!output) output = stdout;
   if (!input) input = stdin;
 
-  // TODO: Increase initial count after some testing
-  struct Usage *usage = new_usage_array(100);
+  // The arg to 'new_usage_array' is the initial allocation, as the
+  // array grows dynamically.
+  struct Usage *usage = new_usage_array(200);
+  size_t buflen = MAXCSVLEN;
+  char *buf = malloc(buflen);
+  if (!buf) PANIC_OOM();
   CSVrow *row;
-  // Headers
-  row = read_CSVrow(input);
+  // Header
+  row = read_CSVrow(input, buf, buflen);
+  if (!row) ERROR("No data read");
   // Rows
-  while ((row = read_CSVrow(input))) {
+  while ((row = read_CSVrow(input, buf, buflen))) {
     int idx = usage_next(usage);
     set_string(usage, idx, F_CMD, CSVfield(row, F_CMD));
     set_string(usage, idx, F_SHELL, CSVfield(row, F_SHELL));
@@ -54,6 +59,10 @@ int reduce_data(void) {
     free_CSVrow(row);
     //write_line(output, usage, idx);
   }
+  free(buf);
+
+  if (usage->next == 0) ERROR("No data read");
+
 
   Summary *s[MAXCMDS];
   int next = 0;

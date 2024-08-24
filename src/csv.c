@@ -95,9 +95,8 @@ static int parse_CSVrow(char *line, CSVrow *row) {
   return 0;
 }
 
-CSVrow *read_CSVrow(FILE *f) {
-  char buf[MAXCSVLEN];
-  char *line = fgets(buf, MAXCSVLEN, f);
+CSVrow *read_CSVrow(FILE *f, char *buf, size_t buflen) {
+  char *line = fgets(buf, buflen, f);
   if (!line) return NULL;	// EOF
   CSVrow *row = new_row();
   int errfield = parse_CSVrow(line, row);

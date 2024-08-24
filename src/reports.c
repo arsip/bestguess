@@ -35,27 +35,28 @@ void announce_command(const char *cmd, int number) {
     printf("%s", briefly ? "\n" : "   │\n");	\
   } while (0)
 
-#define PRINT_(fmt_s, fmt_ms, field) do {				\
-    if ((field) < 0) 							\
-      printf("%6s", "   - ");						\
-    else 								\
-      printf(sec ? fmt_s : fmt_ms, field);				\
-  } while (0)
-
 #define PRINTMODE(field, briefly) do {				\
-    PRINT_(FMTs, FMT, ROUND1(field, divisor));			\
+    printf(sec ? FMTs : FMT, ROUND1(field, divisor));		\
     printf(" %-3s", units);					\
     printf(GAP);						\
     LEFTBAR(briefly);						\
   } while (0)
 
 #define PRINTTIME(field) do {					\
-    PRINT_(FMTs, FMT, ROUND1(field, divisor));			\
+    if ((field) < 0) {						\
+      printf("%6s", "   - ");					\
+    } else {							\
+      printf(sec ? FMTs : FMT, ROUND1(field, divisor));		\
+    }								\
     printf(GAP);						\
   } while (0)
 
 #define PRINTTIMENL(field, briefly) do {			\
-    PRINT_(FMTs, FMT, ROUND1(field, divisor));			\
+    if ((field) < 0) {						\
+      printf("%6s", "   - ");					\
+    } else {							\
+      printf(sec ? FMTs : FMT, ROUND1(field, divisor));		\
+    }								\
     RIGHTBAR(briefly);						\
   } while (0)
 
@@ -217,7 +218,7 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
   // Need at least two commands in order to have a comparison
   if ((end - start) < 2) {
     // Command groups are a feature of commands read from a file
-    if (config.input_filename && !config.reducing_mode) {
+    if (config.input_filename && (config.action == actionExperiment)) {
       printf("Command group contains only one command\n");
     }
     return;

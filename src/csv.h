@@ -19,10 +19,14 @@ typedef struct CSVrow {
 
 // Generic utilities
 
-int     CSVfields(CSVrow *row);
-CSVrow *read_CSVrow(FILE *f);
-char   *CSVfield(CSVrow *row, int i);
-void    free_CSVrow(CSVrow *);
+// Read a CSV row from 'f' using 'buf' for storage
+CSVrow *read_CSVrow(FILE *f, char *buf, size_t buflen);
+// Number of fields in 'row', N
+int CSVfields(CSVrow *row);
+// Get the contents of field i (numbered 0..N-1) of 'row'
+char *CSVfield(CSVrow *row, int i);
+// Free the row and all its strings
+void free_CSVrow(CSVrow *);
 
 // Output file (raw data, per timed run)
 

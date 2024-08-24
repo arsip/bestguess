@@ -29,16 +29,19 @@ extern const char *progname;
 
 // Maximum length of a single command, in bytes
 // E.g. "ls -lh" has 7 bytes (6 chars and NUL)
-#define MAXCMDLEN 4096
+#define MAXCMDLEN (1 << 20)
 
 // Maximum length of a single line in our own CSV file format
-#define MAXCSVLEN 4096
+#define MAXCSVLEN (MAXCMDLEN + 8192)
 
 // Maximum number of timed runs and warmup runs
 #define MAXRUNS (1 << 20)
 
 // Change as desired
-#define PROCESS_DATA_COMMAND "reduce"
+#define PROGNAME_EXPERIMENT "bestguess"
+#define CLI_OPTION_EXPERIMENT "run"
+#define PROGNAME_REPORT "bestreport"
+#define CLI_OPTION_REPORT "report"
 
 // qsort arg order differs between linux and macos
 #ifdef __linux__
@@ -51,8 +54,16 @@ extern const char *progname;
 // Global configuration (based on CLI args)
 // -----------------------------------------------------------------------------
 
+typedef enum Action {
+  actionNone,		   // No program action was chosen by the user
+  actionExperiment,	   // Run an experiment (measure commands)
+  actionReport,		   // Report on already-collected raw data
+  actionVersion,	   // Print Bestguess version
+  actionHelp,		   // Print Bestguess help
+} Action;
+
 typedef struct Config {
-  int reducing_mode;
+  int action;
   int brief_summary;
   int show_graph;
   int runs;
@@ -88,6 +99,7 @@ enum Options {
   OPT_SHELL,
   OPT_CSV,			// BestGuess format CSV
   OPT_HFCSV,			// Hyperfine format CSV
+  OPT_ACTION,			// E.g. run, report
   OPT_VERSION,
   OPT_HELP,
 };
