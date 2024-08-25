@@ -40,7 +40,7 @@ function contains {
 
 infile=raw1.csv
 expectfile=summary1.csv
-outfile=$(mktemp -p /tmp -t bg)
+outfile=$(mktemp -p /tmp)
 
 # Write summary stats (and get default report on terminal)
 ok "$prog" --export-csv "$outfile" "$infile"
@@ -67,7 +67,7 @@ ok diff "$outfile" "$expectfile"
 
 infile=raw1.csv
 expectfile=hf1.csv
-outfile=$(mktemp -p /tmp -t bg)
+outfile=$(mktemp -p /tmp)
 
 # Write summary stats (and get default report on terminal)
 ok "$prog" --hyperfine-csv "$outfile" "$infile"

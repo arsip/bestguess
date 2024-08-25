@@ -164,9 +164,9 @@ int64_t rmajflt(struct rusage *ru) {
 // linux and macOS.
 #ifdef __linux__
 #define MAKE_COMPARATOR(name, fieldcode)				\
-  int compare_name(const void *idx_ptr1,				\
-		   const void *idx_ptr2,				\
-		   void *context) {					\
+  int compare_##name(const void *idx_ptr1,				\
+		     const void *idx_ptr2,				\
+		     void *context) {					\
     Usage *usage = context;						\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\

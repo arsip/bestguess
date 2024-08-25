@@ -82,10 +82,12 @@ CFLAGS= -std=c99 -fPIC \
 	$(SYSCFLAGS) $(ASAN_FLAGS) \
 	$(CWARNS) -DLOGLEVEL=$(LOGLEVEL) $(COPT)
 
+LIBS= -lm
+
 # -----------------------------------------------------------------------------
 
 $(PROGRAM): TAGS $(OBJECTS)
-	$(CC) $(CFLAGS) -o $(PROGRAM) $(PROGRAM).c $(OBJECTS) 
+	$(CC) $(CFLAGS) $(LIBS) -o $(PROGRAM) $(PROGRAM).c $(OBJECTS) 
 
 # ------------------------------------------------------------------
 
