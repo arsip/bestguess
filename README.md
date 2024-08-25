@@ -2,20 +2,16 @@
 
 ## Description
 
-The goal, in short, is to improve on Hyperfine (a popular benchmarking tool).
+The goal, in short, is to improve on Hyperfine (a popular benchmarking tool).  I
+believe that Hyperfine's measurements are inaccurate and its statistics are
+unsound. (See [my still-preliminary analysis](notes/hyperfine.md) here.)
 
 ## Build and run
 
-To build in debug/development mode:
+To build `bestguess` and `bestreport` in release mode:
 
 ```
 make
-```
-
-To build in release mode:
-
-```
-make release
 ```
 
 To install to default location:
@@ -32,8 +28,8 @@ make DESTDIR=/some/path install
 
 ## If you already use Hyperfine
 
-BestGuess does not support nearly all of the options that Hyperfine does.  And
-BestGuess is tested only on Unix (macos) and Linux (several distros).
+BestGuess does not support all of the options that Hyperfine does.  And
+BestGuess is currently tested only on Unix (macos) and Linux (several distros).
 
 If you use Hyperfine like we used to, it's almost a drop-in replacement.  We
 most often used the warmup, runs, shell, and CSV export options.  BestGuess can
@@ -59,21 +55,44 @@ These Hyperfine options are effectively the same in BestGuess:
 
 Key changes from Hyperfine:
 
-  * Many options are _not_ supported.
-    * Some are planned, like _prepare_ and _conclude_ and the ability to
-      randomize the environment size.
+  * You can run an experiment (measure command executions) using `bestguess` and
+    save the raw timing data as a CSV file.  While running the experiment, you
+    can get a variety of reports, but you can also run `bestreport` later,
+    providing one or more files of raw timing data as input.
+  * Many Hyperfine options are _not_ supported.
+    * Some are planned, like _conclude_ and also the ability to randomize the
+      environment size.
 	* Others, like the ones that automate parameter generations, are not in
       plan.  BestGuess can read commands from a file, and we think it's easier
       to generate a command file with the desired parameters.
   * One option works a little differently.
 	* `-S`, `--shell <CMD>` For BestGuess, the default is none.  And when used,
 	  it must be the entire shell command, e.g. `/bin/bash -c`.
-  * Some options are _new_ because they support unique BestGuess features.
+  * Many options are _new_ because they support unique BestGuess features.  Here
+    are a few:
     * `-o`, `--output <FILE>` (save data for individual executions)
-    * `-f`, `--file <FILE>` (read commands, or more commands, from a file)
-    * `-b`, `--brief` (print a brief instead of full summary to the terminal)
-    * `-f`, `--file` (read additional commands from a file)
+    * `-f`, `--file <FILE>` (read commands, or _more_ commands, from a file)
+    * `-g`, `--graph` (show graph of one command's total CPU time)
+    * `-R`, `--report <STYLE>` (report style `none`, `brief`, `summary`, or `full`)
+    * `-B`, `--boxplot` (show rough boxplots of total CPU time on terminal)
     * `--groups` (summarize commands from file in groups separated by blank lines)
+
+**Reports:** Best practice is to save raw measurement data (which includes CPU
+times, max RSS, page faults, and context switch counts).  Once saved via `-o
+<FILE>`, you can later do any of the following:
+    - Reproduce the summary statistics that were printed on the terminal when
+      the experiment was conducted: `bestreport <INFILE> ...`
+	- Note that many input files can be given, so results of separate
+      experiments can be compared.
+	- See a `brief` or `full` report instead of the default `summary`: For example
+      `bestreport -R full <INFILE> ...`
+	- The `full` report includes information about the distribution of CPU
+      times, such as whether we can confidently rule out that this is a normal
+      distribution.  A measure of skew is also computed.
+	- Examine a rough boxplot comparing the various commands: `bestreport -B
+      <INFILE> ...`
+	- A CSV file of summary statistics can be generated: `bestreport
+      --export-csv <OUTFILE> <INFILE> ...`
 
 **Shell usage:** For BestGuess, the default is to _not_ use a shell at all.  If
 you supply a shell, you will need to give the entire command including the `-c`
@@ -106,11 +125,21 @@ find that many more tools, from command line tools to spreadsheets, are able to
 process CSV data, so we prefer it.
 
 **Summary statistics:** BestGuess prints summary statistics to the terminal,
-provided the raw data output is not directed there.  Since median values appear
-to be more useful in characterizing skewed distributions, we display medians not
-means.  Note that there is no reliable measure of standard deviation, although a
-geometric coefficient of variation might be a suitable replacement.  Until we
-know whether such a calculation is useful, we are not providing it.
+provided the raw data output is not directed there.  BestGuess estimates the
+mode, which for unimodal distributions is the definition of "most common value
+seen".  Distributions of performance data are often statistically _not_ normal
+and are often skewed, so we do not show a mean or standard deviation.  The
+summary statistics provided are mode, min, mean, 95th and 99th percentiles, and
+max. 
+
+**Descriptive statistics:** The `full` report option displays the statistical
+summary (mode, min, mean, 95th and 99th percentiles, and max) for each measured
+quantity, but also analyzes the distribution of total CPU times (user + system).
+A statistical test for normality is performed, and if the result is significant,
+we can rule out the hypothesis that the total time is normally distributed.  A
+simple test of skew is also performed.  Of course, the usual descriptive
+statistics are displayed (Q0 or min, Q1, Q2 or median, Q3, Q4 or max), along
+with the number of data points and an interpretation of the inter-quartile range.
 
 **Measurements:** Hyperfine measures user and system time.  BestGuess measures
 these plus the maximum RSS size, the number of Page Reclaims and Faults, and the
@@ -175,23 +204,29 @@ $
 ### Brief output to terminal
 
 ```shell
-$ bestguess -b -r=10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+$ bestguess -R brief -r 10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+Use -o <FILE> or --output <FILE> to write raw data to a file.
+A single dash '-' instead of a file name prints to stdout.
+
 Command 1: (empty)
-                   Mode          Min    Median     Max
-    Total time    1.7 ms         1.7      1.7      2.0
+                     Mode          Min    Median     Max
+  Total CPU time    2.2 ms         1.7      2.3      3.4
+      Wall clock    2.6 ms         2.6      2.9      5.2
 
 Command 2: ls -l
-                   Mode          Min    Median     Max
-    Total time    3.0 ms         2.9      3.0      3.1
+                     Mode          Min    Median     Max
+  Total CPU time    3.1 ms         2.8      3.2      5.7
+      Wall clock    5.2 ms         4.3      5.3     11.5
 
 Command 3: ps Aux
-                   Mode          Min    Median     Max
-    Total time   41.3 ms        40.9     41.3     42.8
+                     Mode          Min    Median     Max
+  Total CPU time   35.7 ms        35.1     35.9     39.5
+      Wall clock   37.0 ms        37.0     37.8     41.9
 
-Best guess is
+Best guess is:
   (empty) ran
-    1.75 times faster than ls -l
-   24.33 times faster than ps Aux
+    1.44 times faster than ls -l
+   16.42 times faster than ps Aux
 $ 
 ```
 
@@ -271,18 +306,28 @@ The BestGuess option `--export-csv <FILE>` writes detailed summary statistics to
 For each of the measures above, there is a column for:
 
   * mode
-  * minimum
-  * median
+  * minimum (Q0)
+  * Q1
+  * median (Q2)
+  * Q3
   * 95th percentile, provided there were at least 20 runs
   * 99th percentile, provided there were at least 100 runs
-  * maximum
+  * maximum (Q4)
 
-Note that the BestGuess option `--hyperfine-csv <FILE>` writes summary statistics to a
-CSV file in the same format used by Hyperfine, but with these differences:
+Note that the BestGuess option `--hyperfine-csv <FILE>` writes summary
+statistics to a CSV file in the same format used by Hyperfine, but with more
+relevant information.  Note these differences in the file contents:
 
-1. The `mean` quantity has been replaced by the `mode` for total, user, and
-   system times.
-2. The standard deviation figure is omitted. 
+1. In the second column, Hyperfine reports the mean total CPU time, which is not
+   a good measure.  BestGuess substitutes the estimated mode and the header is
+   changed accordingly.
+2. The standard deviation figure is replaced by the inter-quartile range and the
+   header is changed accordingly.  IQR is considered a better measure of spread
+   for non-normal distributions.
+3. After the `median` total time column, Hyperfine writes mean values of user
+   and system times.  BestGuess reports the `median` user and system times
+   instead.  Medians are considered more representative in arbitrary (and
+   particularly skewed) distributions.
 
 
 ## Measuring with BestGuess
@@ -426,6 +471,46 @@ The bar is scaled to the maximum time needed for any iteration of command.  The
 chart, therefore, is meant to show variation between iterations of the same
 command.  Iteration 0 prints first.
 
+The bar graph is meant to provide an easy way to estimate how many warmup runs
+may be needed, but can also give some insight about whether performance settles
+into a steady state or oscillates.
+
+### Using the graph to assess needed warmups
+
+The contrived example below measures shell startup time against the time to run
+`ls` without a shell.  It looks like the first execution of `bash` takes much
+longer than subsequent ones, and that `ls` may benefit from more than one warmup
+run.
+
+```shell 
+$ ./bestguess -R none -g -r 5 /bin/bash ls
+Use -o <FILE> or --output <FILE> to write raw data to a file.
+A single dash '-' instead of a file name prints to stdout.
+
+Command 1: /bin/bash
+0                                                                             max
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+
+Command 2: ls
+0                                                                             max
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+
+Best guess is:
+  ls ran
+    1.80 times faster than /bin/bash
+$ 
+```
+
+### Another graph example
+
 In the example below, we see modest variation in the execution times of `ls`,
 and we get a sense of how many warmup runs would be useful -- at least one, but
 perhaps a few more.
@@ -480,6 +565,23 @@ Best guess is
   ls -lh ran
   782.41 times faster than find /usr/local "*.dylib"
 $ 
+```
+
+## Bug reports
+
+Bug reports are welcome!  BestGuess is implemented in C in order to control at a
+low-level how we use fork, exec, and wait.  Segfaults and errant memory accesses
+are always a possibility, though we have attempted to implement a controlled
+_panic_ when we can detect a violation of intended behavior.
+
+Please open an issue with instructions on how to reproduce the bug.  It may be
+helpful to build BestGuess in debug mode before reproducing the error, which
+causes assertions to run as well as ASAN/UBSAN checks.
+
+To build in debug/development mode (ASAN, UBSAN, assert):
+
+```
+make debug
 ```
 
 

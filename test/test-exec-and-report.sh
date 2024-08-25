@@ -48,9 +48,12 @@ contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
 ok "$prog" -R brief /bin/bash
 contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
 
-# No report
+# No report and only one program, so nothing to compare it with
 ok "$prog" -R none /bin/bash
-contains "Command 1"
+
+# No report but comparison is printed
+ok "$prog" -R none /bin/bash ls
+contains "times faster than"
 
 # Graph with default report
 ok "$prog" -g /bin/bash
@@ -58,7 +61,8 @@ contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" "0     
 
 # Graph with no report
 ok "$prog" -R none -g /bin/bash
-contains "Command 1" "0     " "     max"
+contains "Command 1" "/bin/bash"
+contains "│▭▭▭▭▭▭▭▭" "0" "max"
 
 # Boxplot
 ok "$prog" -B /bin/bash

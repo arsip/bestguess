@@ -189,49 +189,65 @@ void write_line(FILE *f, Usage *usage, int idx) {
   X(S_FAILED, "Failed (ct)")		\
   X(S_TOTALMODE, "Total mode (μs)")	\
   X(S_TOTALMIN,  "Total min (μs)")	\
+  X(S_TOTALQ1, "Total Q1 (μs)")	        \
   X(S_TOTALMED, "Total median (μs)")	\
+  X(S_TOTALQ3, "Total Q3 (μs)")	        \
   X(S_TOTALP95, "Total p95 (μs)")	\
   X(S_TOTALP99, "Total p99 (μs)")	\
   X(S_TOTALMAX, "Total max (μs)")	\
   X(S_USERMODE, "User mode (μs)")	\
   X(S_USERMIN, "User min (μs)")		\
+  X(S_USERQ1, "User Q1 (μs)")	        \
   X(S_USERMED, "User median (μs)")	\
+  X(S_USERQ3, "User Q3 (μs)")	        \
   X(S_USERP95, "User p95 (μs)")		\
   X(S_USERP99, "User p99 (μs)")		\
   X(S_USERMAX, "User max (μs)")		\
   X(S_SYSTEMMODE, "System mode (μs)")	\
   X(S_SYSTEMMIN, "System min (μs)")	\
+  X(S_SYSTEMQ1, "System Q1 (μs)")	\
   X(S_SYSTEMMED, "System median (μs)")	\
+  X(S_SYSTEMQ3, "System Q3 (μs)")	\
   X(S_SYSTEMP95, "System p95 (μs)")	\
   X(S_SYSTEMP99, "System p99 (μs)")	\
   X(S_SYSTEMMAX,"System max (μs)")		\
   X(S_MAXRSSMODE, "Max RSS mode (bytes)")	\
   X(S_MAXRSSMIN, "Max RSS min (bytes)")		\
+  X(S_MAXRSSQ1, "Max RSS Q1 (bytes)")	\
   X(S_MAXRSSMED, "Max RSS median (bytes)")	\
+  X(S_MAXRSSQ3, "Max RSS Q3 (bytes)")	\
   X(S_MAXRSSP95, "Max RSS p95 (bytes)")		\
   X(S_MAXRSSP99, "Max RSS p99 (bytes)")		\
   X(S_MAXRSSMAX, "Max RSS max (bytes)")		\
   X(S_VCSWMODE, "Vol Ctx Sw mode (μs)")		\
   X(S_VCSWMIN, "Vol Ctx Sw min (ct)")		\
+  X(S_VCSWQ1, "Vol Ctx Sw Q1 (ct)")	        \
   X(S_VCSWMED, "Vol Ctx Sw median (ct)")	\
+  X(S_VCSWQ3, "Vol Ctx Sw Q3 (ct)")	        \
   X(S_VCSWP95, "Vol Ctx Sw p95 (μs)")		\
   X(S_VCSWP99, "Vol Ctx Sw p99 (μs)")		\
   X(S_VCSWMAX, "Vol Ctx Sw max (ct)")		\
   X(S_ICSWMODE, "Invol Ctx Sw mode (ct)")	\
   X(S_ICSWMIN, "Invol Ctx Sw min (ct)")		\
+  X(S_ICSWQ1, "Invol Ctx Sw Q1 (ct)")	        \
   X(S_ICSWMED, "Invol Ctx Sw median (ct)")	\
+  X(S_ICSWQ3, "Invol Ctx Sw Q3 (ct)")	        \
   X(S_ICSWP95, "Invol Ctx Sw p95 (ct)")		\
   X(S_ICSWP99, "Invol Ctx Sw p99 (ct)")		\
   X(S_ICSWMAX, "Invol Ctx Sw max (ct)")		\
   X(S_TCSWMODE, "Total Ctx Sw mode (ct)")	\
   X(S_TCSWMIN, "Total Ctx Sw min (ct)")		\
+  X(S_TCSWQ1, "Total Ctx Sw Q1 (ct)")	        \
   X(S_TCSWMED, "Total Ctx Sw median (ct)")	\
+  X(S_TCSWQ3, "Total Ctx Sw Q3 (ct)")	        \
   X(S_TCSWP95, "Total Ctx Sw p95 (ct)")		\
   X(S_TCSWP99, "Total Ctx Sw p99 (ct)")		\
   X(S_TCSWMAX, "Total Ctx Sw max (ct)")	        \
   X(S_WALLMODE, "Wall mode (μs)")		\
   X(S_WALLMIN, "Wall min (μs)")		        \
+  X(S_WALLQ1, "Wall Q1 (μs)")		        \
   X(S_WALLMED, "Wall median (μs)")		\
+  X(S_WALLQ3, "Wall Q3 (μs)")		        \
   X(S_WALLP95, "Wall p95 (μs)")		        \
   X(S_WALLP99, "Wall p99 (μs)")		        \
   X(S_WALLMAX, "Wall max (μs)")			\
@@ -262,53 +278,69 @@ void write_summary_line(FILE *f, Summary *s) {
   char *shell_cmd = escape(config.shell);
   WRITEFIELD(S_CMD, "%s", escaped_cmd, S_LAST);
   WRITEFIELD(S_SHELL, "%s", shell_cmd, S_LAST);
-  WRITEFIELD(S_RUNS, "%d,", s->runs, S_LAST);
-  WRITEFIELD(S_FAILED, "%d,", s->fail_count, S_LAST);
+  WRITEFIELD(S_RUNS, "%d", s->runs, S_LAST);
+  WRITEFIELD(S_FAILED, "%d", s->fail_count, S_LAST);
   WRITEFIELD(S_TOTALMODE, INT64FMT, s->total.mode, S_LAST);
   WRITEFIELD(S_TOTALMIN, INT64FMT, s->total.min, S_LAST);
+  MAYBE(WRITEFIELD, S_TOTALQ1, INT64FMT, s->total.Q1, S_LAST);
   WRITEFIELD(S_TOTALMED, INT64FMT, s->total.median, S_LAST);
+  MAYBE(WRITEFIELD, S_TOTALQ3, INT64FMT, s->total.Q3, S_LAST);
   MAYBE(WRITEFIELD, S_TOTALP95, INT64FMT, s->total.pct95, S_LAST);
   MAYBE(WRITEFIELD, S_TOTALP99, INT64FMT, s->total.pct99, S_LAST);
   WRITEFIELD(S_TOTALMAX, INT64FMT, s->total.max, S_LAST);
   WRITEFIELD(S_USERMODE, INT64FMT, s->user.mode, S_LAST);
   WRITEFIELD(S_USERMIN, INT64FMT, s->user.min, S_LAST);
+  MAYBE(WRITEFIELD, S_USERQ1, INT64FMT, s->user.Q1, S_LAST);
   WRITEFIELD(S_USERMED, INT64FMT, s->user.median, S_LAST);
+  MAYBE(WRITEFIELD, S_USERQ3, INT64FMT, s->user.Q3, S_LAST);
   MAYBE(WRITEFIELD, S_USERP95, INT64FMT, s->user.pct95, S_LAST);
   MAYBE(WRITEFIELD, S_USERP99, INT64FMT, s->user.pct99, S_LAST);
   WRITEFIELD(S_USERMAX, INT64FMT, s->user.max, S_LAST);
   WRITEFIELD(S_SYSTEMMODE, INT64FMT, s->system.mode, S_LAST);
   WRITEFIELD(S_SYSTEMMIN, INT64FMT, s->system.min, S_LAST);
+  MAYBE(WRITEFIELD, S_SYSTEMQ1, INT64FMT, s->system.Q1, S_LAST);
   WRITEFIELD(S_SYSTEMMED, INT64FMT, s->system.median, S_LAST);
+  MAYBE(WRITEFIELD, S_SYSTEMQ3, INT64FMT, s->system.Q3, S_LAST);
   MAYBE(WRITEFIELD, S_SYSTEMP95, INT64FMT, s->system.pct95, S_LAST);
   MAYBE(WRITEFIELD, S_SYSTEMP99, INT64FMT, s->system.pct99, S_LAST);
   WRITEFIELD(S_SYSTEMMAX, INT64FMT, s->system.max, S_LAST);
   WRITEFIELD(S_MAXRSSMODE, INT64FMT, s->maxrss.mode, S_LAST);
   WRITEFIELD(S_MAXRSSMIN, INT64FMT, s->maxrss.min, S_LAST);
+  MAYBE(WRITEFIELD, S_MAXRSSQ1, INT64FMT, s->maxrss.Q1, S_LAST);
   WRITEFIELD(S_MAXRSSMED, INT64FMT, s->maxrss.median, S_LAST);
+  MAYBE(WRITEFIELD, S_MAXRSSQ3, INT64FMT, s->maxrss.Q3, S_LAST);
   MAYBE(WRITEFIELD, S_MAXRSSP95, INT64FMT, s->maxrss.pct95, S_LAST);
   MAYBE(WRITEFIELD, S_MAXRSSP99, INT64FMT, s->maxrss.pct99, S_LAST);
   WRITEFIELD(S_MAXRSSMAX, INT64FMT, s->maxrss.max, S_LAST);
   WRITEFIELD(S_VCSWMODE, INT64FMT, s->vcsw.mode, S_LAST);
   WRITEFIELD(S_VCSWMIN, INT64FMT, s->vcsw.min, S_LAST);
+  MAYBE(WRITEFIELD, S_VCSWQ1, INT64FMT, s->vcsw.Q1, S_LAST);
   WRITEFIELD(S_VCSWMED, INT64FMT, s->vcsw.median, S_LAST);
+  MAYBE(WRITEFIELD, S_VCSWQ3, INT64FMT, s->vcsw.Q3, S_LAST);
   MAYBE(WRITEFIELD, S_VCSWP95, INT64FMT, s->vcsw.pct95, S_LAST);
   MAYBE(WRITEFIELD, S_VCSWP99, INT64FMT, s->vcsw.pct99, S_LAST);
   WRITEFIELD(S_VCSWMAX, INT64FMT, s->vcsw.max, S_LAST);
   WRITEFIELD(S_ICSWMODE, INT64FMT, s->icsw.mode, S_LAST);
   WRITEFIELD(S_ICSWMIN, INT64FMT, s->icsw.min, S_LAST);
+  MAYBE(WRITEFIELD, S_ICSWQ1, INT64FMT, s->icsw.Q1, S_LAST);
   WRITEFIELD(S_ICSWMED, INT64FMT, s->icsw.median, S_LAST);
+  MAYBE(WRITEFIELD, S_ICSWQ3, INT64FMT, s->icsw.Q3, S_LAST);
   MAYBE(WRITEFIELD, S_ICSWP95, INT64FMT, s->icsw.pct95, S_LAST);
   MAYBE(WRITEFIELD, S_ICSWP99, INT64FMT, s->icsw.pct99, S_LAST);
   WRITEFIELD(S_ICSWMAX, INT64FMT, s->icsw.max, S_LAST);
   WRITEFIELD(S_TCSWMODE, INT64FMT, s->tcsw.mode, S_LAST);
   WRITEFIELD(S_TCSWMIN, INT64FMT, s->tcsw.min, S_LAST);
+  MAYBE(WRITEFIELD, S_TCSWQ1, INT64FMT, s->tcsw.Q1, S_LAST);
   WRITEFIELD(S_TCSWMED, INT64FMT, s->tcsw.median, S_LAST);
+  MAYBE(WRITEFIELD, S_TCSWQ3, INT64FMT, s->tcsw.Q3, S_LAST);
   MAYBE(WRITEFIELD, S_TCSWP95, INT64FMT, s->tcsw.pct95, S_LAST);
   MAYBE(WRITEFIELD, S_TCSWP99, INT64FMT, s->tcsw.pct99, S_LAST);
   WRITEFIELD(S_TCSWMAX, INT64FMT, s->tcsw.max, S_LAST);
   WRITEFIELD(S_WALLMODE, INT64FMT, s->wall.mode, S_LAST);
   WRITEFIELD(S_WALLMIN, INT64FMT, s->wall.min, S_LAST);
+  MAYBE(WRITEFIELD, S_WALLQ1, INT64FMT, s->wall.Q1, S_LAST);
   WRITEFIELD(S_WALLMED, INT64FMT, s->wall.median, S_LAST);
+  MAYBE(WRITEFIELD, S_WALLQ3, INT64FMT, s->wall.Q3, S_LAST);
   MAYBE(WRITEFIELD, S_WALLP95, INT64FMT, s->wall.pct95, S_LAST);
   MAYBE(WRITEFIELD, S_WALLP99, INT64FMT, s->wall.pct99, S_LAST);
   WRITEFIELD(S_WALLMAX, INT64FMT, s->wall.max, S_LAST);
@@ -333,29 +365,30 @@ void write_summary_line(FILE *f, Summary *s) {
 //   distributions that badly fail a normality test
 
 void write_hf_header(FILE *f) {
-  fprintf(f, "command,mode,stddev,median,user,system,min,max\n");
+  fprintf(f, "command,mode,iqr,median,user,system,min,max\n");
   fflush(f);
 }
 
 void write_hf_line(FILE *f, Summary *s) {
+  const int N = 8;
   const double million = MICROSECS;
+  int i = 0;
   // Command
-  WRITEFIELD(0, "%s", *(s->cmd) ? s->cmd : config.shell, 7);
+  WRITEFIELD(i++, "%s", *(s->cmd) ? s->cmd : config.shell, N);
   // Median total time (more useful than mean, not as good as mode)
-  WRITEFIELD(1, "%f", (double) s->total.mode / million, 7);
-  // Stddev omitted til we get an appropriate variance measure for
-  // long-tailed (skewed) multi-modal distributions
-  fputc(',', f);
+  WRITEFIELD(i++, "%f", (double) s->total.mode / million, N);
+  // Stddev replaced with IQR
+  WRITEFIELD(i++, "%f", (double) (s->total.Q3 - s->total.Q1), N);
   // Mode total time
-  WRITEFIELD(2, "%f", (double) s->total.median / million, 7);
+  WRITEFIELD(i++, "%f", (double) s->total.median / million, N);
   // User time in seconds as double 
-  WRITEFIELD(3, "%f", (double) s->user.median / million, 7);
+  WRITEFIELD(i++, "%f", (double) s->user.median / million, N);
   // System time in seconds as double
-  WRITEFIELD(4, "%f", (double) s->system.median / million, 7);
+  WRITEFIELD(i++, "%f", (double) s->system.median / million, N);
   // Min total time in seconds as double 
-  WRITEFIELD(5, "%f", (double) s->total.min / million, 7);
+  WRITEFIELD(i++, "%f", (double) s->total.min / million, N);
   // Max total time in seconds as double
-  WRITEFIELD(6, "%f", (double) s->total.max / million, 7);
+  WRITEFIELD(i++, "%f", (double) s->total.max / million, N);
   fflush(f);
 }
 

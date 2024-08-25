@@ -218,9 +218,10 @@ static Summary *run_command(int num,
 			    FILE *hf_output) {
 
   if (!config.output_to_stdout) {
-    // Internally, num is 0-based.  Users should see 1-based numbering.
-    announce_command(cmd, num);
-    fflush(stdout);
+    if ((config.report != REPORT_NONE) || config.graph) {
+      announce_command(cmd, num);
+      fflush(stdout);
+    }
   }
 
   Usage *usage = new_usage_array(config.runs);
@@ -253,7 +254,8 @@ static Summary *run_command(int num,
     if (config.graph && usage) {
       print_graph(s, usage, 0, usage->next);
     }
-    printf("\n");
+    if ((config.report != REPORT_NONE) || config.graph)
+      printf("\n");
   }
 
   // If exporting CSV file of summary stats, write that line of data
