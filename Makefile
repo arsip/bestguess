@@ -8,7 +8,7 @@ export REPORTPROGRAM=bestreport
 SRCDIR=src
 TESTDIR=test
 
-default: debug
+default: release
 
 debug: clean
 	@$(MAKE) -C $(SRCDIR) RELEASE_MODE=false $(PROGRAM) && \

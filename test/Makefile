@@ -58,7 +58,11 @@ optiontest: TAGS optiontest.o $(OBJECTS)
 
 test: $(PROGRAMS)
 	@./optiontest
-	./test-basic.sh && ./test-reports.sh && ./test-rawdata.sh
+	./test-basic.sh && \
+	./test-exec-and-report.sh && \
+	./test-report.sh && \
+	./test-rawdata.sh && \
+	./test-report-csv.sh
 
 
 # ------------------------------------------------------------------

@@ -1,13 +1,12 @@
 #/bin/bash
-#  -*- Mode: Shell-script; -*-                                            
 
 SHOWOUTPUT=
 
 prog=../bestguess
 
-printf "%s\n"   '--------------------------------------'
-printf "%s\n"   'Report tests (terminal output)'
-printf "%s\n\n" '--------------------------------------'
+printf "%s\n"   '-------------------------------------------------'
+printf "%s\n"   'Bestguess exec and report tests (terminal output)'
+printf "%s\n\n" '-------------------------------------------------'
 
 declare -a output
 allpassed=1
