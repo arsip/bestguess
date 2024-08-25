@@ -28,25 +28,17 @@ typedef enum { XReports(FIRST) } ReportCode;
 extern const char *ReportOptionName[];
 extern const char *ReportOptionDesc[];
 
-char *report_options(void);
-ReportCode interpret_report_option(const char *op);
+char       *report_options(void);
+ReportCode  interpret_report_option(const char *op);
 
-void report(int argc, char **argv);
+void   report(Usage *usage);
+Usage *read_input_files(int argc, char **argv);
 
 void announce_command(const char *cmd, int number);
 void print_summary(Summary *s, bool briefly);
 void print_graph(Summary *s, Usage *usagedata, int start, int end);
 void print_overall_summary(Summary *summaries[], int start, int end);
-void print_descriptive_stats(Measures *m, int n);
-
-#define BOXPLOT_NOLABELS 0
-#define BOXPLOT_LABEL_ABOVE 1
-#define BOXPLOT_LABEL_BELOW 2
-void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width);
-void print_boxplot_scale(int axismin, int axismax, int width, int labelplacement);
-
-// For debugging
-void print_ticks(Measures *m, int width);
-
+void print_descriptive_stats(Summary *s);
+void print_boxplots(Summary *summaries[], int start, int end);
 
 #endif

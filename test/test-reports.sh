@@ -39,17 +39,36 @@ function contains {
 # TERMINAL output options
 # ------------------------------------------------------------------
 
-# Default report
+# Default report is summary
 ok "$prog" /bin/bash
+contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
+ok "$prog" -R summary /bin/bash
 contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
 
 # Brief report
-ok "$prog" -b /bin/bash
+ok "$prog" -R brief /bin/bash
 contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
 
-# Graph
-ok "$prog" -bg /bin/bash
+# No report
+ok "$prog" -R none /bin/bash
+contains "Command 1"
+
+# Graph with default report
+ok "$prog" -g /bin/bash
 contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" "0     " "     max"
+
+# Graph with no report
+ok "$prog" -R none -g /bin/bash
+contains "Command 1" "0     " "     max"
+
+# Boxplot
+ok "$prog" -B /bin/bash
+contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" 
+contains "├────" "─┼─"
+
+# Boxplot with no report
+ok "$prog" -R none -B /bin/bash
+contains "├────" "─┼─"
 
 for warmups in $(seq 0 5); do
     for runs in $(seq 0 5); do
@@ -62,19 +81,28 @@ for warmups in $(seq 0 5); do
 	fi
 
 	# Brief report
-	ok "$prog" -w $warmups -r $runs -b /bin/bash
+	ok "$prog" -w $warmups -r $runs -R brief /bin/bash
 	if [[ $runs -eq 0 ]]; then
 	    contains "No data"
 	else
 	    contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
 	fi
+
 	# Graph
-	ok "$prog" -w $warmups -r $runs -bg /bin/bash
+	ok "$prog" -w $warmups -r $runs -R=brief -g /bin/bash
 	if [[ $runs -eq 0 ]]; then
 	    contains "No data"
 	else
 	    contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
 	    contains "0     "  "     max"
+	fi
+
+	# Boxplot
+	ok "$prog" -w $warmups -r $runs -R=none -B /bin/bash
+	if [[ $runs -eq 0 ]]; then
+	    contains "No data"
+	else
+	    contains "├────" "─┼─"
 	fi
     done
 done

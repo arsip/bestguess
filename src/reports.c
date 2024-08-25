@@ -20,6 +20,10 @@ const char *ReportOptionName[] = {XReports(SECOND)};
 const char *ReportOptionDesc[] = {XReports(THIRD)};
 #undef THIRD
 
+#define BOXPLOT_NOLABELS 0
+#define BOXPLOT_LABEL_ABOVE 1
+#define BOXPLOT_LABEL_BELOW 2
+
 ReportCode interpret_report_option(const char *op) {
   for (ReportCode i = REPORT_NONE; i < REPORT_ERROR; i++)
     if (strcmp(op, ReportOptionName[i]) == 0) return i;
@@ -39,7 +43,6 @@ char *report_options(void) {
   }
   return buf;
 }
-
 
 void announce_command(const char *cmd, int index) {
   printf("Command %d: %s\n", index + 1, *cmd ? cmd : "(empty)");
@@ -209,7 +212,7 @@ void print_summary(Summary *s, bool briefly) {
     PRINTCOUNT(s->tcsw.max, NOUNITS);
     printf("   ┘\n");
 
-  } // if not brief_summary
+  } // if not brief report
 
   fflush(stdout);
 }
@@ -253,7 +256,7 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
     return;
   }
 
-  if (!summaries[start]) return; // No data
+  if (!summaries[start]) return;
 
   int best = start;
   int64_t fastest = MODE(best);
@@ -301,11 +304,11 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
 #define LABELWIDTH 4
 #define AXISLINE "────────────────────────────────────────────────────────────"
 
-static void print_boxplot_command(const char *cmd, int index, int width) {
-  printf("  %*d: %.*s\n",
-	 LABELWIDTH, index + 1,
-	 width - LABELWIDTH - 3, *cmd ? cmd : "(empty)");
-}
+// static void print_boxplot_command(const char *cmd, int index, int width) {
+//   printf("  %*d: %.*s\n",
+// 	 LABELWIDTH, index + 1,
+// 	 width - LABELWIDTH - 3, *cmd ? cmd : "(empty)");
+// }
 
 static void print_boxplot_labels(int axismin, int axismax, int width) {
   //
@@ -313,10 +316,11 @@ static void print_boxplot_labels(int axismin, int axismax, int width) {
   //
   width = width - (LABELWIDTH - 1);
   int ticks = 1 + width / TICKSPACING;
-  double incr = round((double) (TICKSPACING * (axismax - axismin)) / (double) width);
+  double incr = (double) (TICKSPACING * (axismax - axismin)) / (double) width;
+  const char *fmt = (axismax >= 10) ? "%*.0f%*s" : "%*.1f%*s";
   for (int i = 0; i < ticks; i++) {
-    printf("%*.0f%*s",
-	   LABELWIDTH, round((double) axismin + (i * incr)),
+    printf(fmt,
+	   LABELWIDTH, (double) axismin + (i * incr),
 	   TICKSPACING - LABELWIDTH, "");
   }
   printf("\n");
@@ -326,7 +330,10 @@ static void print_boxplot_labels(int axismin, int axismax, int width) {
 // E.g. when LABELWIDTH is 4, the highest tick mark label is 9999.
 // The argument 'width' is the total terminal (or desired) width,
 // beyond which we will not print.
-void print_boxplot_scale(int axismin, int axismax, int width, int labelplacement) {
+static void print_boxplot_scale(int axismin,
+				int axismax,
+				int width,
+				int labelplacement) {
   if (width < WIDTHMIN) {
     printf("Requested width (%d) too narrow for plot\n", width);
     return;
@@ -341,7 +348,7 @@ void print_boxplot_scale(int axismin, int axismax, int width, int labelplacement
   int bytesperunit = (uint8_t) AXISLINE[0] >> 6; // Assumes UTF-8
   assert((strlen(AXISLINE) / bytesperunit) > TICKSPACING);
 
-  int ticks = 1 + width / TICKSPACING;
+  int ticks = width / TICKSPACING;
   // Already printed first visual tick mark, will print last one later
   for (int i = 0; i < (ticks - 2); i++) {
     printf("%.*s┼", (TICKSPACING - 1) * bytesperunit, AXISLINE);
@@ -368,7 +375,7 @@ void print_boxplot_scale(int axismin, int axismax, int width, int labelplacement
 // width of 80) of each quartile value.
 //
 __attribute__((unused))
-void print_ticks(Measures *m, int width) {
+static void print_ticks(Measures *m, int width) {
   // IMPORTANT: We are truncating int64's down to ints here!  This
   // will only work, obvi, if the values are small, which is what is
   // needed for printing.
@@ -394,10 +401,13 @@ void print_ticks(Measures *m, int width) {
   printf("\n");
 }
 
-
 #define SCALE(val) (round(((double) (val) * scale)))
 
-void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width) {
+static void print_boxplot(int index, // Which command is this? 
+			  Measures *m,
+			  int64_t axismin,
+			  int64_t axismax,
+			  int width) {
   if (!m) PANIC_NULL();
   if (width < WIDTHMIN) {
     printf("Width %d too narrow for plot\n", width);
@@ -407,6 +417,7 @@ void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width) {
     printf("Measurement min/max outside of axis min/max values");
     return;
   }
+  if (axismin >= axismax) PANIC("axis min/max equal or out of order");
   int indent = LABELWIDTH - 1;
   width -= indent;
   double scale = (double) (width - 1) / (double) (axismax - axismin);
@@ -443,10 +454,12 @@ void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width) {
   }
   printf("\n");
   // Middle line
+  printf("%-*d", indent, index+1);
   if (minpos == maxpos) {
-    printf("%*s\n", indent + minpos, "┼");
+    printf("%*s", minpos, "");
+    printf("┼\n");
   } else {
-    printf("%*s", indent + minpos, "");
+    printf("%*s", minpos, "");
     if (boxleft > minpos) printf("├");
     for (int j = 1; j < boxleft - minpos; j++) printf("╌");
     if (boxwidth == 0) {
@@ -492,7 +505,11 @@ void print_boxplot(Measures *m, int64_t axismin, int64_t axismax, int width) {
 #define INDENT "  "
 
 // TODO: Scale the values if too many ms?
-void print_descriptive_stats(Measures *m, int n) {
+void print_descriptive_stats(Summary *s) {
+  if (!s || (s->runs == 0)) return; // No data
+  Measures *m = &(s->total);
+  int n = s->runs;
+  
   printf(INDENT "About the distribution of total CPU time:\n\n");
 
   printf(INDENT "     Min         Q₁         Median       Q₃          Max   \n");
@@ -555,20 +572,20 @@ void print_descriptive_stats(Measures *m, int n) {
 // the array grows dynamically.
 #define ESTIMATED_DATA_POINTS 500
 
-static Usage *read_input_files(int argc, char **argv) {
-
-  FILE *input[MAXDATAFILES] = {NULL};
+Usage *read_input_files(int argc, char **argv) {
 
   if ((config.first == 0) || (config.first == argc))
     USAGE("No data files to read");
   if (config.first >= MAXDATAFILES)
     USAGE("Too many data files");
 
+  FILE *input[MAXDATAFILES] = {NULL};
   struct Usage *usage = new_usage_array(ESTIMATED_DATA_POINTS);
   size_t buflen = MAXCSVLEN;
   char *buf = malloc(buflen);
   if (!buf) PANIC_OOM();
   CSVrow *row;
+  int64_t value;
   
   for (int i = config.first; i < argc; i++) {
     input[i] = (strcmp(argv[i], "-") == 0) ? stdin : maybe_open(argv[i], "r");
@@ -583,7 +600,11 @@ static Usage *read_input_files(int argc, char **argv) {
       set_string(usage, idx, F_SHELL, CSVfield(row, F_SHELL));
       // Set all the numeric fields that are measured directly
       for (int fc = F_CODE; fc < F_TOTAL; fc++) {
-	set_int64(usage, idx, fc, strtoint64(CSVfield(row, fc)));
+	if (try_strtoint64(CSVfield(row, fc), &value))
+	  set_int64(usage, idx, fc, value);
+	else
+	  USAGE("CSV read error looking for integer in field %d\n"
+		"Line: %s\n", fc+1, buf);
       }
       // Set the fields we calculate for the user
       set_int64(usage, idx, F_TOTAL,
@@ -599,6 +620,46 @@ static Usage *read_input_files(int argc, char **argv) {
   return usage;
 }
 
+void print_boxplots(Summary *summaries[], int start, int end) {
+  if (!summaries) PANIC_NULL();
+
+  // Check for no data
+  if (((end - start) < 1) || (!summaries[start])) {
+    printf("  No data for box plot\n");
+    return;
+  }
+
+  // Establish the axis labels for min/max time
+  int64_t axismin = INT64_MAX;
+  int64_t axismax = INT64_MIN;
+  for (int i = start; i < end; i++) {
+    Measures *m = &(summaries[i]->total);
+    axismin = min64(m->min, axismin);
+    axismax = max64(m->max, axismax);
+  }
+  int width = config.width;
+  // Must ensure that axis min/max have some separation
+  if ((axismax - axismin) < width)
+    axismax = axismin + width;
+
+  int scale_min = round((double) axismin / 1000.0);
+  int scale_max = round((double) axismax / 1000.0);
+
+  print_boxplot_scale(scale_min, scale_max, width, BOXPLOT_LABEL_ABOVE);
+  for (int i = start; i < end; i++) {
+    //print_boxplot_command(summaries[i]->cmd, i, width);
+    print_boxplot(i, &(summaries[i]->total), axismin, axismax, width);
+  }
+  print_boxplot_scale(scale_min, scale_max, width, BOXPLOT_LABEL_BELOW);
+  printf("\n");
+  printf("Box plot legend:\n");
+  for (int i = start; i < end; i++) {
+    printf("  ");
+    announce_command(summaries[i]->cmd, i);
+  }
+  printf("\n");
+}
+
 // TODO: We index into input[] starting at config.first, not 0
 
 // TODO: The CSV reader was not coded for speed.  Could reuse input
@@ -607,68 +668,56 @@ static Usage *read_input_files(int argc, char **argv) {
 // TODO: How many summaries do we want to support? MAXCMDS isn't the
 // right quantity.
 
-void report(int argc, char **argv) {
+void report(Usage *usage) {
 
-  Usage *usage = read_input_files(argc, argv);
+  FILE *csv_output = NULL, *hf_output = NULL;
+  if (config.csv_filename) 
+    csv_output = maybe_open(config.csv_filename, "w");
+  if (config.hf_filename)
+    hf_output = maybe_open(config.hf_filename, "w");
+
+  if (csv_output)
+    write_summary_header(csv_output);
+  if (hf_output)
+    write_hf_header(hf_output);
 
   Summary *s[MAXCMDS];
   int next = 0;
   int count = 0;
   int prev = 0;
   while ((s[count] = summarize(usage, &next))) {
+    if (csv_output) 
+      write_summary_line(csv_output, s[count]);
+    if (hf_output)
+      write_hf_line(hf_output, s[count]);
+
     if (config.report != REPORT_NONE) {
       announce_command(s[count]->cmd, count);
       print_summary(s[count], (config.report == REPORT_BRIEF));
       printf("\n");
     }
-    if (config.show_graph) {
+    if (config.graph) {
       if (config.report == REPORT_NONE)
 	announce_command(s[count]->cmd, count);
       print_graph(s[count], usage, prev, next);
       printf("\n");
     }
     if (config.report == REPORT_FULL) {
-      print_descriptive_stats(&(s[count]->total), s[count]->runs);
+      print_descriptive_stats(s[count]);
       printf("\n");
     }
     prev = next;
     if (++count == MAXCMDS) USAGE("too many commands");
   }
-  if (config.boxplot) {
-    next = 0;
-    count = 0;
-    int64_t axismin = INT64_MAX;
-    int64_t axismax = INT64_MIN;
-    while ((s[count] = summarize(usage, &next))) {
-      Measures *m = &(s[count]->total);
-      axismin = min64(m->min, axismin);
-      axismax = max64(m->max, axismax);
-      count++;
-    }
-    int width = 84;
-    int scale_min = round((double) axismin / 1000.0);
-    int scale_max = round((double) axismax / 1000.0);
-    print_boxplot_scale(scale_min, scale_max, width, BOXPLOT_LABEL_ABOVE);
-    next = 0;
-    count = 0;
-    while ((s[count] = summarize(usage, &next))) {
-      print_boxplot_command(s[count]->cmd, count, width);
-      print_boxplot(&(s[count]->total), axismin, axismax, width);
-      count++;
-    }
-    print_boxplot_scale(scale_min, scale_max, width, BOXPLOT_LABEL_BELOW);
-    printf("\n");
-  }  
+  if (csv_output) fclose(csv_output);
+  if (hf_output) fclose(hf_output);
+
+  if (config.boxplot)
+    print_boxplots(s, 0, count);
 
   print_overall_summary(s, 0, count);
 
-//   printf("\n");
-//   write_summary_header(output);
-//   for (int i = 0; i < count; i++)
-//     write_summary_line(output, s[i]);
-
   for (int i = 0; i < count; i++) free_summary(s[i]);
-  free_usage_array(usage);
   printf("\n");
 
 #if 0
@@ -748,5 +797,3 @@ void report(int argc, char **argv) {
   
   return;
 }
-// Write summary stats file
-      //write_line(output, usage, idx);

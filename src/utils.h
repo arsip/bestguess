@@ -143,7 +143,8 @@ int split(const char *in, arglist *args);
 int split_unescape(const char *in, arglist *args);
 int ends_in(const char *str, const char *suffix);
 
-int64_t strtoint64 (const char *str);
+int64_t strtoint64(const char *str);
+bool try_strtoint64(const char *str, int64_t *result);
 
 // Misc:
 

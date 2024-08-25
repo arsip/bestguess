@@ -272,11 +272,16 @@ void print_arglist(arglist *args) {
 // Numbers from strings
 // -----------------------------------------------------------------------------
 
-int64_t strtoint64 (const char *str) {
+bool try_strtoint64(const char *str, int64_t *result) {
+  if (!str || !result) PANIC_NULL();
   int count;
+  int scancount = sscanf(str, "%" PRId64 "%n", result, &count);
+  return ((scancount == 1) && (count == (int) strlen(str)));
+}
+
+int64_t strtoint64(const char *str) {
   int64_t value;
-  int scancount = sscanf(str, "%" PRId64 "%n", &value, &count);
-  if ((scancount != 1) || (count != (int) strlen(str))) 
+  if (!try_strtoint64(str, &value))
     USAGE("Failed to get integer from '%s'\n", str);
   return value;
 }

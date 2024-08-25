@@ -246,8 +246,11 @@ static Summary *run_command(int num,
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
   if (!config.output_to_stdout) {
-    print_summary(s, config.brief_summary);
-    if (config.show_graph && usage) {
+    if (config.report != REPORT_NONE)
+      print_summary(s, (config.report == REPORT_BRIEF));
+    if (config.report == REPORT_FULL) 
+      print_descriptive_stats(s);
+    if (config.graph && usage) {
       print_graph(s, usage, 0, usage->next);
     }
     printf("\n");
@@ -273,7 +276,7 @@ void run_all_commands(int argc, char **argv) {
 
   // Best practice is to save the raw data (all the timing runs).
   // Provide a reminder if that data is not being saved.
-  if (!config.output_to_stdout && !config.output_filename && !config.brief_summary) {
+  if (!config.output_to_stdout && !config.output_filename) {
     printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n"
 	   "A single dash '-' instead of a file name prints to stdout.\n\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
@@ -292,7 +295,9 @@ void run_all_commands(int argc, char **argv) {
   csv_output = maybe_open(config.csv_filename, "w");
   hf_output = maybe_open(config.hf_filename, "w");
 
-  output = (config.output_to_stdout) ? stdout : maybe_open(config.output_filename, "w");
+  output = (config.output_to_stdout)
+    ? stdout
+    : maybe_open(config.output_filename, "w");
 
   if (output) write_header(output);
   if (csv_output) write_summary_header(csv_output);
@@ -321,6 +326,9 @@ void run_all_commands(int argc, char **argv) {
 	if (!config.output_to_stdout) {
 	  if (group_start == n) continue; // multiple blank lines
 	  print_overall_summary(summaries, group_start, n);
+	  printf("\n");
+	  if (config.boxplot)
+	    print_boxplots(summaries, group_start, n);
 	  group_start = n;
 	  puts("");
 	}
@@ -334,6 +342,8 @@ void run_all_commands(int argc, char **argv) {
 
   if (!config.output_to_stdout) {
     print_overall_summary(summaries, group_start, n);
+    if (config.boxplot)
+      print_boxplots(summaries, group_start, n);
   }
 
   if (output) fclose(output);

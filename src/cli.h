@@ -25,8 +25,8 @@ enum Options {
   OPT_HFCSV,			// Hyperfine format CSV
   OPT_REPORT,
   OPT_BOXPLOT,
-  OPT_ALL,
   OPT_ACTION,			// E.g. run, report
+  OPT_WIDTH,			// Terminal width
   OPT_VERSION,
   OPT_HELP,
 };

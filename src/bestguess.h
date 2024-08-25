@@ -65,8 +65,7 @@ typedef enum Action {
 typedef struct Config {
   int action;
   int helpversion;
-  bool brief_summary;
-  bool show_graph;
+  bool graph;
   int runs;
   int warmups;
   int first;
@@ -82,6 +81,7 @@ typedef struct Config {
   bool groups;
   int  report;
   bool boxplot;
+  int width;
 } Config;
 
 extern Config config;

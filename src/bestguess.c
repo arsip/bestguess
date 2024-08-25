@@ -24,8 +24,7 @@ const char *progname = "bestguess";
 Config config = {
   .action = actionNone,
   .helpversion = -1,
-  .brief_summary = false,
-  .show_graph = false,
+  .graph = false,
   .runs = 1,
   .warmups = 0,
   .first = 0,
@@ -41,6 +40,7 @@ Config config = {
   .groups = false,
   .report = REPORT_SUMMARY,
   .boxplot = false,
+  .width = 80,			// terminal width
 };
 
 // -----------------------------------------------------------------------------
@@ -79,8 +79,8 @@ static Action action_from_progname(const char *executable) {
 
 int main(int argc, char *argv[]) {
 
+  Usage *usage;
   if (argc) progname = argv[0];
-
   if (argc < 2) {
     optable_printusage(progname);
     USAGE("For more information, try %s --help\n", progname);
@@ -114,7 +114,9 @@ int main(int argc, char *argv[]) {
       case actionReport:
 	optable_setusage("[options] <datafile1> ...");
 	process_report_options(argc, argv);
-	report(argc, argv);
+	usage = read_input_files(argc, argv);
+	report(usage);
+	free_usage_array(usage);
 	break;
       default:
 	PANIC("Action not set");
