@@ -322,23 +322,16 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
 #define LABELWIDTH 4
 #define AXISLINE "────────────────────────────────────────────────────────────"
 
-// static void print_boxplot_command(const char *cmd, int index, int width) {
-//   printf("  %*d: %.*s\n",
-// 	 LABELWIDTH, index + 1,
-// 	 width - LABELWIDTH - 3, *cmd ? cmd : "(empty)");
-// }
-
-static void print_boxplot_labels(int axismin, int axismax, int width) {
+static void print_boxplot_labels(int scale_min, int scale_max, int width) {
   //
   // Print tick mark labels for x-axis
   //
-  width = width - (LABELWIDTH - 1);
   int ticks = 1 + width / TICKSPACING;
-  double incr = (double) (TICKSPACING * (axismax - axismin)) / (double) width;
-  const char *fmt = (axismax >= 10) ? "%*.0f%*s" : "%*.1f%*s";
+  double incr = (double) (TICKSPACING * (scale_max - scale_min)) / (double) width;
+  const char *fmt = (scale_max >= 10) ? "%*.0f%*s" : "%*.1f%*s";
   for (int i = 0; i < ticks; i++) {
     printf(fmt,
-	   LABELWIDTH, (double) axismin + (i * incr),
+	   LABELWIDTH, (double) scale_min + (i * incr),
 	   TICKSPACING - LABELWIDTH, "");
   }
   printf("\n");
@@ -348,41 +341,39 @@ static void print_boxplot_labels(int axismin, int axismax, int width) {
 // E.g. when LABELWIDTH is 4, the highest tick mark label is 9999.
 // The argument 'width' is the total terminal (or desired) width,
 // beyond which we will not print.
-static void print_boxplot_scale(int axismin,
-				int axismax,
+static void print_boxplot_scale(int scale_min,
+				int scale_max,
 				int width,
 				int labelplacement) {
   if (width < WIDTHMIN) {
     printf("Requested width (%d) too narrow for plot\n", width);
     return;
   }
+  width = width - LABELWIDTH + 1;
   if (labelplacement == BOXPLOT_LABEL_ABOVE)
-    print_boxplot_labels(axismin, axismax, width);
+    print_boxplot_labels(scale_min, scale_max, width);
   //
   // Print axis graphic
   //
   printf("%*s├", (LABELWIDTH - 1), "");
-  int currpos = LABELWIDTH;
+  int currpos = 0;
   int bytesperunit = (uint8_t) AXISLINE[0] >> 6; // Assumes UTF-8
   assert((strlen(AXISLINE) / bytesperunit) > TICKSPACING);
 
   int ticks = width / TICKSPACING;
-  // Already printed first visual tick mark, will print last one later
-  for (int i = 0; i < (ticks - 2); i++) {
-    printf("%.*s┼", (TICKSPACING - 1) * bytesperunit, AXISLINE);
+  //printf("width = %d, ticks = %d\n", width, ticks);
+  int even = (ticks * TICKSPACING == width);
+  for (int i = 0; i < ticks; i++) {
+    printf("%.*s%s", (TICKSPACING - 1) * bytesperunit, AXISLINE,
+	   even && (i == ticks-1) ? "┤" : "┼");
     currpos += TICKSPACING;
   }
-
-  printf("%.*s", (TICKSPACING - 1) * bytesperunit, AXISLINE);
-  currpos += TICKSPACING;
-  if (currpos < width) 
-    printf("┼%.*s", (width - currpos) * bytesperunit, AXISLINE);
-  else
-    printf("┤");
+  //printf("width = %d, currpos = %d\n", width, currpos);
+  printf("%.*s", (width - currpos) * bytesperunit, AXISLINE);
   printf("\n");
 
   if (labelplacement == BOXPLOT_LABEL_BELOW)
-    print_boxplot_labels(axismin, axismax, width);
+    print_boxplot_labels(scale_min, scale_max, width);
 
 }
 
@@ -432,7 +423,7 @@ static void print_boxplot(int index, // Which command is this?
     return;
   }
   if ((m->min < axismin) || (m->max > axismax)) {
-    printf("Measurement min/max outside of axis min/max values");
+    printf("Measurement min/max outside of axis min/max values\n");
     return;
   }
   if (axismin >= axismax) PANIC("axis min/max equal or out of order");
@@ -490,14 +481,12 @@ static void print_boxplot(int index, // Which command is this?
     } else {
       if (median == boxleft) printf("╢");
       else printf("┤");
+      for (int j = 1; j < median - boxleft; j++) printf(" ");
+      if (show_median) printf("│");
+      for (int j = 1; j < boxright - median; j++) printf(" ");
+      if (median == boxright) printf("╟");
+      else printf("├");
     }
-    for (int j = 1; j < median - boxleft; j++) printf(" ");
-    if (show_median) printf("│");
-    for (int j = 1; j < boxright - median; j++) printf(" ");
-
-    if (median == boxright) printf("╟");
-    else printf("├");
-
     for (int j = 1; j < (maxpos - boxright); j++) printf("╌");
     if ((maxpos - boxright) > 0) printf("┤");
     printf("\n");
@@ -656,6 +645,7 @@ void print_boxplots(Summary *summaries[], int start, int end) {
     axismax = max64(m->max, axismax);
   }
   int width = config.width;
+
   // Must ensure that axis min/max have some separation
   if ((axismax - axismin) < width)
     axismax = axismin + width;
@@ -665,7 +655,6 @@ void print_boxplots(Summary *summaries[], int start, int end) {
 
   print_boxplot_scale(scale_min, scale_max, width, BOXPLOT_LABEL_ABOVE);
   for (int i = start; i < end; i++) {
-    //print_boxplot_command(summaries[i]->cmd, i, width);
     print_boxplot(i, &(summaries[i]->total), axismin, axismax, width);
   }
   print_boxplot_scale(scale_min, scale_max, width, BOXPLOT_LABEL_BELOW);
@@ -734,84 +723,8 @@ void report(Usage *usage) {
     print_boxplots(s, 0, count);
 
   print_overall_summary(s, 0, count);
-
-  for (int i = 0; i < count; i++) free_summary(s[i]);
   printf("\n");
 
-#if 0
-  Measures m;
-  m.min = 5;
-  m.Q1 = 10;
-  m.median = 13;
-  m.Q3 = 16;
-  m.max = 20;
-
-  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
-  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_ABOVE);
-  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
-  print_boxplot(&m, 0, width-3, width);
-  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
-
-  m.min = 3;
-  m.Q1 = 5;
-  m.median = 10;
-  m.Q3 = 13;
-  m.max = 20;
-  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
-  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
-  print_boxplot(&m, 0, width-3, width);
-  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
-
-  m.min = 3;
-  m.Q1 = 5;
-  m.median = 5;
-  m.Q3 = 13;
-  m.max = 25;
-  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
-  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
-  print_boxplot(&m, 0, width-3, width);
-  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
-
-  m.min = 3;
-  m.Q1 = 5;
-  m.median = 13;
-  m.Q3 = 13;
-  m.max = 25;
-  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
-  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
-  print_boxplot(&m, 0, width-3, width);
-  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
-
-  m.min = 0;
-  m.Q1 = 5;
-  m.median = 13;
-  m.Q3 = 13;
-  m.max = 25;
-  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
-  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
-  print_boxplot(&m, 0, width-3, width);
-  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
-  
-  m.min = 0;
-  m.Q1 = 5;
-  m.median = 13;
-  m.Q3 = 13;
-  m.max = 30;
-  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
-  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
-  print_boxplot(&m, 0, width-3, width);
-  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
-  
-  m.min = 0;
-  m.Q1 = 5;
-  m.median = 13;
-  m.Q3 = 13;
-  m.max = 80;
-  printf("min/Q1/med/Q3/max: %d %d %d %d %d\n", (int) m.min, (int) m.Q1, (int) m.median, (int) m.Q3, (int) m.max);
-  //  print_ticks(m.min, m.Q1, m.median, m.Q3, m.max, width);
-  print_boxplot(&m, 0, width-3, width);
-  print_boxplot_scale(0, width-3, width, BOXPLOT_LABEL_BELOW);
-#endif
-  
+  for (int i = 0; i < count; i++) free_summary(s[i]);
   return;
 }
