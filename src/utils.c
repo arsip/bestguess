@@ -446,8 +446,8 @@ FILE *maybe_open(const char *filename, const char *mode) {
   if (!filename) return NULL;
   FILE *f = fopen(filename, mode);
   if (!f) {
-    fprintf(stderr, "Cannot open file: %s\n", filename);
-    perror(progname);
+    fprintf(stderr, "%s: %s: ", progname, filename);
+    perror(NULL);
     exit(-1);
   }
   return f;

@@ -109,7 +109,7 @@ static int run(const char *cmd, Usage *usage, int idx) {
 
   if (gettimeofday(&wall_clock_start, NULL)) {
     perror("could not get wall clock time");
-    PANIC("Exiting");
+    PANIC("Exiting...");
   }
 
   // Goin' for a ride!
@@ -135,7 +135,7 @@ static int run(const char *cmd, Usage *usage, int idx) {
 
   if (gettimeofday(&wall_clock_stop, NULL)) {
     perror("could not get wall clock time");
-    PANIC("Exiting");
+    PANIC("Exiting...");
   }
 
   start = wall_clock_start.tv_sec * MICROSECS + wall_clock_start.tv_usec;

@@ -46,10 +46,12 @@ typedef struct Summary {
 } Summary;
 
 // bitmasks
+#define HAS_NONE(byte) (byte == 0)
 #define HAS(byte, flagname) (((uint8_t)1)<<(flagname) & byte)
 #define SET(byte, flagname) do {		\
     byte = (byte) | (((uint8_t)1)<<(flagname));	\
   } while (0)
+
 // flags for 'code' in Measures 
 #define CODE_HIGHZ 0
 #define CODE_SMALLN 1

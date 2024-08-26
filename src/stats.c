@@ -155,13 +155,13 @@ static int64_t avg(int64_t a, int64_t b) {
   return (a + b) / 2;
 }
 
-static int64_t median(int64_t *X, int n) {
-  assert(X && (n > 0));
-  int half = n / 2;
-  if (n == (n/2) * 2)
-    return avg(X[half - 1], X[half]);
-  return X[half];
-}
+// static int64_t median(int64_t *X, int n) {
+//   assert(X && (n > 0));
+//   int half = n / 2;
+//   if (n == (n/2) * 2)
+//     return avg(X[half - 1], X[half]);
+//   return X[half];
+// }
 
 #define VALUEAT(i) (X[i])
 #define WIDTH(i, j) (VALUEAT(j) - VALUEAT(i))
@@ -214,16 +214,36 @@ static int64_t estimate_mode(int64_t *X, int n) {
   goto tailcall;
 }
 
-// Returns -1 when there are insufficient samples
+// Returns -1 when there are insufficient samples for a 95th or 99th
+// percentile request.  For quartiles, we make the best estimate we
+// can with the data we have.
 static int64_t percentile(int pct, int64_t *X, int n) {
-  assert(X && (n > 0));
-  if (pct < 0) PANIC("Error: unable to calculate percentiles less than 0");
-  if (pct > 99) PANIC("Error: unable to calculate percentiles greater than 99");
-  // Number of samples needed for a percentile calculation
-  int samples = 100 / (100 - pct);
-  if (n < samples) return -1;
-  int idx = n - (n / samples);
-  return X[idx];
+  if (!X) PANIC_NULL();
+  if (n < 1) PANIC("No data");
+  switch (pct) {
+    case 0:
+      return X[0];		// Q0 = Min
+    case 25:
+      return X[n/4];		// Q1
+      break;
+    case 50:
+      if (n & 0x1)		// Q2 = Median
+	return X[n/2];
+      return avg(X[(n/2) - 1], X[n/2]);
+    case 75:
+      return X[(3*n)/4];	// Q3
+    case 95:
+      if (n < 20) return -1;
+      return X[n - n/20];
+    case 99:
+      if (n < 100) return -1;
+      return X[n - n/100];
+      break;
+    case 100:
+      return X[n - 1];
+    default:
+      PANIC("Error: percentile %d unimplemented", pct);
+  }
 }
 
 // Estimate the sample mean: μ = (1/n) Σ(Xi)
@@ -271,11 +291,6 @@ static int64_t *ranked_samples(Usage *usage,
     return X;
 }
 
-// #define FLOAT_EPSILON 0.00001
-// static bool float_equal(double a, double b) {
-//   return fabs(a - b) < FLOAT_EPSILON;
-// }
-
 // TODO: How close to zero is too small a stddev (or variance) for
 // ADscore to be meaningful?
 
@@ -303,17 +318,17 @@ static void measure(Usage *usage,
   if (runs < 1) PANIC("no data to analyze");
   int64_t *X = ranked_samples(usage, start, end, fc, compare);
 
-  // Directly measured attributes of the data distribution
-  m->median = median(X, runs);
-  m->min = X[0];
-  m->max = X[runs - 1];
+  // Descriptive statistics of the data distribution
   m->mode = estimate_mode(X, runs);
+  m->min = percentile(0, X, runs);
+  m->Q1 = percentile(25, X, runs);
+  m->median = percentile(50, X, runs);
+  m->Q3 = percentile(75, X, runs);
   m->pct95 = percentile(95, X, runs);
   m->pct99 = percentile(99, X, runs);
-  m->Q1 = percentile(25, X, runs);
-  m->Q3 = percentile(75, X, runs);
+  m->max = percentile(100, X, runs);
 
-  // Estimates of descriptors of the data distribution 
+  // Estimates based on the data distribution 
   m->est_mean = estimate_mean(X, runs);
   if (runs > 1)
     m->est_stddev = estimate_stddev(X, runs, m->est_mean);

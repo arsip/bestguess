@@ -429,7 +429,7 @@ static void print_boxplot(int index, // Which command is this?
   if (axismin >= axismax) PANIC("axis min/max equal or out of order");
   int indent = LABELWIDTH - 1;
   width -= indent;
-  double scale = (double) (width - 1) / (double) (axismax - axismin);
+  double scale = (double) width / (double) (axismax - axismin);
 
   int minpos = SCALE(m->min - axismin);
   int boxleft = SCALE(m->Q1 - axismin);
@@ -437,18 +437,15 @@ static void print_boxplot(int index, // Which command is this?
   int boxright = SCALE(m->Q3 - axismin);
   int maxpos = SCALE(m->max - axismin);
   int boxwidth = boxright - boxleft;
-//   printf("BOXPLOT scale = %4.3f  min/Q1/med/Q3/max: %.2f %.2f %.2f %.2f %.2f\n",
-// 	 scale,
-// 	 scale * (double)(m->min - axismin),
-// 	 scale * (double)(m->Q1 - axismin),
-// 	 scale * (double)(m->median - axismin),
-// 	 scale * (double)(m->Q3 - axismin),
-// 	 scale * (double)(m->max - axismin));
 
   // Will we show the median as its own character?
   int show_median = 1;
   if ((median == boxleft) || (median == boxright))
     show_median = 0;
+
+//   printf("minpos = %d, boxleft = %d, median = %d, boxright = %d, maxpos = %d (boxwidth = %d)\n",
+// 	 minpos, boxleft, median, boxright, maxpos, boxwidth);
+
 
   // Top line
   printf("%*s", indent + boxleft, "");
@@ -469,8 +466,8 @@ static void print_boxplot(int index, // Which command is this?
     printf("┼\n");
   } else {
     printf("%*s", minpos, "");
-    if (boxleft > minpos) printf("├");
-    for (int j = 1; j < boxleft - minpos; j++) printf("╌");
+    if (boxleft > minpos) printf("╾"); // ├
+    for (int j = 1; j < boxleft - minpos; j++) printf("┄");
     if (boxwidth == 0) {
       printf("┼");
     } else if (boxwidth == 1) {
@@ -487,8 +484,8 @@ static void print_boxplot(int index, // Which command is this?
       if (median == boxright) printf("╟");
       else printf("├");
     }
-    for (int j = 1; j < (maxpos - boxright); j++) printf("╌");
-    if ((maxpos - boxright) > 0) printf("┤");
+    for (int j = 1; j < (maxpos - boxright); j++) printf("┄");
+    if ((maxpos - boxright) > 0) printf("╼"); // ┤
     printf("\n");
   }
   // Bottom line
@@ -531,16 +528,20 @@ void print_descriptive_stats(Summary *s) {
   printf(INDENT "N (data points) = %d\n", n);
   int64_t IQR = m->Q3 - m->Q1;
   int64_t range = m->max - m->min;
-  printf(INDENT "Inter-quartile range = %0.2fms (%0.2f%% of total range)\n",
-	 MS(IQR), (MS(IQR) * 100.0/ MS(range)));
+  printf(INDENT "Inter-quartile range = %0.2fms", MS(IQR));
+  if (range > 0)
+    printf(" (%0.2f%% of total range)\n", (MS(IQR) * 100.0/ MS(range)));
+  else
+    printf("\n");
 
   // How far below and above the median
-  int64_t IQ1delta = m->median - m->Q1;
-  int64_t IQ3delta = m->Q3 - m->median;
-  printf(INDENT "Relative to the median, the IQR is [-%0.1fms, +%0.1fms]\n",
-	 MS(IQ1delta), MS(IQ3delta));
-
-  if (m->code == 0) {
+  if (IQR > 0) {
+    int64_t IQ1delta = m->median - m->Q1;
+    int64_t IQ3delta = m->Q3 - m->median;
+    printf(INDENT "Relative to the median, the IQR is [-%0.1fms, +%0.1fms]\n",
+	   MS(IQ1delta), MS(IQ3delta));
+  }
+  if (HAS_NONE(m->code)) {
     if (m->ADscore > 0)
       printf(INDENT "Distribution %s normal (AD score %4.2f) with p = %6.4f\n",
 	     (m->p_normal <= 0.05) ? "is NOT" : "could be",
@@ -549,7 +550,6 @@ void print_descriptive_stats(Summary *s) {
     else
       printf(INDENT "Unable to test for normality %s\n",
 	     (m->est_stddev == 0) ? "(variance too low)" : "(too few data points)");
-
   }
   if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN))
     printf(INDENT "Non-parametric skew of %4.2f is %s (magnitude is %s %0.2f)\n",
