@@ -42,13 +42,13 @@ infile=raw1.csv
 
 # Default report is summary
 ok "$prog" "$infile"
-contains "Min    Median    95th     99th      Max"
+contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms" 
 contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
 
 # Explicitly request the summary
 ok "$prog" -R summary "$infile"
-contains "Min    Median    95th     99th      Max"
+contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
 contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
 
@@ -64,7 +64,7 @@ contains "8.83 times faster than ps Aux"
 
 # Graph with default report
 ok "$prog" -g "$infile"
-contains "Min    Median    95th     99th      Max"
+contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
 contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
 contains "0     " "     max"
@@ -80,7 +80,7 @@ contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭�
 
 # Boxplot
 ok "$prog" -B "$infile"
-contains "Min    Median    95th     99th      Max"
+contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
 contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
 contains "8.83 times faster than ps Aux"

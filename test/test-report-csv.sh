@@ -44,7 +44,7 @@ outfile=$(mktemp -p /tmp)
 
 # Write summary stats (and get default report on terminal)
 ok "$prog" --export-csv "$outfile" "$infile"
-contains "Min    Median    95th     99th      Max"
+contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
 contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
 ok diff "$outfile" "$expectfile"
@@ -71,7 +71,7 @@ outfile=$(mktemp -p /tmp)
 
 # Write summary stats (and get default report on terminal)
 ok "$prog" --hyperfine-csv "$outfile" "$infile"
-contains "Min    Median    95th     99th      Max"
+contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
 contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
 ok diff "$outfile" "$expectfile"

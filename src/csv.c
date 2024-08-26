@@ -378,7 +378,7 @@ void write_hf_line(FILE *f, Summary *s) {
   // Median total time (more useful than mean, not as good as mode)
   WRITEFIELD(i++, "%f", (double) s->total.mode / million, N);
   // Stddev replaced with IQR
-  WRITEFIELD(i++, "%f", (double) (s->total.Q3 - s->total.Q1), N);
+  WRITEFIELD(i++, "%f", (double) (s->total.Q3 - s->total.Q1) / million, N);
   // Mode total time
   WRITEFIELD(i++, "%f", (double) s->total.median / million, N);
   // User time in seconds as double 

@@ -24,13 +24,7 @@ const char *ReportOptionDesc[] = {XReports(THIRD)};
 #define BOXPLOT_LABEL_ABOVE 1
 #define BOXPLOT_LABEL_BELOW 2
 
-ReportCode interpret_report_option(const char *op) {
-  for (ReportCode i = REPORT_NONE; i < REPORT_ERROR; i++)
-    if (strcmp(op, ReportOptionName[i]) == 0) return i;
-  return REPORT_ERROR;
-}
-
-// Caller must the returned string
+// For printing help.  Caller must free the returned string.
 char *report_options(void) {
   size_t bufsize = 1000;
   char *buf = malloc(bufsize);
@@ -44,20 +38,31 @@ char *report_options(void) {
   return buf;
 }
 
+ReportCode interpret_report_option(const char *op) {
+  for (ReportCode i = REPORT_NONE; i < REPORT_ERROR; i++)
+    if (strcmp(op, ReportOptionName[i]) == 0) return i;
+  return REPORT_ERROR;
+}
+
 void announce_command(const char *cmd, int index) {
   printf("Command %d: %s\n", index + 1, *cmd ? cmd : "(empty)");
 }
 
 #define FMT "%6.1f"
+#define FMTL "%-6.1f"
 #define FMTs "%6.2f"
+#define FMTsL "%-6.2f"
 #define IFMT "%6" PRId64
+#define IFMTL "%-6" PRId64
 #define LABEL "  %14s "
 #define GAP   "   "
 #define UNITS 1
 #define NOUNITS 0
-// Round to one decimal place
+// Scale and round to one or two decimal places
 #define ROUND1(intval, divisor) \
   (round((double)((intval) * 10) / (divisor)) / 10.0)
+#define ROUND2(intval, divisor) \
+  (round((double)((intval) * 100) / (divisor)) / 100.0)
 
 #define LEFT       0
 #define RIGHT      1
@@ -66,15 +71,14 @@ void announce_command(const char *cmd, int index) {
 #define BOTTOMLINE 2
 
 static const char *bar(int side, int line) {
-  const char *left_decor[3] = {"┌", "│", "└"};
-  const char *right_decor[3] = {"┐", "│", "┘"};
+  const char *decor[6] = { "┌", "┐",
+			   "│", "│",
+			   "└", "┘" };
+  if ((side != LEFT) && (side != RIGHT))
+    return ":";
   if ((line < TOPLINE) || (line > BOTTOMLINE))
-    return "*";
-  if (side == LEFT)
-    return left_decor[line];
-  if (side == RIGHT)
-    return right_decor[line];
-  return "!";
+    return "!";
+  return decor[line * 2 + side];
 }
 
 #define LEFTBAR(line) do {					\
@@ -85,14 +89,14 @@ static const char *bar(int side, int line) {
     printf("   %s\n", bar(RIGHT, line));			\
   } while (0)
 
-#define PRINTMODE(field, line) do {				\
+#define PRINTMODE(field, divisor, units, line) do {		\
     printf(sec ? FMTs : FMT, ROUND1(field, divisor));		\
     printf(" %-3s", units);					\
     printf(GAP);						\
     LEFTBAR(line);						\
   } while (0)
 
-#define PRINTTIME(field) do {					\
+#define PRINTTIME(field, divisor) do {				\
     if ((field) < 0) {						\
       printf("%6s", "   - ");					\
     } else {							\
@@ -101,7 +105,7 @@ static const char *bar(int side, int line) {
     printf(GAP);						\
   } while (0)
 
-#define PRINTTIMENL(field, line) do {				\
+#define PRINTTIMENL(field, divisor, line) do {			\
     if ((field) < 0) {						\
       printf("%6s", "   - ");					\
     } else {							\
@@ -110,7 +114,7 @@ static const char *bar(int side, int line) {
     RIGHTBAR(line);						\
   } while (0)
 
-#define PRINTCOUNT(field, showunits) do {			\
+#define PRINTCOUNT(field, divisor, showunits) do {		\
     if ((field) < 0)						\
       printf("%6s", "   - ");					\
     else if (divisor == 1) {					\
@@ -127,107 +131,107 @@ void print_summary(Summary *s, bool briefly) {
     return;
   }
 
-  // TODO: Use bar() when printing the heading below
   if (briefly)
-    printf(LABEL "    Mode" GAP "  ┌    Min    Median     Max   ┐\n", "");
+    printf(LABEL "    Mode" GAP "  %s    Min    Median     Max   %s\n",
+	   "", bar(LEFT, TOPLINE), bar(RIGHT, TOPLINE));
   else
-    printf(LABEL "    Mode" GAP "  ┌    Min    Median    95th     99th      Max   ┐\n", "");
+    printf(LABEL "    Mode" GAP "  %s    Min       Q₁    Median      Q₃      Max   %s\n",
+	   "", bar(LEFT, TOPLINE), bar(RIGHT, TOPLINE));
 
 
   int sec = 1;
-  double divisor = MICROSECS;
+  double div = MICROSECS;
   const char *units = "s";
   
   // Decide on which time unit to use for printing the summary
-  if (s->total.max < divisor) {
+  if (s->total.max < div) {
     sec = 0;
-    divisor = 1000.0;
+    div = MILLISECS;
     units = "ms";
   }
 
   printf(LABEL, "Total CPU time");
-  PRINTMODE(s->total.mode, MIDLINE);
-  PRINTTIME(s->total.min);
-  PRINTTIME(s->total.median);
-
-  if (!briefly) {
-    PRINTTIME(s->total.pct95);
-    PRINTTIME(s->total.pct99);
+  PRINTMODE(s->total.mode, div, units, MIDLINE);
+  PRINTTIME(s->total.min, div);
+  if (briefly) {
+    PRINTTIME(s->total.median, div);
+  } else {
+    PRINTTIME(s->total.Q1, div);
+    PRINTTIME(s->total.median, div);
+    PRINTTIME(s->total.Q3, div);
   }
-  PRINTTIMENL(s->total.max, MIDLINE);
+  PRINTTIMENL(s->total.max, div, MIDLINE);
 
   if (!briefly) {
     printf(LABEL, "User time");
-    PRINTMODE(s->user.mode, MIDLINE);
-    PRINTTIME(s->user.min);
-    PRINTTIME(s->user.median);
-
-    PRINTTIME(s->user.pct95);
-    PRINTTIME(s->user.pct99);
-    PRINTTIMENL(s->user.max, MIDLINE);
+    PRINTMODE(s->user.mode, div, units, MIDLINE);
+    PRINTTIME(s->user.min, div);
+    PRINTTIME(s->user.Q1, div);
+    PRINTTIME(s->user.median, div);
+    PRINTTIME(s->user.Q3, div);
+    PRINTTIMENL(s->user.max, div, MIDLINE);
 
     printf(LABEL, "System time");
-    PRINTMODE(s->system.mode, MIDLINE);
-    PRINTTIME(s->system.min);
-    PRINTTIME(s->system.median);
-
-    PRINTTIME(s->system.pct95);
-    PRINTTIME(s->system.pct99);
-    PRINTTIMENL(s->system.max, MIDLINE);
+    PRINTMODE(s->system.mode, div, units, MIDLINE);
+    PRINTTIME(s->system.min, div);
+    PRINTTIME(s->system.Q1, div);
+    PRINTTIME(s->system.median, div);
+    PRINTTIME(s->system.Q3, div);
+    PRINTTIMENL(s->system.max, div, MIDLINE);
   }
 
   printf(LABEL, "Wall clock");
-  PRINTMODE(s->wall.mode, briefly ? BOTTOMLINE : MIDLINE);
-  PRINTTIME(s->wall.min);
-  PRINTTIME(s->wall.median);
-  if (!briefly) {
-    PRINTTIME(s->wall.pct95);
-    PRINTTIME(s->wall.pct99);
+  PRINTMODE(s->wall.mode, div, units, briefly ? BOTTOMLINE : MIDLINE);
+  PRINTTIME(s->wall.min, div);
+  if (briefly) {
+    PRINTTIME(s->wall.median, div);
+  } else {
+    PRINTTIME(s->wall.Q1, div);
+    PRINTTIME(s->wall.median, div);
+    PRINTTIME(s->wall.Q3, div);
   }
-  PRINTTIMENL(s->wall.max, briefly ? BOTTOMLINE : MIDLINE);
+  PRINTTIMENL(s->wall.max, div, briefly ? BOTTOMLINE : MIDLINE);
 
   if (!briefly) {
-    divisor = MEGA;
+    div = MEGA;
     units = "MiB";
     // More than 3 digits left of decimal place?
     if (s->maxrss.max >= MEGA * 1000) {
-      divisor *= 1024;
+      div *= 1024;
       units = "GiB";
     }
     printf(LABEL, "Max RSS");
-    PRINTMODE(s->maxrss.mode, MIDLINE);
-    PRINTTIME(s->maxrss.min);
-    PRINTTIME(s->maxrss.median);
+    PRINTMODE(s->maxrss.mode, div, units, MIDLINE);
+    // Misusing PRINTTIME here because it does the right thing
+    PRINTTIME(s->maxrss.min, div);
+    PRINTTIME(s->maxrss.Q1, div);
+    PRINTTIME(s->maxrss.median, div);
+    PRINTTIME(s->maxrss.Q3, div);
+    PRINTTIMENL(s->maxrss.max, div, MIDLINE);
 
-    // Misusing PRINTTIME because it does the right thing
-    PRINTTIME(s->maxrss.pct95);
-    PRINTTIME(s->maxrss.pct99);
-    PRINTTIMENL(s->maxrss.max, MIDLINE);
-
-    divisor = 1;
+    div = 1;
     units = "ct";
     if (s->tcsw.max >= 10000) {
-      divisor = 1000;
+      div = 1000;
       units = "Kct";
     }
     if (s->tcsw.max >= MICROSECS) { // Not a time but
-      divisor = MICROSECS;	    // MICROSECS is a
+      div = MICROSECS;		    // MICROSECS is a
       units = "Mct";		    // convenient constant
     }
     printf(LABEL, "Context sw");
-    PRINTCOUNT(s->tcsw.mode, UNITS);
+    PRINTCOUNT(s->tcsw.mode, div, UNITS);
     printf(GAP);
     LEFTBAR(BOTTOMLINE);
-    PRINTCOUNT(s->tcsw.min, NOUNITS);
+    PRINTCOUNT(s->tcsw.min, div, NOUNITS);
     printf(GAP);
-    PRINTCOUNT(s->tcsw.median, NOUNITS);
+    PRINTCOUNT(s->tcsw.Q1, div, NOUNITS);
     printf(GAP);
-	   
-    PRINTCOUNT(s->tcsw.pct95, NOUNITS);
+    PRINTCOUNT(s->tcsw.median, div, NOUNITS);
     printf(GAP);
-    PRINTCOUNT(s->tcsw.pct99, NOUNITS);
+    PRINTCOUNT(s->tcsw.Q3, div, NOUNITS);
     printf(GAP);
-    PRINTCOUNT(s->tcsw.max, NOUNITS);
+    PRINTCOUNT(s->tcsw.max, div, NOUNITS);
     RIGHTBAR(BOTTOMLINE);
 
   } // if not brief report
@@ -361,14 +365,12 @@ static void print_boxplot_scale(int scale_min,
   assert((strlen(AXISLINE) / bytesperunit) > TICKSPACING);
 
   int ticks = width / TICKSPACING;
-  //printf("width = %d, ticks = %d\n", width, ticks);
   int even = (ticks * TICKSPACING == width);
   for (int i = 0; i < ticks; i++) {
     printf("%.*s%s", (TICKSPACING - 1) * bytesperunit, AXISLINE,
 	   even && (i == ticks-1) ? "┤" : "┼");
     currpos += TICKSPACING;
   }
-  //printf("width = %d, currpos = %d\n", width, currpos);
   printf("%.*s", (width - currpos) * bytesperunit, AXISLINE);
   printf("\n");
 
@@ -377,42 +379,10 @@ static void print_boxplot_scale(int scale_min,
 
 }
 
-//
-// To facilitate debugging how boxplots are printed:
-//
-// Call print_ticks() with the POSITIONS (e.g. 0..79 for a terminal
-// width of 80) of each quartile value.
-//
-__attribute__((unused))
-static void print_ticks(Measures *m, int width) {
-  // IMPORTANT: We are truncating int64's down to ints here!  This
-  // will only work, obvi, if the values are small, which is what is
-  // needed for printing.
-  int Q0 = m->min;
-  int Q1 = m->Q1;
-  int Q2 = m->median;
-  int Q3 = m->Q3;
-  int Q4 = m->max;
-  int indent = LABELWIDTH - 1;
-  width -= indent;
-  printf("%*s", indent, "");
-  for (int i = 0; i < (width / 10); i++) printf("%d         ", i);
-  if ((width % 10) == 1) printf("%d         ", width/10);
-  printf("\n%*s", indent, "");
-  for (int i = 0; i < (width / 10); i++) printf("0123456789");
-  printf("%.*s", width % 10, "0123456789");
-  printf("\n%*s", indent, "");
-  if (Q1 > Q0) printf("%*s", Q0+1, "<");
-  printf("%*s", Q1 - Q0 - (Q1 == Q2), (Q1 == Q2) ? "" : "|");
-  printf("%*s", Q2 - Q1, "X");
-  printf("%*s", Q3 - Q2, (Q2 == Q3) ? "" : "|");
-  if (Q4 > Q3) printf("%*s", Q4 - Q3, ">");
-  printf("\n");
-}
-
 #define SCALE(val) (round(((double) (val) * scale)))
 
-static void print_boxplot(int index, // Which command is this? 
+// The 'index' arg is the command index, 0..N-1 for N commands
+static void print_boxplot(int index, 
 			  Measures *m,
 			  int64_t axismin,
 			  int64_t axismax,
@@ -443,9 +413,10 @@ static void print_boxplot(int index, // Which command is this?
   if ((median == boxleft) || (median == boxright))
     show_median = 0;
 
-//   printf("minpos = %d, boxleft = %d, median = %d, boxright = %d, maxpos = %d (boxwidth = %d)\n",
-// 	 minpos, boxleft, median, boxright, maxpos, boxwidth);
-
+  if (DEBUG)
+    printf("minpos = %d, boxleft = %d, median = %d, "
+	   "boxright = %d, maxpos = %d (boxwidth = %d)\n",
+	   minpos, boxleft, median, boxright, maxpos, boxwidth);
 
   // Top line
   printf("%*s", indent + boxleft, "");
@@ -466,7 +437,7 @@ static void print_boxplot(int index, // Which command is this?
     printf("┼\n");
   } else {
     printf("%*s", minpos, "");
-    if (boxleft > minpos) printf("╾"); // ├
+    if (boxleft > minpos) printf("├"); // "╾"
     for (int j = 1; j < boxleft - minpos; j++) printf("┄");
     if (boxwidth == 0) {
       printf("┼");
@@ -485,7 +456,7 @@ static void print_boxplot(int index, // Which command is this?
       else printf("├");
     }
     for (int j = 1; j < (maxpos - boxright); j++) printf("┄");
-    if ((maxpos - boxright) > 0) printf("╼"); // ┤
+    if ((maxpos - boxright) > 0) printf("┤"); // "╼"
     printf("\n");
   }
   // Bottom line
@@ -507,67 +478,125 @@ static void print_boxplot(int index, // Which command is this?
 #define COLSEP "  "
 #define SKEWSIGNIFICANCE 0.20
 #define INDENT "  "
+#define LBLFMT "%-14s"
 
-// TODO: Scale the values if too many ms?
-void print_descriptive_stats(Summary *s) {
-  if (!s || (s->runs == 0)) return; // No data
-  Measures *m = &(s->total);
-  int n = s->runs;
-  
-  printf(INDENT "About the distribution of total CPU time:\n\n");
-
-  printf(INDENT "     Min         Q₁         Median       Q₃          Max   \n");
-  printf(INDENT MSFMT COLSEP MSFMT COLSEP MSFMT COLSEP MSFMT COLSEP MSFMT "\n",
-	 MS(m->min),
-	 MS(m->Q1),
-	 MS(m->median),
-	 MS(m->Q3),
-	 MS(m->max));
-
-  printf("\n");
-  printf(INDENT "N (data points) = %d\n", n);
-  int64_t IQR = m->Q3 - m->Q1;
-  int64_t range = m->max - m->min;
-  printf(INDENT "Inter-quartile range = %0.2fms", MS(IQR));
-  if (range > 0)
-    printf(" (%0.2f%% of total range)\n", (MS(IQR) * 100.0/ MS(range)));
-  else
-    printf("\n");
-
-  // How far below and above the median
-  if (IQR > 0) {
-    int64_t IQ1delta = m->median - m->Q1;
-    int64_t IQ3delta = m->Q3 - m->median;
-    printf(INDENT "Relative to the median, the IQR is [-%0.1fms, +%0.1fms]\n",
-	   MS(IQ1delta), MS(IQ3delta));
-  }
+static void print_ADscore(Measures *m) {
+  printf(INDENT LBLFMT, "AD normality");
   if (HAS_NONE(m->code)) {
-    if (m->ADscore > 0)
-      printf(INDENT "Distribution %s normal (AD score %4.2f) with p = %6.4f\n",
-	     (m->p_normal <= 0.05) ? "is NOT" : "could be",
-	     m->ADscore,
-	     m->p_normal);
+    assert(m->ADscore > 0);
+    printf(" %6.2f", m->ADscore);
+    printf("        p = %0.4f", m->p_normal);
+    if (m->p_normal <= 0.05)
+      printf("  (NOT normal)\n");
     else
-      printf(INDENT "Unable to test for normality %s\n",
-	     (m->est_stddev == 0) ? "(variance too low)" : "(too few data points)");
+      printf("  (cannot rule out normal)\n");
+  } else {
+    printf("%6s", "- ");
+    if (HAS(m->code, CODE_LOWVARIANCE)) {
+      printf("         Low variance (likely not normal)\n");
+    } else if (HAS(m->code, CODE_SMALLN)) {
+      printf("         Too few data points\n");
+   } else if (HAS(m->code, CODE_HIGHZ)) {
+      printf("         High variance (likely not normal)\n");
+    } else {
+      printf("\n");
+    }
   }
-  if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN))
-    printf(INDENT "Non-parametric skew of %4.2f is %s (magnitude is %s %0.2f)\n",
+}
+
+static void print_skew(Measures *m) {
+  printf(INDENT LBLFMT, "Skew");
+  if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN)) {
+    printf(" %6.2f        %s (magnitude is %s %0.2f)\n",
 	   m->skew,
 	   (fabs(m->skew) > SKEWSIGNIFICANCE) ? "SIGNIFICANT" : "insignificant",
 	   (fabs(m->skew) > SKEWSIGNIFICANCE) ? "above" : "at/below",
 	   SKEWSIGNIFICANCE);
+  } else {
+    printf("%6s", "- ");
+    if (HAS(m->code, CODE_LOWVARIANCE)) {
+      printf("         Low variance\n");
+    } else if (HAS(m->code, CODE_HIGHZ)) {
+      printf("         High variance\n");
+    } else if (HAS(m->code, CODE_SMALLN)) {
+      printf("         Too few data points\n");
+    } else {
+      printf("\n");
+    }
+  }
+}
 
-  if (HAS(m->code, CODE_LOWVARIANCE))
-    printf(INDENT
-	   "Low variance blocked AD test and skew calculation\n");
-  if (HAS(m->code, CODE_HIGHZ))
-    printf(INDENT
-	   "High variance blocked AD test (normal distribution unlikely)\n");
-  if (HAS(m->code, CODE_SMALLN))
-    printf(INDENT
-	   "Too few data points for AD or skew calculation\n");
-    
+void print_descriptive_stats(Summary *s) {
+  if (!s || (s->runs == 0)) return; // No data
+
+  Measures *m = &(s->total);
+  int n = s->runs;
+  
+  int sec = 1;
+  double div = MICROSECS;
+  
+  // Decide on which time unit to use for printing
+  if (s->total.max < div) {
+    sec = 0;
+    div = MILLISECS;
+  }
+  printf("\n");
+  printf(INDENT "────────────────────────────────────\n"
+	 INDENT "Total CPU time\n"
+	 INDENT "────────────────────────────────────\n");
+
+  printf(INDENT "%-12s%6d\n", "N", n);
+  printf(INDENT LBLFMT, "Median");
+  printf(sec ? FMTs : FMT, ROUND1(m->median, div));
+  printf("%11s\n", sec ? "s" : "ms");
+
+  int64_t range = m->max - m->min;
+  printf(INDENT LBLFMT, "Range");
+  printf(sec ? FMTs : FMT, ROUND1(m->min, div));
+  printf(" … ");
+  printf(sec ? FMTsL : FMTL, ROUND1(m->max, div));
+  printf("%s\n", sec ? "s" : "ms");
+  printf(INDENT LBLFMT, "");
+  printf(sec ? FMTs : FMT, ROUND1(range, div));
+  printf("%11s\n", sec ? "s" : "ms");
+
+  int64_t IQR = m->Q3 - m->Q1;
+  printf(INDENT LBLFMT, "IQR");
+  printf(sec ? FMTs : FMT, ROUND1(m->Q1, div));
+  printf(" … ");
+  printf(sec ? FMTsL : FMTL, ROUND1(m->Q3, div));
+  printf("%s\n", sec ? "s" : "ms");
+  printf(INDENT LBLFMT, "");
+  printf(sec ? FMTs : FMT, ROUND1(IQR, div));
+  printf("%11s", sec ? "s" : "ms");
+  if (range > 0) {
+    printf("  (%4.1f%% of range)\n", (MS(IQR) * 100.0/ MS(range)));
+  } else {
+    printf("\n");
+  }
+#if 0
+  // How far below and above the median
+  if (IQR > 0) {
+    int64_t IQ1delta = m->median - m->Q1;
+    int64_t IQ3delta = m->Q3 - m->median;
+    printf(INDENT "%-15s", "Median ± IQR");
+    printf(sec ? FMTs : FMT, - ROUND1(IQ1delta, div));
+    printf(" … +");
+    printf(sec ? FMTsL : FMTL, ROUND1(IQ3delta, div));
+    printf(" %s\n", sec ? "s" : "ms");
+  }
+  printf("\n");
+#endif
+
+  print_skew(m);
+  print_ADscore(m);
+
+  printf("\n");
+  printf(INDENT "Tail:     95th     99th      Max\n");
+  printf(INDENT "        ");
+  PRINTTIME(m->pct95, div);
+  PRINTTIME(m->pct99, div);
+  PRINTTIME(m->max, div);
   printf("\n");
 }
 

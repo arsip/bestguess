@@ -1,0 +1,3 @@
+Command,Shell,Exit code,User time (us),System time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches,Wall clock (us)
+ls -l,,0,1207,3608,1900544,237,0,2,20,10410
+ps Aux,,0,11117,37866,4145152,1312,1,0,69,52102

@@ -11,7 +11,8 @@
 #include <stdio.h>
 #include <sys/resource.h>
 
-// How many microseconds in one second
+// How many millisecs or microsecs in one second
+#define MILLISECS 1000
 #define MICROSECS 1000000
 
 // 1024 * 1024 = How many things are in a mega-thing
