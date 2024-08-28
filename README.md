@@ -26,6 +26,40 @@ To install to custom location `/some/path/bin`:
 make DESTDIR=/some/path install
 ```
 
+## Philosphy
+
+* **BestGuess and Hyperfine are tools, not oracles.**  Neither the tools nor their
+  makers know anything about the experiments you are doing.  (Measuring
+  performance is an experiment.)
+  - You may be measuring cold start times, or you may be looking for the best
+    possible performance, which probably requires warmed-up caches, etc.
+  - The tool should not advise you to use warmup runs because we don't know what
+    you're trying to measure.  The tool should run untimed warmup runs at your
+    direction.
+  - The tool should not automatically select and employ a shell to run your
+    experiment, nor estimate and substract the shell startup time.  The tool
+    should give you a way to run your experiment using any shell, and to measure
+    that shell's startup time yourself.
+* **A tool like BestGuess should not get in your way.**
+  - We should provide measurements as accurately as possible,
+  - And collect the raw data, so that
+  - You can analyze the data in whatever way is appropriate.
+  - Though we can provide enough descriptive statistics to help you decide what
+    to measure and how.
+* **Descriptive statistics are important.**  They summarize the distribution of
+  measurements in a handful of numbers.
+  - A distribution of performance measurements, even if it contains a large
+    number of data points, is not likely to produce a normal distribution.
+  - The mean and standard deviation are not useful statistics
+    here.  The median and inter-quartile range are more appropriate measures of
+    central tendency and spread.
+  - The best guess for what is a "typical" run time is the mode, at least for
+    unimodal distributions.
+  - There are no outliers.  A long running time is just as valid a data point as
+    a short one.  The proper way to deal with such "outliers" is not to rerun an
+    experiment until it does not produce any.  Simply citing the median or mode
+    run time of the actual measurements collected will do.
+
 ## If you already use Hyperfine
 
 BestGuess does not support all of the options that Hyperfine does.  And
@@ -144,7 +178,7 @@ with the number of data points and an interpretation of the inter-quartile range
 **Measurements:** Hyperfine measures user and system time.  BestGuess measures
 these plus the maximum RSS size, the number of Page Reclaims and Faults, and the
 number of Context Switches.  In early testing, we are seeing an unsurprising
-correlation between context switches and runtime.  It seems likely that each
+correlation between context switches and run time.  It seems likely that each
 context switch is polluting the CPU caches and its branch predictor, and maybe
 some other things.  The more often this happens during a single run of the timed
 command, the worse it performs.
@@ -157,10 +191,10 @@ Here, the empty command provides a good measure of shell startup time.  The 95th
 and 99th percentile figures are not available because the number of runs is too
 small.  You need at least 20 runs to get 95th and at least 100 runs to get 99th
 percentile numbers.  These are of interest because they summarize statistically
-what the "long tail" of high runtimes looks like.
+what the "long tail" of high run times looks like.
 
 Note that the Mode value may be the most relevant, as it is the "typical"
-runtime.  The figures to the right represent the range from minimum (0th
+run time.  The figures to the right represent the range from minimum (0th
 percentile) through median (50th percentile) to the 95th, 99th, and maximum
 measurements.
 
@@ -442,8 +476,8 @@ On my machine, as shown by the data below, it takes about 1.8ms to launch bash,
 only to have it see no command and exit.
 
 Setting aside that this is a small set of measurements (and for a short duration
-command), in general we might subtract the bash startup time from the runtime of
-the other commands to obtain an estimate of the net runtime.
+command), in general we might subtract the bash startup time from the run time of
+the other commands to obtain an estimate of the net run time.
 
 ```shell
 
@@ -607,14 +641,14 @@ produces one number, which is usually measured by summing the user and system
 times as reported by the OS.  That one number can vary a lot.  Cache misses,
 mispredicted branches, and throttling may affect any program.  When a process is
 preemptively suspended by the OS or is waiting on I/O, it does not accrue
-runtime, but (we conjecture) the likelihood of cache misses and branch
+run time, but (we conjecture) the likelihood of cache misses and branch
 mispredictions, i.e. things that slow execution, increases dramatically because
 some other process ran on "our core" of the CPU for a bit.
 
 Continuing to conjecture, it's possible that short-duration program measurements
 (and microbenchmarks) will exhibit wide variation because the effects of a
 single context switch might be of the same order of magnitude as the minimum
-runtime recorded.
+run time recorded.
 
 And for long-duration measurements, we will want to know how often our program
 was kicked off the processor so another could run.  The distribution of events
@@ -629,7 +663,7 @@ and branch mispredictions) and the compounding effects of context switches.
 
 In any case, there is an ideal "best performance" on a given architecture,
 during which all loads are from L1 and every branch is perfectly predicted.  The
-distribution of runtimes cannot be normal, due to this lower limit.  It is
+distribution of run times cannot be normal, due to this lower limit.  It is
 likely to be log-normal, as [Lemire
 suggests](https://lemire.me/blog/2023/04/06/are-your-memory-bound-benchmarking-timings-normally-distributed/). 
 
