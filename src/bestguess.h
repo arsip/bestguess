@@ -19,7 +19,10 @@ extern const char *progversion;
 extern const char *progname;
 
 // Change to non-zero to enable debugging output to stdout
+// E.g. on command-line:  make DEBUG=1
+#ifndef DEBUG
 #define DEBUG 0
+#endif
 
 // Maximum number of commands we allow to benchmark
 #define MAXCMDS 200

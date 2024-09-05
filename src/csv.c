@@ -14,10 +14,11 @@ int CSVfields(CSVrow *row) {
   return row->next;
 }
 
+// Returns NULL on error, so that caller can report the error with
+// more context than we have here.
 char *CSVfield(CSVrow *row, int i) {
   if (!row) PANIC_NULL();
-  if ((i < 0) || (i >= row->next))
-    PANIC("invalid column index %d (%d cols total)", i, row->next);
+  if ((i < 0) || (i >= row->next)) return NULL;
   return row->fields[i];
 }
 
@@ -93,23 +94,24 @@ static int parse_CSVrow(char *line, CSVrow *row) {
   return 0;
 }
 
-CSVrow *read_CSVrow(FILE *f, char *buf, size_t buflen) {
+// When return code is zero, '*ptr' is set to a new CSV row that the
+// caller must evenutally free.  Else, return code is EITHER the field
+// number (1-based) at which the parser failed, or -1 indicating EOF.
+//
+// Caller has the context needed for a good error message, and can use
+// csv_error() to signal it.
+//
+int read_CSVrow(FILE *f, CSVrow **ptr, char *buf, size_t buflen) {
   char *line = fgets(buf, buflen, f);
-  if (!line) return NULL;	// EOF
-  CSVrow *row = new_row();
-  int errfield = parse_CSVrow(line, row);
+  if (!line) return -1;		// EOF
+  *ptr = new_row();
+  int errfield = parse_CSVrow(line, *ptr);
   if (errfield) {
-    // Cut newline from end of 'buf' for better printing
-    char *p = buf;
-    while(*p && !newlinep(p)) p++;
-    *p = '\0';
-    fprintf(stderr, "Error parsing CSV row at field %d\n", errfield);
-    fprintf(stderr, "  Input: %s\n", buf);
-    fflush(stderr);
-    free_CSVrow(row);
-    return NULL;
+    free_CSVrow(*ptr);
+    *ptr = NULL;
+    return errfield;
   }
-  return row;
+  return 0;			// Success
 }
 
 void free_CSVrow(CSVrow *row) {
@@ -117,6 +119,24 @@ void free_CSVrow(CSVrow *row) {
   for (int i = 0; i < row->next; i++)
     free(row->fields[i]);
   free(row);
+}
+
+// 'colnum' should be a non-zero return value from read_CSVrow().
+void csv_error(char *input, int lineno,
+	       const char *desc,
+	       int colnum,
+	       char *buf, size_t buflen) {
+  buf[buflen-1] = '\0';		// defensive move
+  // Cut first newline out of 'buf' for better printing
+  char *p = buf;
+  while(*p && !newlinep(p)) p++;
+  *p = '\0';
+  if (colnum == -1)
+    ERROR("CSV read error in file %s at line %d: unexpected EOF",
+	  input, lineno);
+  else
+    ERROR("CSV read error in file %s at line %d: no %s in col %d\n"
+	  "Data: %s", input, lineno, desc, colnum, p);
 }
 
 // -----------------------------------------------------------------------------

@@ -46,19 +46,19 @@ outfile=$(mktemp -p /tmp)
 ok "$prog" --export-csv "$outfile" "$infile"
 contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
-contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
+contains "Command 2: ps Aux" "8.87 times faster than ps Aux"
 ok diff "$outfile" "$expectfile"
 
 # Write summary stats (and get brief report on terminal)
 ok "$prog" -R brief --export-csv "$outfile" "$infile"
 contains "Min    Median     Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
-contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
+contains "Command 2: ps Aux" "8.87 times faster than ps Aux"
 ok diff "$outfile" "$expectfile"
 
 # Write summary stats (and get no report on terminal)
 ok "$prog" -R none --export-csv "$outfile" "$infile"
-contains "8.83 times faster than ps Aux"
+contains "8.87 times faster than ps Aux"
 ok diff "$outfile" "$expectfile"
 
 # ------------------------------------------------------------------
@@ -73,19 +73,19 @@ outfile=$(mktemp -p /tmp)
 ok "$prog" --hyperfine-csv "$outfile" "$infile"
 contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
-contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
+contains "Command 2: ps Aux" "8.87 times faster than ps Aux"
 ok diff "$outfile" "$expectfile"
 
 # Write summary stats (and get brief report on terminal)
 ok "$prog" -R brief --hyperfine-csv "$outfile" "$infile"
 contains "Min    Median     Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
-contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
+contains "Command 2: ps Aux" "8.87 times faster than ps Aux"
 ok diff "$outfile" "$expectfile"
 
 # Write summary stats (and get no report on terminal)
 ok "$prog" -R none --hyperfine-csv "$outfile" "$infile"
-contains "8.83 times faster than ps Aux"
+contains "8.87 times faster than ps Aux"
 ok diff "$outfile" "$expectfile"
 
 if [[ $allpassed -eq 1 ]]; then 

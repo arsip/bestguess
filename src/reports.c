@@ -264,6 +264,7 @@ void print_graph(Summary *s, Usage *usage, int start, int end) {
 }
 
 #define MODE(i) (summaries[i]->total.mode)
+#define MEDIAN(i) (summaries[i]->total.median)
 #define COMMAND(i) (summaries[i]->cmd)
 
 void print_overall_summary(Summary *summaries[], int start, int end) {
@@ -271,9 +272,10 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
 
   // Need at least two commands in order to have a comparison
   if ((end - start) < 2) {
-    // Command groups are a feature of commands read from a file
+    // Groups are a feature of commands read from a file (not from
+    // the command line)
     if (config.input_filename && (config.action == actionExecute)) {
-      printf("Command group contains only one command\n");
+      printf("Group contains only one command\n");
     }
     return;
   }
@@ -281,14 +283,14 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
   if (!summaries[start]) return;
 
   int best = start;
-  int64_t fastest = MODE(best);
+  int64_t fastest = MEDIAN(best);
   double factor;
   
   // Find the best total time, and also check for lack of data
   for (int i = start; i < end; i++) {
     if (!summaries[i]) return;	// No data
-    if (MODE(i) < fastest) {
-      fastest = MODE(i);
+    if (MEDIAN(i) < fastest) {
+      fastest = MEDIAN(i);
       best = i;
     }
   }
@@ -620,6 +622,9 @@ Usage *read_input_files(int argc, char **argv) {
   size_t buflen = MAXCSVLEN;
   char *buf = malloc(buflen);
   if (!buf) PANIC_OOM();
+  char *str;
+  int errfield;
+  int lineno;
   CSVrow *row;
   int64_t value;
   
@@ -627,20 +632,27 @@ Usage *read_input_files(int argc, char **argv) {
     input[i] = (strcmp(argv[i], "-") == 0) ? stdin : maybe_open(argv[i], "r");
     if (!input[i]) PANIC_NULL();
     // Skip CSV header
-    row = read_CSVrow(input[i], buf, buflen);
-    if (!row) ERROR("No data read from file %s", argv[i]);
+    errfield = read_CSVrow(input[i], &row, buf, buflen);
+    if (errfield)
+      csv_error(argv[i], lineno, "data", errfield, buf, buflen);
     // Read all the rows
-    while ((row = read_CSVrow(input[i], buf, buflen))) {
+    lineno = 1;
+    while (!(errfield = read_CSVrow(input[i], &row, buf, buflen))) {
+      lineno++;
       int idx = usage_next(usage);
-      set_string(usage, idx, F_CMD, CSVfield(row, F_CMD));
-      set_string(usage, idx, F_SHELL, CSVfield(row, F_SHELL));
+      str = CSVfield(row, F_CMD);
+      if (!str) csv_error(argv[i], lineno, "string", F_CMD+1, buf, buflen);
+      set_string(usage, idx, F_CMD, str);
+      str = CSVfield(row, F_SHELL);
+      if (!str) csv_error(argv[i], lineno, "string", F_SHELL+1, buf, buflen);
+      set_string(usage, idx, F_SHELL, str);
       // Set all the numeric fields that are measured directly
       for (int fc = F_CODE; fc < F_TOTAL; fc++) {
-	if (try_strtoint64(CSVfield(row, fc), &value))
+	str = CSVfield(row, fc);
+	if (str && try_strtoint64(str, &value))
 	  set_int64(usage, idx, fc, value);
 	else
-	  USAGE("CSV read error looking for integer in field %d\n"
-		"Line: %s\n", fc+1, buf);
+	  csv_error(argv[i], lineno, "integer", fc+1, buf, buflen);
       }
       // Set the fields we calculate for the user
       set_int64(usage, idx, F_TOTAL,
@@ -649,9 +661,13 @@ Usage *read_input_files(int argc, char **argv) {
 		get_int64(usage, idx, F_ICSW) + get_int64(usage, idx, F_VCSW));
       free_CSVrow(row);
     }
+    // Check for error reading this particular file (EOF is ok)
+    if (errfield > 0)
+      csv_error(argv[i], lineno, "data", errfield, buf, buflen);
   }
   free(buf);
   for (int i = config.first; i < argc; i++) fclose(input[i]);
+  // Check for no data actually read from any of the files
   if (usage->next == 0) ERROR("No data read.  Exiting...");
   return usage;
 }
@@ -718,10 +734,10 @@ void report(Usage *usage) {
     write_hf_header(hf_output);
 
   Summary *s[MAXCMDS];
-  int next = 0;
+  int usageidx[MAXCMDS] = {0};
   int count = 0;
-  int prev = 0;
-  while ((s[count] = summarize(usage, &next))) {
+  int *next = &(usageidx[1]);
+  while ((s[count] = summarize(usage, next))) {
     if (csv_output) 
       write_summary_line(csv_output, s[count]);
     if (hf_output)
@@ -735,14 +751,16 @@ void report(Usage *usage) {
     if (config.graph) {
       if (config.report == REPORT_NONE)
 	announce_command(s[count]->cmd, count);
-      print_graph(s[count], usage, prev, next);
+      print_graph(s[count], usage, *(next - 1), *next);
       printf("\n");
     }
     if (config.report == REPORT_FULL) {
       print_descriptive_stats(s[count]);
       printf("\n");
     }
-    prev = next;
+    // TODO: Do this better
+    next++;
+    *next = *(next - 1);
     if (++count == MAXCMDS) USAGE("too many commands");
   }
   if (csv_output) fclose(csv_output);
@@ -753,6 +771,88 @@ void report(Usage *usage) {
 
   print_overall_summary(s, 0, count);
   printf("\n");
+
+  // TEMP: Experimental new features below
+  printf("==================================================================\n");
+
+  //printf("usage->next = %d\n", usage->next);
+  for (int i = 0; i < count + 1; i++)
+    printf("%4d  ", usageidx[i]);
+  printf("\n");
+
+  for (int i = 2; i < count + 1; i++) {
+    RankedCombinedSample RCS =
+      rank_difference_magnitude(usage,
+				usageidx[i-2], usageidx[i-1],
+				usageidx[i-1], usageidx[i],
+				F_TOTAL,
+				compare_totaltime);
+    int runs = usageidx[i] - usageidx[i - 2];
+    if (DEBUG) {
+      printf("Rank   X\n");
+      for (int j = 0; j < runs; j++) {
+	printf("%7.1f   %8" PRId64 "\n", RCS.rank[j], RCS.X[j]);
+      }
+    }
+    double diff = median_diff_estimate(RCS);
+    printf("Difference = %8.3f\n", diff);
+    double W = mann_whitney_w(RCS);
+    printf("W (rank sum) = %8.3f\n", W);
+    double p = mann_whitney_p(RCS.n1, RCS.n2, W);
+    printf("p that median 1 < median 2: %8.3f\n", 1 - p);
+    printf("p that median 1 > median 2: %8.3f\n", p);
+    printf("p that medians are different: %8.3f\n", (2 * (1 - p)));
+    double Tpos = wilcoxon(RCS);
+    printf("Wilcoxon signed rank test Tpos = %8.1f\n", Tpos);
+
+    RankedCombinedSample RCS2 =
+      rank_combined_samples(usage,
+		       usageidx[i-2], usageidx[i-1],
+		       usageidx[i-1], usageidx[i],
+		       F_TOTAL,
+		       compare_totaltime);
+
+    double U = mann_whitney_u(RCS2);
+    printf("U = %8.3f\nEffect size f (or Θ) = %8.3f\n", U, U / (RCS.n1 * RCS.n2));
+
+    RankedCombinedSample RCS3 =
+      rank_difference_signed(usage,
+			     usageidx[i-2], usageidx[i-1],
+			     usageidx[i-1], usageidx[i],
+			     F_TOTAL,
+			     compare_totaltime);
+    int64_t low, high;
+    double alpha = 0.05;
+    low = mann_whitney_ci(RCS3, alpha, &high);
+    printf("alpha = %.2f: (%8.3f, %8.3f)\n", alpha, (double) low, (double) high);
+
+//     printf("\ncdf(1-alpha/2) = cdf(%f) = %8.3f\n",
+// 	   1.0 - (alpha / 2.0), normalCDF(1.0 - (alpha / 2.0)));
+
+//     printf("\ncdf(alpha/2) = cdf(%f) = %8.3f\n",
+// 	   (alpha / 2.0), normalCDF(alpha / 2.0));
+    
+//     int NQ = runs * 0.5;
+//     double alpha = 0.10;
+//     int plusminusrank = ci_rank(runs, alpha, 0.5);
+//     printf("alpha = %.2f: NQ = %d ± %d == (rank %d, rank %d) ==> (%" PRId64 ", %" PRId64 ")\n",
+// 	   alpha,
+// 	   NQ, plusminusrank,
+// 	   NQ - plusminusrank,
+// 	   NQ + plusminusrank,
+// 	   RCS.X[RCS.index[NQ - plusminusrank - 1]],
+// 	   RCS.X[RCS.index[NQ + plusminusrank - 1]]);
+
+
+//     alpha = 0.01;
+//     low = mann_whitney_ci(RCS, alpha, &high);
+//     printf("alpha = %.2f: (%8.3f, %8.3f)\n", alpha, diff - low, diff + high);
+
+    free(RCS.X);
+    free(RCS.rank);
+    free(RCS.index);
+  }
+
 
   for (int i = 0; i < count; i++) free_summary(s[i]);
   return;

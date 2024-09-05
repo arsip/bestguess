@@ -39,7 +39,9 @@ static void init_action_options(void) {
     PANIC("failed to configure command-line option parser");
 }
 
-// The ACTION option is required, so look for it (and help, version)
+// Check if the ACTION option is given, looking also for HELP and
+// VERSION because those override the requested ACTION, and for the
+// CLI options that are common to all actions.
 void process_action_options(int argc, char **argv) {
   optable_reset();
   init_action_options();

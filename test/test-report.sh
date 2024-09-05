@@ -44,36 +44,36 @@ infile=raw1.csv
 ok "$prog" "$infile"
 contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms" 
-contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
+contains "Command 2: ps Aux" "8.87 times faster than ps Aux"
 
 # Explicitly request the summary
 ok "$prog" -R summary "$infile"
 contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
-contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
+contains "Command 2: ps Aux" "8.87 times faster than ps Aux"
 
 # Brief report
 ok "$prog" -R brief "$infile"
 contains "Min    Median     Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
-contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
+contains "Command 2: ps Aux" "8.87 times faster than ps Aux"
 
 # No report
 ok "$prog" -R none "$infile"
-contains "8.83 times faster than ps Aux"
+contains "8.87 times faster than ps Aux"
 
 # Graph with default report
 ok "$prog" -g "$infile"
 contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
-contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
+contains "Command 2: ps Aux" "8.87 times faster than ps Aux"
 contains "0     " "     max"
 contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 
 # Graph with no report
 ok "$prog" -R none -g "$infile"
-contains "8.83 times faster than ps Aux"
+contains "8.87 times faster than ps Aux"
 contains "0     " "     max"
 contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
@@ -82,13 +82,13 @@ contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭�
 ok "$prog" -B "$infile"
 contains "Min       Q₁    Median      Q₃      Max"
 contains "Command 1: ls -l" "Total CPU time    4.6 ms"
-contains "Command 2: ps Aux" "8.83 times faster than ps Aux"
-contains "8.83 times faster than ps Aux"
+contains "Command 2: ps Aux" "8.87 times faster than ps Aux"
+contains "8.87 times faster than ps Aux"
 contains "├────" "─┼─"
 
 # Boxplot with no report
 ok "$prog" -R none -B "$infile"
-contains "8.83 times faster than ps Aux"
+contains "8.87 times faster than ps Aux"
 contains "├────" "─┼─"
 
 if [[ $allpassed -eq 1 ]]; then 

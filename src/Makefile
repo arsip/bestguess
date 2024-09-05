@@ -9,6 +9,12 @@ REPORTPROGRAM?=bestreport
 
 OBJECTS= cli.o utils.o optable.o exec.o csv.o stats.o reports.o
 
+# When DEBUG is set, we get extra debugging output and expensive
+# assertions will run.  E.g. 'make DEBUG=1'
+ifdef DEBUG
+  DEBUG_FLAG=-DDEBUG
+endif
+
 default: debug
 
 help:
@@ -80,7 +86,7 @@ CWARNS = -Wall -Wextra \
 
 CFLAGS= -std=c99 -fPIC \
 	$(SYSCFLAGS) $(ASAN_FLAGS) \
-	$(CWARNS) -DLOGLEVEL=$(LOGLEVEL) $(COPT)
+	$(CWARNS) $(DEBUG_FLAG) -DLOGLEVEL=$(LOGLEVEL) $(COPT)
 
 LIBS= -lm
 

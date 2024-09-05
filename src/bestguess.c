@@ -86,9 +86,18 @@ int main(int argc, char *argv[]) {
     USAGE("For more information, try %s --help\n", progname);
   }
 
-  // Check for unusual install situation where the executable name is
-  // not one recognize.  In that case, the user must supply an ACTION
-  // argument.  Look for that argument, ignoring other CLI args for now. 
+  // Check for either of two unusual cases:
+  // 
+  // (1) The user supplied an ACTION argument, though this is not
+  // normally needed.  The action of running an experiment is assumed
+  // if the executable name is 'bestguess'; the action of processing
+  // raw data and reporting on it is assumed if the executable name is
+  // 'bestreport'.
+  //
+  // (2) However, if BestGuess was NOT installed using the intended
+  // executable names, the user MUST supply an ACTION argument.  We
+  // look for that argument, ignoring other CLI args temporarily.
+  //
   optable_setusage("-A <action> [options] ...");
   process_action_options(argc, argv);
 

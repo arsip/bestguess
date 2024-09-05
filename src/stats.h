@@ -57,6 +57,41 @@ typedef struct Summary {
 #define CODE_SMALLN 1
 #define CODE_LOWVARIANCE 2
 
+typedef struct RankedCombinedSample {
+  int      n1;		// size of sample 1
+  int      n2;		// size of sample 2
+  int64_t *X;		// ranked (sorted) differences
+  int     *index;	// sign of difference
+  double  *rank;	// assigned ranks for X[]
+} RankedCombinedSample;
+
+// TEMP!
+double mann_whitney_w(RankedCombinedSample RCS);
+double mann_whitney_u(RankedCombinedSample RCS);
+double mann_whitney_p(int n1, int n2, double W);
+int64_t mann_whitney_ci(RankedCombinedSample RCS, double alpha, int64_t *high);
+double median_diff_estimate(RankedCombinedSample RCS);
+double wilcoxon(RankedCombinedSample RCS);
+int ci_rank(int N, double alpha, double Q);
+RankedCombinedSample rank_difference_magnitude(Usage *usage,
+					       int start1, int end1,
+					       int start2, int end2,
+					       FieldCode fc,
+					       Comparator compare);
+RankedCombinedSample rank_difference_signed(Usage *usage,
+					    int start1, int end1,
+					    int start2, int end2,
+					    FieldCode fc,
+					    Comparator compare);
+RankedCombinedSample rank_combined_samples(Usage *usage,
+					   int start1, int end1,
+					   int start2, int end2,
+					   FieldCode fc,
+					   Comparator comparator);
+
+
+
+
 Summary *summarize(Usage *usage, int *next);
 void     free_summary(Summary *s);
 
