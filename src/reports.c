@@ -794,8 +794,6 @@ void report(Usage *usage) {
 	printf("%7.1f   %8" PRId64 "\n", RCS.rank[j], RCS.X[j]);
       }
     }
-    double diff = median_diff_estimate(RCS);
-    printf("Difference = %8.3f\n", diff);
     double W = mann_whitney_w(RCS);
     printf("W (rank sum) = %8.3f\n", W);
     double p = mann_whitney_p(RCS.n1, RCS.n2, W);
@@ -821,6 +819,10 @@ void report(Usage *usage) {
 			     usageidx[i-1], usageidx[i],
 			     F_TOTAL,
 			     compare_totaltime);
+
+    double diff = median_diff_estimate(RCS3);
+    printf("Difference = %8.3f\n", diff);
+
     int64_t low, high;
     double alpha = 0.05;
     low = mann_whitney_ci(RCS3, alpha, &high);

@@ -780,9 +780,45 @@ RankedCombinedSample rank_difference_signed(Usage *usage,
 
   double *ranks = assign_ranks(X, NULL, N);
 
-  for (int k = 0; k < N; k++)
+  // counts[i] = number of ties for the ith rank
+  // uniq is the number of unique ranks, so i \in 0..uniq-1
+  int *counts = calloc(N, sizeof(int));
+  if (!counts) PANIC_OOM();
+  int uniq = 0;
+  bool counting = false;
+  for (int k = 0; k < N; k++) {
+    if (k > 0) {
+      if (ranks[k] == ranks[k-1]) {
+	if (counting) {
+	  counts[uniq]++;
+	} else {
+	  counting = true;
+	  counts[uniq] += 1 + (counts[uniq] == 0);
+	}
+      } else {
+	counting = false;
+	uniq++;
+      }
+    }
     printf("Signed rank [%3d] rank %3.1f, data = %" PRId64 "\n",
 	   k, ranks[k], X[k]);
+  }
+
+  printf("Number of unique ranks = %d\n", uniq);
+  int tie_count = 0;
+  int total_ties = 0;
+  for (int k = 0; k < uniq; k++) {
+    tie_count += (counts[k] != 0);
+    total_ties += counts[k];
+    printf("kth rank %3d, ties = %d\n", k, counts[k]);
+  }
+  if (N != uniq + 1 + (total_ties - tie_count))
+    printf("Miscalc? tie count = %d, total ties = %d, N = %d, uniq count = %d\n",
+	   tie_count, total_ties, N, uniq + 1);
+  else
+    printf("Totals of ties and unique values check out:\n"
+	   "  uniq count = %d, tie count = %d, total ties = %d, N = %d\n",
+	   uniq + 1, tie_count, total_ties, N);
 
   return (RankedCombinedSample) {n1, n2, X, NULL, ranks};
 }
