@@ -795,11 +795,13 @@ void report(Usage *usage) {
       }
     }
     double W = mann_whitney_w(RCS);
-    printf("W (rank sum) = %8.3f\n", W);
-    double p = mann_whitney_p(RCS.n1, RCS.n2, W);
-    printf("p that median 1 < median 2: %8.3f\n", 1 - p);
-    printf("p that median 1 > median 2: %8.3f\n", p);
-    printf("p that medians are different: %8.3f\n", (2 * (1 - p)));
+    printf("Mann-Whitney W (rank sum differences) = %8.3f\n", W);
+
+    double p = mann_whitney_p(RCS, W);
+    printf("p that median 1 < median 2: %.4f\n", 1 - p);
+    printf("p that median 1 > median 2: %.4f\n", p);
+    printf("p that medians are different: %.4f\n", (2 * (1 - p)));
+
     double Tpos = wilcoxon(RCS);
     printf("Wilcoxon signed rank test Tpos = %8.1f\n", Tpos);
 
@@ -811,7 +813,14 @@ void report(Usage *usage) {
 		       compare_totaltime);
 
     double U = mann_whitney_u(RCS2);
-    printf("U = %8.3f\nEffect size f (or Θ) = %8.3f\n", U, U / (RCS.n1 * RCS.n2));
+    printf("Mann-Whitney U (combined rank sum) = %8.3f\n", W);
+
+    double eff = U / (RCS2.n1 * RCS2.n2);
+    printf("Common language effect size f (or Θ) = %8.3f\n", eff);
+    printf("   Effect size is %s\n",
+	   (eff > 0.5) ? "large (> 0.5)" :
+	   ((eff >= 0.3) ? "medium (0.3 .. 0.5)" : "small (< 0.3)"));
+    printf("Rank biserial correlation r = %8.3f\n", 1 - 2 * U / (RCS2.n1 * RCS2.n2));
 
     RankedCombinedSample RCS3 =
       rank_difference_signed(usage,
@@ -821,18 +830,19 @@ void report(Usage *usage) {
 			     compare_totaltime);
 
     double diff = median_diff_estimate(RCS3);
-    printf("Difference = %8.3f\n", diff);
+    printf("Median difference = %8.3f\n", diff);
+
 
     int64_t low, high;
     double alpha = 0.05;
     low = mann_whitney_ci(RCS3, alpha, &high);
     printf("alpha = %.2f: (%8.3f, %8.3f)\n", alpha, (double) low, (double) high);
 
-//     printf("\ncdf(1-alpha/2) = cdf(%f) = %8.3f\n",
-// 	   1.0 - (alpha / 2.0), normalCDF(1.0 - (alpha / 2.0)));
+    printf("\ncdf(1-alpha/2) = cdf(%f) = %8.3f\n",
+	   1.0 - (alpha / 2.0), inverseCDF(1.0 - (alpha / 2.0)));
 
-//     printf("\ncdf(alpha/2) = cdf(%f) = %8.3f\n",
-// 	   (alpha / 2.0), normalCDF(alpha / 2.0));
+    printf("\ncdf(alpha/2) = cdf(%f) = %8.3f\n",
+	   (alpha / 2.0), inverseCDF(alpha / 2.0));
     
 //     int NQ = runs * 0.5;
 //     double alpha = 0.10;
