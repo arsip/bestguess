@@ -68,27 +68,25 @@ typedef struct RankedCombinedSample {
 // TEMP!
 double mann_whitney_w(RankedCombinedSample RCS);
 double mann_whitney_u(RankedCombinedSample RCS);
-double mann_whitney_p(RankedCombinedSample RCS, double W);
+double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp);
 //double mann_whitney_p(int n1, int n2, double W);
-int64_t mann_whitney_ci(RankedCombinedSample RCS, double alpha, int64_t *high);
+int64_t mann_whitney_U_ci(RankedCombinedSample RCS, double alpha, int64_t *high);
+int64_t median_diff_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr);
 double median_diff_estimate(RankedCombinedSample RCS);
 double wilcoxon(RankedCombinedSample RCS);
 int ci_rank(int N, double alpha, double Q);
 RankedCombinedSample rank_difference_magnitude(Usage *usage,
 					       int start1, int end1,
 					       int start2, int end2,
-					       FieldCode fc,
-					       Comparator compare);
+					       FieldCode fc);
 RankedCombinedSample rank_difference_signed(Usage *usage,
 					    int start1, int end1,
 					    int start2, int end2,
-					    FieldCode fc,
-					    Comparator compare);
+					    FieldCode fc);
 RankedCombinedSample rank_combined_samples(Usage *usage,
 					   int start1, int end1,
 					   int start2, int end2,
-					   FieldCode fc,
-					   Comparator comparator);
+					   FieldCode fc);
 
 
 

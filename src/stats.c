@@ -513,7 +513,7 @@ double inverseCDF(double alpha) {
   if (target > 99998) return 4.10; // precision limit of our table
   int d, distance = 100000;
   int answer = -12345;
-  printf("Alpha is %f, Target is %d\n", alpha, target);
+  //printf("Alpha is %f, Target is %d\n", alpha, target);
   for (int x = -409; x <= 409; x++) {
     d = abs(integer_normalCDF(x) - target);
     if (d < distance) {
@@ -635,60 +635,8 @@ static double *assign_ranks(int64_t *X, int *index, int N) {
   return ranks;
 }
 
-// Requires start/end ranges for sample 1 and sample 2 are non-empty
-// and do not overlap.  N.B. end index is not included in range.
-RankedCombinedSample rank_combined_samples(Usage *usage,
-					   int start1, int end1,
-					   int start2, int end2,
-					   FieldCode fc,
-					   Comparator compare) {
-  printf("In RCS:\n");
-  printf("sample 1 [%d, %d)\nsample 2 [%d, %d)\n",
-	 start1, end1, start2, end2);
-  printf("usage->next = %d\n", usage->next);
-  fflush(NULL);
-
-  int n1 = end1 - start1;
-  int n2 = end2 - start2;
-  int N = n1 + n2;
-  
-  printf("n1 = %d, n2 = %d, total = %d\n", n1, n2, N);
-
-  if ((n1 <= 0) || (n2 <= 0))
-    PANIC("Invalid sample sizes");
-  if (((start1 >= start2) && (start1 < end2))
-      || ((end1 > start2) && (end1 < end2)))
-    PANIC("Invalid sample index ranges in usage structure");
-  int *index = malloc(N * sizeof(int));
-  if (!index) PANIC_OOM();
-  for (int i = 0; i < n1; i++) index[i] = start1 + i;
-  for (int i = 0; i < n2; i++) index[i+n1] = start2 + i;
-  sort(index, N, sizeof(int), usage, compare);
-  int64_t *X = malloc(N * sizeof(int64_t));
-  if (!X) PANIC_OOM();
-  for (int i = 0; i < N; i++) {
-    X[i] = get_int64(usage, index[i], fc);
-  }
-
-  double *ranks = assign_ranks(X, NULL, N);
-
-  // Re-purpose 'index' to reflect whether observation came from
-  // sample 1 or sample 2
-  for (int i = 0; i < N; i++)
-    if ((index[i] >= start1) && (index[i] < end1))
-      index[i] = 1;
-    else if ((index[i] >= start2) && (index[i] < end2))
-      index[i] = 2;
-    else
-      PANIC("Corrupt index");
-
-//   for (int k = 0; k < (n1+n2); k++)
-//     printf("[%3d] rank = %6.2f  data = %" PRId64 " from %d\n",
-// 	   k, ranks[k], X[k], index[k]);
-
-  return (RankedCombinedSample) {n1, n2, X, index, ranks};
-}
-
+// This comparator works when 'data' is an index vector and also when
+// 'data' is NULL and there is no index.
 static int i64_lt(void *data, const void *a, const void *b) {
   if (!data) {
     return *(const int64_t *)a - *(const int64_t *)b;
@@ -699,23 +647,62 @@ static int i64_lt(void *data, const void *a, const void *b) {
   return Xa - Xb;
 }
 
-RankedCombinedSample rank_difference_magnitude(Usage *usage,
-					       int start1, int end1,
-					       int start2, int end2,
-					       FieldCode fc,
-					       Comparator compare) {
-  (void) compare;
-  printf("In RCS:\n");
-  printf("sample 1 [%d, %d)\nsample 2 [%d, %d)\n",
-	 start1, end1, start2, end2);
-  printf("usage->next = %d\n", usage->next);
-  fflush(NULL);
+// Requires start/end ranges for sample 1 and sample 2 are non-empty
+// and do not overlap.  N.B. end index is not included in range.
+RankedCombinedSample rank_combined_samples(Usage *usage,
+					   int start1, int end1,
+					   int start2, int end2,
+					   FieldCode fc) {
+//   printf("Ranking combined samples:\n");
+//   printf("sample 1 [%d, %d)\nsample 2 [%d, %d)\n",
+// 	 start1, end1, start2, end2);
+//   printf("usage->next = %d\n", usage->next);
+//   fflush(NULL);
 
   int n1 = end1 - start1;
   int n2 = end2 - start2;
-  int N = n1 * n2;
+  int N = n1 + n2;
+  
+  if ((n1 <= 0) || (n2 <= 0))
+    PANIC("Invalid sample sizes");
+  if (((start1 >= start2) && (start1 < end2))
+      || ((end1 > start2) && (end1 < end2)))
+    PANIC("Invalid sample index ranges in usage structure");
 
-  printf("n1 = %d, n2 = %d, N = %d\n", n1, n2, N);
+  int64_t *X = malloc(N * sizeof(int64_t));
+  if (!X) PANIC_OOM();
+  int *origin = malloc(N * sizeof(int));
+  if (!origin) PANIC_OOM();
+  for (int i = 0; i < n1; i++) {
+    X[i] = get_int64(usage, start1 + i, fc);
+    origin[i] = 1;
+  }
+  for (int i = 0; i < n2; i++) {
+    X[i + n1] = get_int64(usage, start2 + i, fc);
+    origin[i + n1] = 2;
+  }
+
+  // Must sort both X and the origins.  This is hacky and a little
+  // slow, but good enough for now.  FUTURE: Fix.
+  sort(X, N, sizeof(int64_t), NULL, i64_lt);
+  sort(origin, N, sizeof(int), X, i64_lt);
+
+  double *ranks = assign_ranks(X, NULL, N);
+
+//   for (int k = 0; k < (n1+n2); k++)
+//     printf("[%3d] rank = %6.2f  data = %" PRId64 " from %d\n",
+//  	   k, ranks[k], X[k], origin[k]);
+
+  return (RankedCombinedSample) {n1, n2, X, origin, ranks};
+}
+
+RankedCombinedSample rank_difference_magnitude(Usage *usage,
+					       int start1, int end1,
+					       int start2, int end2,
+					       FieldCode fc) {
+  int n1 = end1 - start1;
+  int n2 = end2 - start2;
+  int N = n1 * n2;
 
   if ((n1 <= 0) || (n2 <= 0))
     PANIC("Invalid sample sizes");
@@ -773,8 +760,7 @@ RankedCombinedSample rank_difference_magnitude(Usage *usage,
 RankedCombinedSample rank_difference_signed(Usage *usage,
 					    int start1, int end1,
 					    int start2, int end2,
-					    FieldCode fc,
-					    Comparator compare) {
+					    FieldCode fc) {
   int n1 = end1 - start1;
   int n2 = end2 - start2;
   int N = n1 * n2;
@@ -802,8 +788,8 @@ RankedCombinedSample rank_difference_signed(Usage *usage,
 
   double *ranks = assign_ranks(X, NULL, N);
 
-  for (int k = 0; k < N; k++)
-    printf("[%3d] rank %6.1f, sorted data = %" PRId64 "\n", k, ranks[k], X[k]);
+//   for (int k = 0; k < N; k++)
+//     printf("[%3d] rank %6.1f, sorted data = %" PRId64 "\n", k, ranks[k], X[k]);
 
   return (RankedCombinedSample) {n1, n2, X, NULL, ranks};
 }
@@ -828,7 +814,7 @@ double mann_whitney_w(RankedCombinedSample RCS) {
 // array is being used here to indicate the observation's origin: 1
 // for sample 1, and 2 for sample 2.
 //
-// Also called the Wilcoxon rank sum.  And often labeled W.
+// Also called the Wilcoxon rank sum.  And sometimes labeled W.
 //
 double mann_whitney_u(RankedCombinedSample RCS) {
   double R1 = 0.0;
@@ -842,8 +828,9 @@ double mann_whitney_u(RankedCombinedSample RCS) {
   }
   double U1 = R1 - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
   double U2 = R2 - (double) (RCS.n2 * (RCS.n2 + 1)) / 2.0;
-  printf("U1 = %.1f, U2 = %.1f  (returning min(U1, U2))\n", U1, U2);
+  //printf("U1 = %.1f, U2 = %.1f\n", U1, U2);
   return (U1 < U2) ? U1 : U2;
+  
 }
 
 #if 0
@@ -865,9 +852,9 @@ double mann_whitney_p(RankedCombinedSample RCS, double U) {
 }
 #endif
 
-// Requires ranked sample DIFFERENCES: n1 * n2 values
+// Requires ranked combined sample: n1 + n2 values
 static double tie_correction(RankedCombinedSample RCS) {
-  int N = RCS.n1 * RCS.n2;
+  int N = RCS.n1 + RCS.n2;
   // tc is the number of ranks that have ties
   // counts[i] = number of ties for the ith tied rank
   int tc = 0;
@@ -889,23 +876,23 @@ static double tie_correction(RankedCombinedSample RCS) {
 	counting = false;
 	t3term = (double) (counts[tc] * counts[tc] * counts[tc] - counts[tc]);
 	correction +=  t3term;
-	printf("%d ranks tied at rank %.1f\n", counts[tc], RCS.rank[k-1]);
+	//printf("%d ranks tied at rank %.1f\n", counts[tc], RCS.rank[k-1]);
 	tc++;
       }
     }
   }
-  printf("Number of ranks with ties = %d\n", tc);
-  int total_ties = 0;
-  for (int k = 0; k < tc; k++) {
-    total_ties += counts[k];
+  //printf("Number of ranks with ties = %d\n", tc);
+//   int total_ties = 0;
+//   for (int k = 0; k < tc; k++) {
+//     total_ties += counts[k];
     //printf("kth rank %3d, ties = %d\n", k, counts[k]);
-  }
-  printf("Summary: tie count = %d, total ties = %d, N = %d\n", tc, total_ties, N);
+  //  }
+  //printf("Summary: tie count = %d, total ties = %d, N = %d\n", tc, total_ties, N);
 
 //     printf("Combined rank [%3d] rank %3.1f, data = %" PRId64 "\n",
 // 	   k, RCS.rank[k], X[k]);
 
-  printf("Tie correction (sum term only) = %8.2f\n", correction);
+  //printf("Tie correction (sum term only) = %8.2f\n", correction);
   return correction;
 }
 
@@ -913,30 +900,44 @@ static double tie_correction(RankedCombinedSample RCS) {
 // shown, e.g. at 
 // https://www.statsdirect.co.uk/help/nonparametric_methods/mann_whitney.htm
 // https://statisticsbyjim.com/hypothesis-testing/mann-whitney-u-test/
+// https://support.minitab.com/en-us/minitab/help-and-how-to/statistics/nonparametrics/how-to/mann-whitney-test/methods-and-formulas/methods-and-formulas/
 //
-double mann_whitney_p(RankedCombinedSample RCS, double W) {
+double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp) {
   int n1 = RCS.n1;
   int n2 = RCS.n2;
+  double K = fmin(W, n1 * (n1 + n2 + 1) - W);
+  //printf("K = %8.3f\n", K);
   // Mean and std dev for W assumes W is normally distributed, which
   // it will be according to the theory
   double meanW = 0.5 * (double)(n1 * (n1 + n2 + 1));
-  // We subtract 0.5 from numerator for continuity correction, i.e. we
-  // are accounting for the fact that our samples are not real
-  // numbered values of a function (which would never produce a tie).
-  double mean_distance = fabs(W - meanW) - 0.5;
+  // Continuity correction is 0.5, accounting for the fact that our
+  // samples are not real numbered values of a function (which would
+  // never produce a tie).
+  double cc = 0.5;
+  double mean_distance = fabs(W - meanW);
+  double mean_distanceK = fabs(K - meanW);
   double stddev = sqrt((double) (n1 * n2 * (n1 + n2 + 1)) / 12.0);
-  double Z = mean_distance / stddev;
-   // p-value for hypothesis that median 1 < median 2
-  printf("Unadjusted p value is %.4f\n", normalCDF(Z));
+   // p-value for hypothesis that η₁ ≠ η₂
+  double Zne = (mean_distanceK - cc) / stddev;
+  double p = 2 * (1 - normalCDF(Zne));
+  //printf("Unadjusted p value η₁ ≠ η₂ is %.4f\n", p);
+  //double Zne = (k + cc) / stddev;
+  //printf("Unadjusted p value η₁ ≠ η₂ is %.4f\n", 2 * (1 - normalCDF(Zne)));
+
+
   double f1 = (double) (n1 * n2) / (double) ((n1 + n2)*(n1 + n2 - 1));
   double addend1 = pow((double) (n1 + n2), 3.0) / 12.0;
-  double addend2 = tie_correction(RCS) / 12.0;
+  double addend2 = tie_correction(RCS) / ((n1 + n2)*(n1+n2-1));
   double stddev_adjusted = sqrt(f1) * sqrt(addend1 - addend2);
-  printf("STDDEV = %.4f, ADJUSTED = %.4f\n", stddev, stddev_adjusted);
-  double adjustedZ = mean_distance / stddev_adjusted;
-  printf("Z = %.4f, ADJUSTED Z = %.4f\n", Z, adjustedZ);
-  printf("Adjusted for ties, p value is %.4f\n", normalCDF(adjustedZ));
-  return normalCDF(Z);
+  //printf("STDDEV = %.4f, ADJUSTED = %.4f\n", stddev, stddev_adjusted);
+  double adjustedZ = (mean_distanceK - cc) / stddev_adjusted;
+  //printf("Zne = %.4f, ADJUSTED Zne = %.4f\n", Zne, adjustedZ);
+  if (adjustedp) {
+    *adjustedp = 2 * (1 - normalCDF(adjustedZ));
+    //printf("Adjusted for ties, p value is %.4f\n", *adjustedp);
+  }
+
+  return p;
 }
 
 // https://www.statsdirect.co.uk/help/nonparametric_methods/mann_whitney.htm
@@ -945,23 +946,43 @@ double mann_whitney_p(RankedCombinedSample RCS, double W) {
 // confidence interval."
 //
 // Returns low end of confidence interval, sets '*highptr' to high end.
-// REQUIRES n1*n2 ranked sample differences (NOT ranked by magnitude!).
-int64_t mann_whitney_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr) {
-  // Calculate ranks for each end of confidence interval
+// 
+int64_t mann_whitney_U_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr) {
   int n1 = RCS.n1;
   int n2 = RCS.n2;
   int N = n1 * n2;
   double Zcrit = inverseCDF(1 - alpha/2.0);
-  double meanW = 0.5 * (double)(n1 * (n1 + n2 + 1));
-  double W = median_diff_estimate(RCS);
+  double meanU = (double) N / 2.0;
+  double U = mann_whitney_u(RCS);
   double stddev = sqrt((double) (n1 * n2 * (n1 + n2 + 1)) / 12.0);
-  double stderror = stddev / sqrt(N);
-  double error_margin = Zcrit * stderror;
-  printf("W = %.4f, Zcrit = %.4f, est. meanW = %.3f, stddev = %.3f, stderror = %.3f, margin = %.3f\n",
-	 W, Zcrit, meanW, stddev, stderror, error_margin);
-  double low = W - error_margin;
-  double high = W + error_margin;
-  printf("Error margin = %.3f, low = %.3f, high = %.3f\n", error_margin, low, high);
+  //double stderror = stddev / sqrt(N);
+  //double margin = Zcrit * stderror;
+  double margin = Zcrit * stddev;
+  printf("U = %.4f, Zcrit = %.4f, est. meanU = %.3f, stddev = %.3f, margin = %.3f\n",
+	 U, Zcrit, meanU, stddev, margin);
+  double low = U - margin;
+  double high = U + margin;
+  printf("  Margin = %.3f, low = %.3f, high = %.3f\n", margin, low, high);
+  printf("                 low = %.3f, high = %.3f\n", low/(double)N, high/(double)N);
+  printf("  Z_u = %.3f\n", (U - meanU) / stddev);
+  printf("\n");
+  double f1 = (double) (n1 * n2) / (double) ((n1 + n2)*(n1 + n2 - 1));
+  double addend1 = pow((double) (n1 + n2), 3.0) / 12.0;
+  double addend2 = tie_correction(RCS) / 12.0;
+  double stddev_adjusted = sqrt(f1) * sqrt(addend1 - addend2);
+  printf("stddev = %.4f, ADJUSTED stddev = %.4f\n", stddev, stddev_adjusted);
+  //double margin_adjusted = Zcrit * stddev_adjusted;
+  double margin_adjusted = Zcrit * stddev_adjusted;
+  printf("margin = %.4f, ADJUSTED margin = %.4f\n", margin, margin_adjusted);
+  low = U - margin_adjusted;
+  high = U + margin_adjusted;
+  printf("  Adjusted = %.3f, low = %.3f, high = %.3f\n", margin_adjusted, low, high);
+  printf("                   low = %.3f, high = %.3f\n", low/(double)N, high/(double)N);
+  double Zu = (U - meanU - 0.5) / stddev_adjusted;
+  printf("  Z_u = %.3f\n", Zu);
+  printf("  corresponding p =  %.4f\n", normalCDF(Zu));
+  printf("\n");
+// Calculate ranks for each end of confidence interval
 //   int lowidx = -1, highidx = -1;
 //   for (int k = 0; k < N; k++) {
 //     int rank = RCS.rank[k];
@@ -978,6 +999,47 @@ int64_t mann_whitney_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr
 //   return RCS.X[lowidx];
   *highptr = high;
   return low;
+}
+
+// https://www.statsdirect.co.uk/help/nonparametric_methods/mann_whitney.htm
+// "When samples are large (either sample > 80 or both samples >30) a
+// normal approximation is used for the hypothesis test and for the
+// confidence interval."
+//
+// https://seismo.berkeley.edu/~kirchner/eps_120/Toolkits/Toolkit_08.pdf
+// "If m and n are small (say, mn<100 or so), then other methods are
+// necessary to estimate confidence limits.  See Helsel and Hirsch."
+//
+// Input: RCS contains signed ranked differences.
+// Returns low end of confidence interval, sets '*highptr' to high end.
+// 
+// TODO: The calculation below agress with minitab and whatever system
+// statsdirect uses.  The CI differs a bit from that of "Statistics by
+// Jim" as he reports a narrower range by 1 rank on the low side and 1
+// rank on the high side.
+//
+int64_t median_diff_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr) {
+  double n1 = RCS.n1;
+  double n2 = RCS.n2;
+  double N = n1 * n2;
+  double Zcrit = inverseCDF(1.0 - alpha/2.0);
+  // Calculate ranks for each end of confidence interval
+  double low = (N / 2.0) - Zcrit * sqrt(N * (n1 + n2 + 1) / 12.0);
+  low = floor(low);
+  double high = floor(N - low + 1);
+  //printf("low = %.1f, high = %.1f\n", low, high);
+  int lowidx = -1, highidx = -1;
+  for (int k = 0; k < N; k++) {
+    int rank = RCS.rank[k];
+    if ((lowidx == -1) && (rank > low)) lowidx = k;
+    if (rank < high) highidx = k;
+  }
+  if (lowidx == -1) lowidx = 0;
+  if (highidx == -1) highidx = N - 1;
+  //printf("Low rank [%d] = %.1f, X = %lld\n", lowidx, RCS.rank[lowidx], RCS.X[lowidx]);
+  //printf("High rank [%d] = %.1f, X = %lld\n", highidx, RCS.rank[highidx], RCS.X[highidx]);
+  *highptr = RCS.X[highidx];
+  return RCS.X[lowidx];
 }
 
 // Hodges-Lehmann estimation of location shift, sometimes called the

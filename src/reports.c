@@ -775,45 +775,35 @@ void report(Usage *usage) {
   // TEMP: Experimental new features below
   printf("==================================================================\n");
 
-  //printf("usage->next = %d\n", usage->next);
-  for (int i = 0; i < count + 1; i++)
-    printf("%4d  ", usageidx[i]);
-  printf("\n");
-
   for (int i = 2; i < count + 1; i++) {
     RankedCombinedSample RCS =
       rank_difference_magnitude(usage,
 				usageidx[i-2], usageidx[i-1],
 				usageidx[i-1], usageidx[i],
-				F_TOTAL,
-				compare_totaltime);
-    int runs = usageidx[i] - usageidx[i - 2];
-    if (DEBUG) {
-      printf("Rank   X\n");
-      for (int j = 0; j < runs; j++) {
-	printf("%7.1f   %8" PRId64 "\n", RCS.rank[j], RCS.X[j]);
-      }
-    }
+				F_TOTAL);
+    printf("n1 = %d, n2 = %d, N (differences) = %d\n",
+	   RCS.n1, RCS.n2, RCS.n1 * RCS.n2);
+    
     double W = mann_whitney_w(RCS);
-    printf("Mann-Whitney W (rank sum differences) = %8.3f\n", W);
+    printf("Mann-Whitney W (rank sum) = %8.3f\n", W);
 
-    double p = mann_whitney_p(RCS, W);
-    printf("p that median 1 < median 2: %.4f\n", 1 - p);
-    printf("p that median 1 > median 2: %.4f\n", p);
-    printf("p that medians are different: %.4f\n", (2 * (1 - p)));
+    double adjustedp;
+    double p = mann_whitney_p(RCS, W, &adjustedp);
+    printf("Hypothesis: median 1 ≠ median 2\n");
+    printf("  p                   %.4f\n", p);
+    printf("  p adjusted for ties %.4f\n", adjustedp);
 
-    double Tpos = wilcoxon(RCS);
-    printf("Wilcoxon signed rank test Tpos = %8.1f\n", Tpos);
+//     double Tpos = wilcoxon(RCS);
+//     printf("Wilcoxon signed rank test Tpos = %8.1f\n", Tpos);
 
     RankedCombinedSample RCS2 =
       rank_combined_samples(usage,
 		       usageidx[i-2], usageidx[i-1],
 		       usageidx[i-1], usageidx[i],
-		       F_TOTAL,
-		       compare_totaltime);
+		       F_TOTAL);
 
     double U = mann_whitney_u(RCS2);
-    printf("Mann-Whitney U (combined rank sum) = %8.3f\n", W);
+    printf("Mann-Whitney U (combined rank sum) = %8.3f\n", U);
 
     double eff = U / (RCS2.n1 * RCS2.n2);
     printf("Common language effect size f (or Θ) = %8.3f\n", eff);
@@ -822,27 +812,27 @@ void report(Usage *usage) {
 	   ((eff >= 0.3) ? "medium (0.3 .. 0.5)" : "small (< 0.3)"));
     printf("Rank biserial correlation r = %8.3f\n", 1 - 2 * U / (RCS2.n1 * RCS2.n2));
 
+    int64_t low, high;
+    double alpha = 0.05;
+//     low = mann_whitney_U_ci(RCS2, alpha, &high);
+//     printf("alpha = %.2f: (%8.3f, %8.3f)\n", alpha, (double) low, (double) high);
+
     RankedCombinedSample RCS3 =
       rank_difference_signed(usage,
 			     usageidx[i-2], usageidx[i-1],
 			     usageidx[i-1], usageidx[i],
-			     F_TOTAL,
-			     compare_totaltime);
+			     F_TOTAL);
 
     double diff = median_diff_estimate(RCS3);
-    printf("Median difference = %8.3f\n", diff);
+    printf("Median difference (Hodges–Lehmann estimate) = %8.3f\n", diff);
+    low = median_diff_ci(RCS3, alpha, &high);
+    printf("alpha = %.2f, ci = (%8.3f, %8.3f)\n", alpha, (double) low, (double) high);
 
+//     printf("\ncdf(1-alpha/2) = cdf(%f) = %8.3f\n",
+// 	   1.0 - (alpha / 2.0), inverseCDF(1.0 - (alpha / 2.0)));
 
-    int64_t low, high;
-    double alpha = 0.05;
-    low = mann_whitney_ci(RCS3, alpha, &high);
-    printf("alpha = %.2f: (%8.3f, %8.3f)\n", alpha, (double) low, (double) high);
-
-    printf("\ncdf(1-alpha/2) = cdf(%f) = %8.3f\n",
-	   1.0 - (alpha / 2.0), inverseCDF(1.0 - (alpha / 2.0)));
-
-    printf("\ncdf(alpha/2) = cdf(%f) = %8.3f\n",
-	   (alpha / 2.0), inverseCDF(alpha / 2.0));
+//     printf("\ncdf(alpha/2) = cdf(%f) = %8.3f\n",
+// 	   (alpha / 2.0), inverseCDF(alpha / 2.0));
     
 //     int NQ = runs * 0.5;
 //     double alpha = 0.10;
