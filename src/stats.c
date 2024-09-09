@@ -816,7 +816,7 @@ double mann_whitney_w(RankedCombinedSample RCS) {
 //
 // Also called the Wilcoxon rank sum.  And sometimes labeled W.
 //
-double mann_whitney_u(RankedCombinedSample RCS) {
+double mann_whitney_u(RankedCombinedSample RCS, double *U1, double *U2) {
   double R1 = 0.0;
   double R2 = 0.0;
   int N = RCS.n1 + RCS.n2;
@@ -826,10 +826,10 @@ double mann_whitney_u(RankedCombinedSample RCS) {
     else
       R2 += RCS.rank[i];
   }
-  double U1 = R1 - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
-  double U2 = R2 - (double) (RCS.n2 * (RCS.n2 + 1)) / 2.0;
-  //printf("U1 = %.1f, U2 = %.1f\n", U1, U2);
-  return (U1 < U2) ? U1 : U2;
+  *U1 = R1 - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
+  *U2 = R2 - (double) (RCS.n2 * (RCS.n2 + 1)) / 2.0;
+  
+  return (*U1 < *U2) ? *U1 : *U2;
   
 }
 
@@ -953,7 +953,8 @@ int64_t mann_whitney_U_ci(RankedCombinedSample RCS, double alpha, int64_t *highp
   int N = n1 * n2;
   double Zcrit = inverseCDF(1 - alpha/2.0);
   double meanU = (double) N / 2.0;
-  double U = mann_whitney_u(RCS);
+  double U1, U2;
+  double U = mann_whitney_u(RCS, &U1, &U2);
   double stddev = sqrt((double) (n1 * n2 * (n1 + n2 + 1)) / 12.0);
   //double stderror = stddev / sqrt(N);
   //double margin = Zcrit * stderror;
@@ -1011,14 +1012,18 @@ int64_t mann_whitney_U_ci(RankedCombinedSample RCS, double alpha, int64_t *highp
 // necessary to estimate confidence limits.  See Helsel and Hirsch."
 //
 // Input: RCS contains signed ranked differences.
-// Returns low end of confidence interval, sets '*highptr' to high end.
+// Returns confidence level, e.g. 0.955 for 95.5%, and sets
+// 'lowptr' and 'highptr' to the ends of the interval.
 // 
-// TODO: The calculation below agress with minitab and whatever system
+// Note: The calculation below agress with minitab and whatever system
 // statsdirect uses.  The CI differs a bit from that of "Statistics by
 // Jim" as he reports a narrower range by 1 rank on the low side and 1
-// rank on the high side.
+// rank on the high side.  Which approach is best?
 //
-int64_t median_diff_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr) {
+double median_diff_ci(RankedCombinedSample RCS,
+		      double alpha,
+		      int64_t *lowptr,
+		      int64_t *highptr) {
   double n1 = RCS.n1;
   double n2 = RCS.n2;
   double N = n1 * n2;
@@ -1027,7 +1032,6 @@ int64_t median_diff_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr)
   double low = (N / 2.0) - Zcrit * sqrt(N * (n1 + n2 + 1) / 12.0);
   low = floor(low);
   double high = floor(N - low + 1);
-  //printf("low = %.1f, high = %.1f\n", low, high);
   int lowidx = -1, highidx = -1;
   for (int k = 0; k < N; k++) {
     int rank = RCS.rank[k];
@@ -1036,10 +1040,13 @@ int64_t median_diff_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr)
   }
   if (lowidx == -1) lowidx = 0;
   if (highidx == -1) highidx = N - 1;
-  //printf("Low rank [%d] = %.1f, X = %lld\n", lowidx, RCS.rank[lowidx], RCS.X[lowidx]);
-  //printf("High rank [%d] = %.1f, X = %lld\n", highidx, RCS.rank[highidx], RCS.X[highidx]);
+  *lowptr = RCS.X[lowidx];
   *highptr = RCS.X[highidx];
-  return RCS.X[lowidx];
+
+  double ci_width = highidx - lowidx;
+  double actual_Z = ci_width / 2.0 / sqrt(N * (n1 + n2 + 1) / 12.0);
+  double confidence =  2.0 * normalCDF(actual_Z) - 1.0;
+  return confidence;
 }
 
 // Hodges-Lehmann estimation of location shift, sometimes called the

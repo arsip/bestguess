@@ -802,15 +802,16 @@ void report(Usage *usage) {
 		       usageidx[i-1], usageidx[i],
 		       F_TOTAL);
 
-    double U = mann_whitney_u(RCS2);
+    double U1, U2;
+    double U = mann_whitney_u(RCS2, &U1, &U2);
     printf("Mann-Whitney U (combined rank sum) = %8.3f\n", U);
 
-    double eff = U / (RCS2.n1 * RCS2.n2);
+    double eff = U1 / (double) (RCS2.n1 * RCS2.n2);
     printf("Common language effect size f (or Θ) = %8.3f\n", eff);
     printf("   Effect size is %s\n",
 	   (eff > 0.5) ? "large (> 0.5)" :
 	   ((eff >= 0.3) ? "medium (0.3 .. 0.5)" : "small (< 0.3)"));
-    printf("Rank biserial correlation r = %8.3f\n", 1 - 2 * U / (RCS2.n1 * RCS2.n2));
+    printf("Rank biserial correlation r = %8.3f\n", 1.0 - 2.0 * eff);
 
     int64_t low, high;
     double alpha = 0.05;
@@ -825,8 +826,9 @@ void report(Usage *usage) {
 
     double diff = median_diff_estimate(RCS3);
     printf("Median difference (Hodges–Lehmann estimate) = %8.3f\n", diff);
-    low = median_diff_ci(RCS3, alpha, &high);
-    printf("alpha = %.2f, ci = (%8.3f, %8.3f)\n", alpha, (double) low, (double) high);
+    double confidence = median_diff_ci(RCS3, alpha, &low, &high);
+    printf("%.2f%% confidence interval (%.3f, %.3f)\n",
+	   confidence * 100.0, (double) low, (double) high);
 
 //     printf("\ncdf(1-alpha/2) = cdf(%f) = %8.3f\n",
 // 	   1.0 - (alpha / 2.0), inverseCDF(1.0 - (alpha / 2.0)));

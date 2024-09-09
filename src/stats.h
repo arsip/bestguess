@@ -67,11 +67,13 @@ typedef struct RankedCombinedSample {
 
 // TEMP!
 double mann_whitney_w(RankedCombinedSample RCS);
-double mann_whitney_u(RankedCombinedSample RCS);
+double mann_whitney_u(RankedCombinedSample RCS, double *U1, double *U2);
 double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp);
-//double mann_whitney_p(int n1, int n2, double W);
 int64_t mann_whitney_U_ci(RankedCombinedSample RCS, double alpha, int64_t *high);
-int64_t median_diff_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr);
+double median_diff_ci(RankedCombinedSample RCS,
+		      double alpha,
+		      int64_t *lowptr,
+		      int64_t *highptr);
 double median_diff_estimate(RankedCombinedSample RCS);
 double wilcoxon(RankedCombinedSample RCS);
 int ci_rank(int N, double alpha, double Q);
