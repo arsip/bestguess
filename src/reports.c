@@ -781,43 +781,32 @@ void report(Usage *usage) {
 				usageidx[i-2], usageidx[i-1],
 				usageidx[i-1], usageidx[i],
 				F_TOTAL);
-    printf("n1 = %d, n2 = %d, N (differences) = %d\n",
-	   RCS.n1, RCS.n2, RCS.n1 * RCS.n2);
+
+    Summary *summary1 = s[i-2];
+    Summary *summary2 = s[i-1];
+    printf("Command                 N   Median\n");
+    printf("%-20s %4d %8" PRId64 "\n",
+	   summary1->cmd, summary1->runs, summary1->total.median);
+    printf("%-20s %4d %8" PRId64 "\n",
+	   summary2->cmd, summary2->runs, summary2->total.median);
     
+    printf("\n");
     double W = mann_whitney_w(RCS);
     printf("Mann-Whitney W (rank sum) = %8.3f\n", W);
+
+    double alpha = 0.05;
 
     double adjustedp;
     double p = mann_whitney_p(RCS, W, &adjustedp);
     printf("Hypothesis: median 1 ≠ median 2\n");
-    printf("  p                   %.4f\n", p);
-    printf("  p adjusted for ties %.4f\n", adjustedp);
-
-//     double Tpos = wilcoxon(RCS);
-//     printf("Wilcoxon signed rank test Tpos = %8.1f\n", Tpos);
-
-    RankedCombinedSample RCS2 =
-      rank_combined_samples(usage,
-		       usageidx[i-2], usageidx[i-1],
-		       usageidx[i-1], usageidx[i],
-		       F_TOTAL);
-
-    double U1, U2;
-    double U = mann_whitney_u(RCS2, &U1, &U2);
-    printf("Mann-Whitney U (combined rank sum) = %8.3f\n", U);
-
-    double eff = U1 / (double) (RCS2.n1 * RCS2.n2);
-    printf("Common language effect size f (or Θ) = %8.3f\n", eff);
-    printf("   Effect size is %s\n",
-	   (eff > 0.5) ? "large (> 0.5)" :
-	   ((eff >= 0.3) ? "medium (0.3 .. 0.5)" : "small (< 0.3)"));
-    printf("Rank biserial correlation r = %8.3f\n", 1.0 - 2.0 * eff);
+    bool psignificant = p <= (alpha + 0.00005);
+    bool adjpsignificant = adjustedp <= (alpha + 0.00005);
+    printf("  p                   %.4f  (%ssignificant)\n",
+	   p, psignificant ? "" : "not ");
+    printf("  p adjusted for ties %.4f  (%ssignificant)\n",
+	   adjustedp, adjpsignificant ? "" : "not ");
 
     int64_t low, high;
-    double alpha = 0.05;
-//     low = mann_whitney_U_ci(RCS2, alpha, &high);
-//     printf("alpha = %.2f: (%8.3f, %8.3f)\n", alpha, (double) low, (double) high);
-
     RankedCombinedSample RCS3 =
       rank_difference_signed(usage,
 			     usageidx[i-2], usageidx[i-1],
@@ -825,10 +814,67 @@ void report(Usage *usage) {
 			     F_TOTAL);
 
     double diff = median_diff_estimate(RCS3);
-    printf("Median difference (Hodges–Lehmann estimate) = %8.3f\n", diff);
+    printf("Median difference (Hodges–Lehmann estimate) = %.0f\n", diff);
     double confidence = median_diff_ci(RCS3, alpha, &low, &high);
-    printf("%.2f%% confidence interval (%.3f, %.3f)\n",
+    printf("  %.2f%% confidence interval (%.0f, %.0f)\n",
 	   confidence * 100.0, (double) low, (double) high);
+    if ((llabs(low) <= 0.005) || (llabs(high) <= 0.005)) {
+      if (psignificant || adjpsignificant)
+	printf("  Note: Confidence interval barely includes zero\n"
+	       "  and p is is significant\n");
+    } else if ((low <= 0.0) && (high >= 0.0)) {
+      if (!psignificant || !adjpsignificant)
+	printf("  Note: Confidence interval includes zero and p is not significant\n");
+    } else {
+      if (psignificant || adjpsignificant)
+	printf("  Note: Confidence interval does not include zero and p is significant\n");
+    }
+
+//     double Tpos = wilcoxon(RCS);
+//     printf("Wilcoxon signed rank test Tpos = %8.1f\n", Tpos);
+
+//     RankedCombinedSample RCS2 =
+//       rank_combined_samples(usage,
+// 		       usageidx[i-2], usageidx[i-1],
+// 		       usageidx[i-1], usageidx[i],
+// 		       F_TOTAL);
+
+//     double U1, U2;
+//     double U = mann_whitney_u(RCS2, &U1, &U2);
+//     printf("Mann-Whitney U (combined rank sum) = %8.3f\n", U);
+//     printf("             U1 = %8.3f, U2 = %8.3f\n", U1, U2);
+
+//     double eff = U1 / (double) (RCS2.n1 * RCS2.n2);
+//     printf("The CEL estimates the probability of superiority, i.e.\n"
+// 	   "that a randomly-chosen observation from the second sample\n"
+// 	   "will have a longer run time than a randomly-chosen\n"
+// 	   "observation from the first sample.\n");
+//     printf("  Common Language Effect (CEL) f (or Θ) = %.4f\n", eff);
+//     double effsize = fabs(eff - 0.5);
+//     printf("  Effect size = |CEL - 0.5| = %.4f\n", effsize);
+//     printf("  Effect size is %s\n",
+// 	   (effsize > 0.5) ? "large (> 0.5)" :
+// 	   ((effsize >= 0.3) ? "medium (0.3..0.5)" : "small (< 0.3)"));
+
+    printf("\n");
+    double Ahat = 1.0 - ranked_diff_Ahat(RCS);
+    printf("Â estimates probability of superiority, i.e. that\n"
+	   "a randomly-chosen observation from the first sample\n"
+	   "will have a shorter run time than a randomly-chosen\n"
+	   "observation from the second sample.\n");
+    printf("  Â = %8.3f\n", Ahat);
+    if (fabs(Ahat - 0.5) < 0.100) 
+      printf("  Â shows roughly equal probabilities\n");
+    else if (Ahat > 0.5)
+      printf("  Â shows a high chance that a run of command 1 takes less time\n");
+    else 
+      printf("  Â shows a low chance that a run of command 1 takes less time\n");
+
+//     printf("A rank biserial correlation of +1 (-1) indicates positive\n"
+// 	   "(negative) correlation between the samples, with 0 indicating\n"
+// 	   "no correlation at all.\n");
+//     printf("  Rank biserial correlation r = %8.3f\n",
+// 	   (2.0 * U1 / (RCS.n1 * RCS.n2)));
 
 //     printf("\ncdf(1-alpha/2) = cdf(%f) = %8.3f\n",
 // 	   1.0 - (alpha / 2.0), inverseCDF(1.0 - (alpha / 2.0)));

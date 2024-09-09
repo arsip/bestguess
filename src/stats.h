@@ -66,6 +66,7 @@ typedef struct RankedCombinedSample {
 } RankedCombinedSample;
 
 // TEMP!
+double ranked_diff_Ahat(RankedCombinedSample RCS);
 double mann_whitney_w(RankedCombinedSample RCS);
 double mann_whitney_u(RankedCombinedSample RCS, double *U1, double *U2);
 double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp);

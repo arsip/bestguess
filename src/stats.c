@@ -1049,6 +1049,23 @@ double median_diff_ci(RankedCombinedSample RCS,
   return confidence;
 }
 
+double ranked_diff_Ahat(RankedCombinedSample RCS) {
+  double n1 = RCS.n1;
+  double n2 = RCS.n2;
+  int N = RCS.n1 * RCS.n2;
+  int count_zero = 0;
+  int count_pos = 0;
+  for (int k = 0; k < N; k++) {
+    //printf("[%2d] rank = %.1f, X = %lld\n", k, RCS.rank[k], RCS.X[k]);
+    if (RCS.X[k] == 0) count_zero++;
+    else if (RCS.X[k] > 0) count_pos++;
+  }
+  double sum = (double) count_pos + 0.5 * (double) count_zero;
+  double R1 = (n1 * (n1+1) / 2.0) + sum;
+  double Ahat = (R1/n1 - (n1+1)/2.0) / n2;
+  return Ahat;
+}
+
 // Hodges-Lehmann estimation of location shift, sometimes called the
 // median difference.
 double median_diff_estimate(RankedCombinedSample RCS) {
