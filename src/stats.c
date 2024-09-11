@@ -647,6 +647,20 @@ static int i64_lt(void *data, const void *a, const void *b) {
   return Xa - Xb;
 }
 
+typedef struct XO {
+  int64_t X;
+  int origin;
+} XO;
+
+static int XO_lt(void *data, const void *a, const void *b) {
+  if (data) PANIC("XO_lt does not work with an index vector");
+  int64_t Xa = ((const XO *)a)->X;
+  int64_t Xb = ((const XO *)b)->X;
+  return Xa - Xb;
+}
+
+// TODO: If we decide to keep this calculation, make it efficient.
+//  
 // Requires start/end ranges for sample 1 and sample 2 are non-empty
 // and do not overlap.  N.B. end index is not included in range.
 RankedCombinedSample rank_combined_samples(Usage *usage,
@@ -669,23 +683,29 @@ RankedCombinedSample rank_combined_samples(Usage *usage,
       || ((end1 > start2) && (end1 < end2)))
     PANIC("Invalid sample index ranges in usage structure");
 
+  // Must sort both X and the origins.
+  XO *XOs = malloc(N * sizeof(XO));
+  if (!XOs) PANIC_OOM();
+  for (int i = 0; i < n1; i++) {
+    XOs[i].X = get_int64(usage, start1 + i, fc);
+    XOs[i].origin = 1;
+  }
+  for (int i = 0; i < n2; i++) {
+    XOs[i + n1].X = get_int64(usage, start2 + i, fc);
+    XOs[i + n1].origin = 2;
+  }
+
+  sort(XOs, N, sizeof(XO), NULL, XO_lt);
+
   int64_t *X = malloc(N * sizeof(int64_t));
   if (!X) PANIC_OOM();
   int *origin = malloc(N * sizeof(int));
   if (!origin) PANIC_OOM();
-  for (int i = 0; i < n1; i++) {
-    X[i] = get_int64(usage, start1 + i, fc);
-    origin[i] = 1;
+  for (int k = 0; k < N; k++) {
+    X[k] = XOs[k].X;
+    origin[k] = XOs[k].origin;
   }
-  for (int i = 0; i < n2; i++) {
-    X[i + n1] = get_int64(usage, start2 + i, fc);
-    origin[i + n1] = 2;
-  }
-
-  // Must sort both X and the origins.  This is hacky and a little
-  // slow, but good enough for now.  FUTURE: Fix.
-  sort(X, N, sizeof(int64_t), NULL, i64_lt);
-  sort(origin, N, sizeof(int), X, i64_lt);
+  free(XOs);
 
   double *ranks = assign_ranks(X, NULL, N);
 
@@ -829,6 +849,9 @@ double mann_whitney_u(RankedCombinedSample RCS, double *U1, double *U2) {
   *U1 = R1 - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
   *U2 = R2 - (double) (RCS.n2 * (RCS.n2 + 1)) / 2.0;
   
+  if ((*U1 + *U2) != (double) (RCS.n1 * RCS.n2))
+    printf("ERROR!  Mann-Whitney U test inconsistent.\n");
+
   return (*U1 < *U2) ? *U1 : *U2;
   
 }

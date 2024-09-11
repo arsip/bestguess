@@ -792,7 +792,13 @@ void report(Usage *usage) {
     
     printf("\n");
     double W = mann_whitney_w(RCS);
-    printf("Mann-Whitney W (rank sum) = %8.3f\n", W);
+    printf("Mann-Whitney W (rank sum) = %.0f\n", W);
+
+    int N = RCS.n1 * RCS.n2;
+
+    // TODO: Should compare dispersions (e.g. IQR) because if they
+    // differ a lot, then the W test may not be showing a displacement
+    // of the median.
 
     double alpha = 0.05;
 
@@ -813,6 +819,7 @@ void report(Usage *usage) {
 			     usageidx[i-1], usageidx[i],
 			     F_TOTAL);
 
+    printf("\n");
     double diff = median_diff_estimate(RCS3);
     printf("Median difference (Hodges–Lehmann estimate) = %.0f\n", diff);
     double confidence = median_diff_ci(RCS3, alpha, &low, &high);
@@ -844,17 +851,26 @@ void report(Usage *usage) {
 //     printf("Mann-Whitney U (combined rank sum) = %8.3f\n", U);
 //     printf("             U1 = %8.3f, U2 = %8.3f\n", U1, U2);
 
-//     double eff = U1 / (double) (RCS2.n1 * RCS2.n2);
-//     printf("The CEL estimates the probability of superiority, i.e.\n"
-// 	   "that a randomly-chosen observation from the second sample\n"
-// 	   "will have a longer run time than a randomly-chosen\n"
-// 	   "observation from the first sample.\n");
-//     printf("  Common Language Effect (CEL) f (or Θ) = %.4f\n", eff);
-//     double effsize = fabs(eff - 0.5);
-//     printf("  Effect size = |CEL - 0.5| = %.4f\n", effsize);
+    double U1 = W - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
+//    printf("U1 calculated from W is = %.0f\n", U1);
+
+//     double eff = U1 / (double) N;
+//     printf("The CEL estimates ...\n");
+//     printf("  Common Language Effect (CEL) f (or Θ) = %4.1f%%\n", eff * 100.0);
 //     printf("  Effect size is %s\n",
-// 	   (effsize > 0.5) ? "large (> 0.5)" :
-// 	   ((effsize >= 0.3) ? "medium (0.3..0.5)" : "small (< 0.3)"));
+// 	   (eff > 0.5) ? "large (> 50%)" :
+// 	   ((eff >= 0.3) ? "medium (30%..50%)" : "small (< 30%)"));
+
+//     double U2 = N - U1;
+//     double U = fmin(U1, U2);
+//     double rho = U / (double) N;
+//     printf("ρ (distribution overlap) = U / N = %.4f\n", rho);
+//     double rho_dist = fabs(rho - 0.5);
+//     printf("  ρ interpretation: %s\n",
+// 	   (rho_dist > 0.25) ? "little overlap in samples (far from 0.5)" :
+// 	   ((rho_dist > 0.10) ? "some overlap in samples (around 0.10 to 0.25 from 0.5)" :
+// 	    "large overlap in samples (within 0.10 of 0.5)"));
+
 
     printf("\n");
     double Ahat = 1.0 - ranked_diff_Ahat(RCS);
@@ -864,17 +880,19 @@ void report(Usage *usage) {
 	   "observation from the second sample.\n");
     printf("  Â = %8.3f\n", Ahat);
     if (fabs(Ahat - 0.5) < 0.100) 
-      printf("  Â shows roughly equal probabilities\n");
-    else if (Ahat > 0.5)
-      printf("  Â shows a high chance that a run of command 1 takes less time\n");
+      printf("  Interpretation: large overlap in distributions, i.e.\n"
+	     "  roughly equal probability of a random X > a random Y\n");
     else 
-      printf("  Â shows a low chance that a run of command 1 takes less time\n");
+      printf("  Interpretation: %s chance that a run of \n"
+	     "  command 1 takes less time than a run of command 2\n",
+	     (Ahat > 0.5) ? "high" : "low");
 
-//     printf("A rank biserial correlation of +1 (-1) indicates positive\n"
-// 	   "(negative) correlation between the samples, with 0 indicating\n"
-// 	   "no correlation at all.\n");
-//     printf("  Rank biserial correlation r = %8.3f\n",
-// 	   (2.0 * U1 / (RCS.n1 * RCS.n2)));
+    printf("\n");
+    printf("A rank biserial correlation of +1 (-1) indicates positive\n"
+	   "(negative) correlation between the samples, with 0 indicating\n"
+	   "no correlation at all.\n");
+    printf("  Rank biserial correlation r = %8.3f\n",
+	   (2.0 * U1 / (double) N) - 1.0);
 
 //     printf("\ncdf(1-alpha/2) = cdf(%f) = %8.3f\n",
 // 	   1.0 - (alpha / 2.0), inverseCDF(1.0 - (alpha / 2.0)));
