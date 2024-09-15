@@ -8,6 +8,7 @@
 #include "reports.h"
 #include "utils.h"
 #include "csv.h"
+#include "printing.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -54,7 +55,7 @@ void announce_command(const char *cmd, int index) {
 #define FMTsL "%-6.2f"
 #define IFMT "%6" PRId64
 #define IFMTL "%-6" PRId64
-#define LABEL "  %14s "
+#define LABEL "  %15s "
 #define GAP   "   "
 #define UNITS 1
 #define NOUNITS 0
@@ -239,7 +240,7 @@ void print_summary(Summary *s, bool briefly) {
   fflush(stdout);
 }
 
-#define BAR "▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
+#define BAR "▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 
 void print_graph(Summary *s, Usage *usage, int start, int end) {
   // No data if 's' or 'usage' are NULL
@@ -267,6 +268,22 @@ void print_graph(Summary *s, Usage *usage, int start, int end) {
 #define MEDIAN(i) (summaries[i]->total.median)
 #define COMMAND(i) (summaries[i]->cmd)
 
+// Returns index into summaries
+static int fastest(Summary *summaries[], int start, int end) {
+  int best = start;
+  int64_t fastest = MEDIAN(best);
+  
+  // Find the best total time, and also check for lack of data
+  for (int i = start; i < end; i++) {
+    if (!summaries[i]) return -1; // No data
+    if (MEDIAN(i) < fastest) {
+      fastest = MEDIAN(i);
+      best = i;
+    }
+  }
+  return best;
+}
+
 void print_overall_summary(Summary *summaries[], int start, int end) {
   if (!summaries) PANIC_NULL();
 
@@ -282,25 +299,14 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
 
   if (!summaries[start]) return;
 
-  int best = start;
-  int64_t fastest = MEDIAN(best);
-  double factor;
-  
-  // Find the best total time, and also check for lack of data
-  for (int i = start; i < end; i++) {
-    if (!summaries[i]) return;	// No data
-    if (MEDIAN(i) < fastest) {
-      fastest = MEDIAN(i);
-      best = i;
-    }
-  }
+  int best = fastest(summaries, start, end);
 
   if ((end - start) > 1) {
     printf("Best guess is:\n");
     printf("  %s ran\n", *COMMAND(best) ? COMMAND(best) : "(empty)");
     for (int i = start; i < end; i++) {
       if (i != best) {
-	factor = (double) MODE(i) / (double) fastest;
+	double factor = (double) MODE(i) / (double) MEDIAN(best);
 	printf("  %6.2f times faster than %s\n",
 	       factor, *COMMAND(i) ? COMMAND(i) : "(empty)");
       }
@@ -355,7 +361,7 @@ static void print_boxplot_scale(int scale_min,
     printf("Requested width (%d) too narrow for plot\n", width);
     return;
   }
-  width = width - LABELWIDTH + 1;
+  width = width - LABELWIDTH;
   if (labelplacement == BOXPLOT_LABEL_ABOVE)
     print_boxplot_labels(scale_min, scale_max, width);
   //
@@ -400,7 +406,7 @@ static void print_boxplot(int index,
   }
   if (axismin >= axismax) PANIC("axis min/max equal or out of order");
   int indent = LABELWIDTH - 1;
-  width -= indent;
+  width = width - indent - 1;
   double scale = (double) width / (double) (axismax - axismin);
 
   int minpos = SCALE(m->min - axismin);
@@ -495,11 +501,11 @@ static void print_ADscore(Measures *m) {
   } else {
     printf("%6s", "- ");
     if (HAS(m->code, CODE_LOWVARIANCE)) {
-      printf("         Low variance (likely not normal)\n");
+      printf("         Very low variance suggests NOT normal\n");
     } else if (HAS(m->code, CODE_SMALLN)) {
-      printf("         Too few data points\n");
+      printf("         Too few data points to measure normality\n");
    } else if (HAS(m->code, CODE_HIGHZ)) {
-      printf("         High variance (likely not normal)\n");
+      printf("         Long tail (extreme values) suggests NOT normal\n");
     } else {
       printf("\n");
     }
@@ -511,7 +517,7 @@ static void print_skew(Measures *m) {
   if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN)) {
     printf(" %6.2f        %s (magnitude is %s %0.2f)\n",
 	   m->skew,
-	   (fabs(m->skew) > SKEWSIGNIFICANCE) ? "SIGNIFICANT" : "insignificant",
+	   (fabs(m->skew) > SKEWSIGNIFICANCE) ? "SIGNIFICANT" : "Insignificant",
 	   (fabs(m->skew) > SKEWSIGNIFICANCE) ? "above" : "at/below",
 	   SKEWSIGNIFICANCE);
   } else {
@@ -542,15 +548,23 @@ void print_descriptive_stats(Summary *s) {
     sec = 0;
     div = MILLISECS;
   }
-  printf("\n");
-  printf(INDENT "────────────────────────────────────\n"
-	 INDENT "Total CPU time\n"
-	 INDENT "────────────────────────────────────\n");
+  int bytesperbar = (uint8_t) "─"[0] >> 6; // Assumes UTF-8
+  printf("%s%s%.*s%s\n",
+	 INDENT,
+	 bar(LEFT, TOPLINE),
+	 75 * bytesperbar,
+	 "────────────────────────────────────────"
+	 "────────────────────────────────────────",
+	 bar(RIGHT, TOPLINE));
+  printf("%s%s%-75s%s\n",
+	 INDENT, bar(LEFT, MIDLINE), "Total CPU time", bar(RIGHT, MIDLINE));
 
-  printf(INDENT "%-12s%6d\n", "N", n);
-  printf(INDENT LBLFMT, "Median");
+  printf(INDENT "%s  " LBLFMT "%6d", bar(LEFT, MIDLINE), "N (observations)", n);
+  printf("%36s%s\n", "", bar(RIGHT, MIDLINE));
+  printf(INDENT "%s  " LBLFMT "    ", bar(LEFT, MIDLINE), "Median");
   printf(sec ? FMTs : FMT, ROUND1(m->median, div));
-  printf("%11s\n", sec ? "s" : "ms");
+  printf("%11s", sec ? "s" : "ms");
+  printf("%40s%s\n", "", bar(RIGHT, MIDLINE));
 
   int64_t range = m->max - m->min;
   printf(INDENT LBLFMT, "Range");
@@ -572,7 +586,7 @@ void print_descriptive_stats(Summary *s) {
   printf(sec ? FMTs : FMT, ROUND1(IQR, div));
   printf("%11s", sec ? "s" : "ms");
   if (range > 0) {
-    printf("  (%4.1f%% of range)\n", (MS(IQR) * 100.0/ MS(range)));
+    printf("  (%.1f%% of range)\n", (MS(IQR) * 100.0/ MS(range)));
   } else {
     printf("\n");
   }
@@ -642,10 +656,14 @@ Usage *read_input_files(int argc, char **argv) {
       int idx = usage_next(usage);
       str = CSVfield(row, F_CMD);
       if (!str) csv_error(argv[i], lineno, "string", F_CMD+1, buf, buflen);
+      str = unescape_csv(str);
       set_string(usage, idx, F_CMD, str);
+      free(str);
       str = CSVfield(row, F_SHELL);
       if (!str) csv_error(argv[i], lineno, "string", F_SHELL+1, buf, buflen);
+      str = unescape_csv(str);
       set_string(usage, idx, F_SHELL, str);
+      free(str);
       // Set all the numeric fields that are measured directly
       for (int fc = F_CODE; fc < F_TOTAL; fc++) {
 	str = CSVfield(row, fc);
@@ -758,7 +776,7 @@ void report(Usage *usage) {
       print_descriptive_stats(s[count]);
       printf("\n");
     }
-    // TODO: Do this better
+    // TODO: Handle "too many commands" better
     next++;
     *next = *(next - 1);
     if (++count == MAXCMDS) USAGE("too many commands");
@@ -775,15 +793,19 @@ void report(Usage *usage) {
   // TEMP: Experimental new features below
   printf("==================================================================\n");
 
-  for (int i = 2; i < count + 1; i++) {
+  int best = fastest(s, 0, count);
+  Summary *summary1 = s[best];
+  Summary *summary2;
+
+  for (int i = 0; i < count; i++) {
+    if (i == best) continue;
+    summary2 = s[i];
     RankedCombinedSample RCS =
       rank_difference_magnitude(usage,
-				usageidx[i-2], usageidx[i-1],
-				usageidx[i-1], usageidx[i],
+				usageidx[best], usageidx[best+1],
+				usageidx[i], usageidx[i+1],
 				F_TOTAL);
 
-    Summary *summary1 = s[i-2];
-    Summary *summary2 = s[i-1];
     printf("Command                 N   Median\n");
     printf("%-20s %4d %8" PRId64 "\n",
 	   summary1->cmd, summary1->runs, summary1->total.median);
@@ -815,8 +837,8 @@ void report(Usage *usage) {
     int64_t low, high;
     RankedCombinedSample RCS3 =
       rank_difference_signed(usage,
-			     usageidx[i-2], usageidx[i-1],
-			     usageidx[i-1], usageidx[i],
+			     usageidx[best], usageidx[best+1],
+			     usageidx[i], usageidx[i+1],
 			     F_TOTAL);
 
     printf("\n");
@@ -919,6 +941,25 @@ void report(Usage *usage) {
     free(RCS.X);
     free(RCS.rank);
     free(RCS.index);
+
+    printf("\nDisplay table:\n");
+    DisplayTable *t = new_display_table(30, 1, (int []){10}, (int []){3}, "r");
+    display_table_set(t, 0, 0, "Hello!");
+    display_table_set(t, 1, 0, "%12.10f", 3.1415926536);
+    display_table(t, 0);
+    free_display_table(t);
+
+    t = new_display_table(40, 3, (int []){12,5,3}, (int []){4,1,2}, "rrl");
+    display_table_set(t, 0, 0, "Widgets");
+    display_table_set(t, 0, 1, "%d", 1200);
+    display_table_set(t, 0, 2, "%s", "ct");
+    display_table_set(t, 1, 0, "Frobnitzes");
+    display_table_set(t, 1, 1, "%d", 300);
+    display_table_set(t, 1, 2, "%s", "doz");
+    display_table(t, 0);
+    free_display_table(t);
+    
+
   }
 
 

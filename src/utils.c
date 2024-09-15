@@ -364,38 +364,62 @@ static int unescape_char(const char *p) {
     STRING_ESCAPE_VALUES[pos - STRING_ESCAPE_CHARS] : -1;
 }
 
-// Very simple unescaping, because it's not clear we need more.  The
-// escape char is backslash '\'.
-char *unescape(const char *str) {
+// Very simple unescaping, because it's not clear we need more than
+// this.  The escape char is backslash '\' for everything except a
+// double quote, in which case the caller supplies the escape
+// char.
+//
+// Caller must free the returned string.
+// 
+static char *unescape_using(const char *str, char quote_esc) {
   if (!str) PANIC_NULL();
   int chr, i = 0;
   size_t len = strlen(str);
   char *result = malloc(len + 1);
   while (*str) {
-    if (*str == '\\') {
-      str++;
-      if (!*str) {
-	free(result);
-	return NULL;
+    // Special case: CSV files often use "" within a string to escape
+    // a double quote
+    if (*str == quote_esc) {
+      if (*(str+1) == '"') {
+	result[i++] = '"';
+	str += 2;
       }
-      if ((chr = unescape_char(str)) < 0)
-	// Not a recognized escape char, so
-	// ignore the backslash
-	result[i++] = *str;
-      else
-	result[i++] = chr;
-      str++;
     } else {
-      // *str is not backslash
-      result[i++] = *str++;
-    } 
+      // Usual case: either we have the escape char or we don't
+      if (*str == '\\') {
+	str++;
+	if (!*str) {
+	  free(result);
+	  return NULL;
+	}
+	if ((chr = unescape_char(str)) < 0)
+	  // Not a recognized escape char, so
+	  // ignore the backslash
+	  result[i++] = *str;
+	else
+	  result[i++] = chr;
+	str++;
+      } else {
+	// *str is not backslash
+	result[i++] = *str++;
+      }
+    }
   }
   result[i] = '\0';
   return result;
 }
 	
-// We use "" to escape ", because that is more common in CSV files than \".
-char *escape(const char *str) {
+char *unescape(const char *str) {
+  return unescape_using(str, '\\');
+}
+
+char *unescape_csv(const char *str) {
+  return unescape_using(str, '"');
+}
+
+// In CSV files, it is more common to escape a double quote using ""
+// than \".  On command lines and in printed output, \" should be used.
+static char *escape_using(const char *str, char quote_esc) {
   if (!str) PANIC_NULL();
   int chr, i = 0;
   size_t len = strlen(str);
@@ -405,13 +429,21 @@ char *escape(const char *str) {
       // No escape needed
       result[i++] = *str;
     } else {
-      result[i++] = (*str == '"') ? '"' : '\\';
+      result[i++] = (*str == '"') ? quote_esc : '\\';
       result[i++] = chr;
     }
     str++;
   }
   result[i] = '\0';
   return result;
+}
+
+char *escape_csv(const char *str) {
+  return escape_using(str, '"');
+}
+
+char *escape(const char *str) {
+  return escape_using(str, '\\');
 }
 
 // Returns error code: 1 for error, 0 for no error.

@@ -138,7 +138,9 @@ void     print_arglist(arglist *args);
 // -----------------------------------------------------------------------------
 
 char  *unescape(const char *str);
+char  *unescape_csv(const char *str);
 char  *escape(const char *str);
+char  *escape_csv(const char *str);
 
 int split(const char *in, arglist *args);
 int split_unescape(const char *in, arglist *args);

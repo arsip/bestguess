@@ -135,8 +135,10 @@ static double AD_normality(int64_t *X,    // ranked data points
   for (int i = 0; i < n; i++) {
     Y[i] = ((double) X[i] - mean) / stddev;
     if (Y[i] != Y[i]) {
-      PANIC("Got NaN.  Should not have attempted AD test.");
+      PANIC("Got NaN.  Should not have attempted AD test because stddev is zero.");
     }
+    // Extreme values (i.e. high Z scores) indicate a long tail, and
+    // prevent the computation of a meaningful AD score.
     if (fabs(Y[i]) > 4) {
       free(Y);
       return -1;
@@ -353,7 +355,7 @@ static void measure(Usage *usage,
   m->skew = (m->est_mean - m->median) / m->est_stddev;
 
   m->ADscore = AD_normality(X, runs, m->est_mean, m->est_stddev);
-  // Off-the-charts z-scores are detected when we try to measure the
+  // Off-the-charts z-scores are only detected when we calculate the
   // AD score.
   if (m->ADscore == -1) {
     SET(m->code, CODE_HIGHZ);

@@ -271,9 +271,9 @@ static Summary *run_command(int num,
 void run_all_commands(int argc, char **argv) {
   // 'n' is the number of summaries == number of commands
   int n = 0;
+  Summary *summaries[MAXCMDS];
   char *buf = malloc(MAXCMDLEN);
   if (!buf) PANIC_OOM();
-  Summary *summaries[MAXCMDS];
   FILE *input = NULL, *output = NULL, *csv_output = NULL, *hf_output = NULL;
 
   // Best practice is to save the raw data (all the timing runs).
@@ -358,5 +358,6 @@ void run_all_commands(int argc, char **argv) {
   return;
 
  toomany:
+  free(buf);
   USAGE("Number of commands exceeds maximum of %d\n", MAXCMDS);
 }

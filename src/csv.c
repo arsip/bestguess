@@ -15,13 +15,16 @@ int CSVfields(CSVrow *row) {
 }
 
 // Returns NULL on error, so that caller can report the error with
-// more context than we have here.
+// more context than we have here.  Returned value is a pointer into
+// shared CSVrow structure, so caller must not free it.
 char *CSVfield(CSVrow *row, int i) {
   if (!row) PANIC_NULL();
   if ((i < 0) || (i >= row->next)) return NULL;
   return row->fields[i];
 }
 
+// Tuning parameter: We allocate memory to hold MIN_COLS in each row,
+// but dynamically expand the number of columns as needed.
 #define MIN_COLS 50
 
 static CSVrow *new_row(void) {
@@ -162,8 +165,8 @@ void write_header(FILE *f) {
 #define GETFIELD(fc) (get_int64(usage, idx, (fc)))
 
 void write_line(FILE *f, Usage *usage, int idx) {
-  char *escaped_cmd = escape(get_string(usage, idx, F_CMD));
-  char *shell_cmd = escape(get_string(usage, idx, F_SHELL));
+  char *escaped_cmd = escape_csv(get_string(usage, idx, F_CMD));
+  char *shell_cmd = escape_csv(get_string(usage, idx, F_SHELL));
 
   WRITEFIELD(F_CMD, "%s", escaped_cmd, F_RAWNUMEND);
   WRITEFIELD(F_SHELL, "%s", shell_cmd, F_RAWNUMEND);
@@ -294,8 +297,8 @@ void write_summary_header(FILE *f) {
   } while (0)
 
 void write_summary_line(FILE *f, Summary *s) {
-  char *escaped_cmd = escape(s->cmd);
-  char *shell_cmd = escape(config.shell);
+  char *escaped_cmd = escape_csv(s->cmd);
+  char *shell_cmd = escape_csv(config.shell);
   WRITEFIELD(S_CMD, "%s", escaped_cmd, S_LAST);
   WRITEFIELD(S_SHELL, "%s", shell_cmd, S_LAST);
   WRITEFIELD(S_RUNS, "%d", s->runs, S_LAST);
