@@ -133,13 +133,17 @@ static double AD_normality(int64_t *X,    // ranked data points
   double *Y = malloc(n * sizeof(double));
   if (!Y) PANIC_OOM();
   for (int i = 0; i < n; i++) {
+    // Y is a vector of studentized residuals
     Y[i] = ((double) X[i] - mean) / stddev;
     if (Y[i] != Y[i]) {
       PANIC("Got NaN.  Should not have attempted AD test because stddev is zero.");
     }
     // Extreme values (i.e. high Z scores) indicate a long tail, and
     // prevent the computation of a meaningful AD score.
-    if (fabs(Y[i]) > 4) {
+    // Approximately 1 observation in 15,787 will be more than 4 std
+    // deviations from the estimated mean per
+    // https://en.wikipedia.org/wiki/68–95–99.7_rule
+    if (fabs(Y[i]) > 4.0) {
       free(Y);
       return -1;
     }

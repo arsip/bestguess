@@ -24,7 +24,8 @@
 // 
 // -----------------------------------------------------------------------------
 
-DisplayTable *new_display_table(int width,
+DisplayTable *new_display_table(const char *title,
+				int width,
 				int cols,
 				int *colwidths,
 				int *margins,
@@ -67,6 +68,7 @@ DisplayTable *new_display_table(int width,
     PANIC("Columns, margins, and table borders total %d chars,"
 	  " more than table width of %d", total + 2, width);
 
+  dt->title = title;		// Allowed to be NULL
 
   return dt;
 }
@@ -133,6 +135,20 @@ void display_table(DisplayTable *dt, int indent) {
 	 bar(LEFT, TOPLINE),
 	 barlength, BAR,
 	 bar(RIGHT, TOPLINE));
+
+  if (dt->title) {
+    fwidth = dt->width - 2;
+    nchars = utf8_length(dt->title);
+    padding = fwidth - nchars;
+    printf("%*s%s", indent, "", bar(LEFT, MIDLINE));
+    if (padding > 0)
+      printf("%*s", padding / 2, "");
+    nbytes = utf8_width(dt->title, fwidth);
+    printf("%.*s", nbytes, dt->title);
+    if (padding > 0)
+      printf("%*s", (padding + 1) / 2, "");
+    printf("%s\n", bar(RIGHT, MIDLINE));
+  }
 
   for (int row = 0; row < dt->rows; row++) {
     if (all_null(&(dt->items[row * dt->cols]), dt->cols)) continue;

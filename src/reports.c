@@ -495,21 +495,28 @@ static const char *ADscore_repr(Measures *m) {
     asprintf(&tmp, "%6.2f", m->ADscore);
     return tmp;
   }
-  return "-";
+  return ". ";
 }
 
 static const char *ADscore_description(Measures *m) {
+  char *tmp;
   if (HAS_NONE(m->code)) {
-    if (m->p_normal <= 0.05)
-      return "(NOT normal)";
-    else
-      return "(cannot rule out normal)";
+    if (m->p_normal <= 0.05) {
+      asprintf(&tmp, "p = %0.3f (NOT normal)", m->p_normal);
+      return tmp;
+    } else {
+      asprintf(&tmp, "p = %0.3f (cannot rule out normal)", m->p_normal);
+      return tmp;
+    }
   }
   if (HAS(m->code, CODE_LOWVARIANCE))
     return "Very low variance suggests NOT normal";
   if (HAS(m->code, CODE_SMALLN))
     return "Too few data points to measure";
   if (HAS(m->code, CODE_HIGHZ))
+    // Approx. 1 observation in a sample of 15,787 will
+    // trigger this inability to calculate the ADscore.
+    // https://en.wikipedia.org/wiki/68–95–99.7_rule
     return "Extreme values suggest NOT normal";
   return "(not calculated)";
 }
@@ -519,7 +526,7 @@ static const char *skew_repr(Measures *m) {
   if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN)) {
     asprintf(&tmp, "%6.2f", m->skew);
   } else {
-    return "-";
+    return ". ";
   }
   return tmp;
 }
@@ -560,9 +567,15 @@ void print_descriptive_stats(Summary *s) {
     div = MILLISECS;
   }
 
-  printf("%s%s\n", INDENT, "Total CPU time");
-  DisplayTable *t = new_display_table(78, 3, (int []){16,15,40}, (int []){2,1,1}, "rrl");
+  DisplayTable *t = new_display_table("Total CPU Time",
+				      78,
+				      3,
+				      (int []){16,15,40},
+				      (int []){2,1,1},
+				      "rrl");
   int row = 0;
+  display_table_set(t, row, 0, "");
+  row++;
 
   display_table_set(t, row, 0, "N (observations)");
   display_table_set(t, row, 1, "%6d", N);
@@ -620,18 +633,46 @@ void print_descriptive_stats(Summary *s) {
   display_table_set(t, row, 2, ADscore_description(m));
   row++;
 
+  display_table(t, 2);
+  free_display_table(t);
 
-  printf("\n");
-  printf(INDENT "Tail:     95th     99th      Max\n");
-  printf(INDENT "        ");
-  PRINTTIME(m->pct95, div);
-  PRINTTIME(m->pct99, div);
-  PRINTTIME(m->max, div);
+  t = new_display_table("Total CPU Time",
+			78,
+			8,
+			(int []){10,7,7,7,7,7,7,7},
+			(int []){2,1,1,1,1,1,1,1}, "rrrrrrrr");
+  row = 0;
+  display_table_set(t, row, 0, "");
+  row++;
 
-  printf("\n");
+  display_table_set(t, row, 0, "Tail shape");
+  display_table_set(t, row, 1, "Q₀ ");
+  display_table_set(t, row, 2, "Q₁ ");
+  display_table_set(t, row, 3, "Q₂ ");
+  display_table_set(t, row, 4, "Q₃ ");
+  display_table_set(t, row, 5, "95 ");
+  display_table_set(t, row, 6, "99 ");
+  display_table_set(t, row, 7, "Q₄ ");
+  row++;
+
+  display_table_set(t, row, 0, sec ? "(sec)" : "(ms)");
+  display_table_set(t, row, 1, sec ? FMTs : FMT, ROUND1(m->min, div));
+  display_table_set(t, row, 2, sec ? FMTs : FMT, ROUND1(m->Q1, div));
+  display_table_set(t, row, 3, sec ? FMTs : FMT, ROUND1(m->median, div));
+  display_table_set(t, row, 4, sec ? FMTs : FMT, ROUND1(m->Q3, div));
+  if (m->pct95 < 0)
+    display_table_set(t, row, 5,  ". ");
+  else 
+    display_table_set(t, row, 5, sec ? FMTs : FMT, ROUND1(m->pct95, div));
+  if (m->pct99 < 0)
+    display_table_set(t, row, 6,  ". ");
+  else 
+    display_table_set(t, row, 6, sec ? FMTs : FMT, ROUND1(m->pct99, div));
+  display_table_set(t, row, 7, sec ? FMTs : FMT, ROUND1(m->max, div));
 
   display_table(t, 2);
   free_display_table(t);
+
 }
 
 // -----------------------------------------------------------------------------
@@ -960,6 +1001,7 @@ void report(Usage *usage) {
     free(RCS.rank);
     free(RCS.index);
 
+#if 0
     printf("\nDisplay table:\n");
     DisplayTable *t = new_display_table(30, 1, (int []){10}, (int []){3}, "r");
     display_table_set(t, 0, 0, "Hello!");
@@ -978,9 +1020,7 @@ void report(Usage *usage) {
     free_display_table(t);
     
     printf("\nLength a...⛄ is %d\n", utf8_length("a…⛄"));
-
-
-
+#endif
   }
 
 

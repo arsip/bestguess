@@ -1,4 +1,74 @@
-# Comparing measurements made by BestGuess to Hyperfine
+# Comparing output from BestGuess and Hyperfine
+
+## BestGuess and Hyperfine differ in measurement technique
+
+The individual run time measurements produced by Hyperfine tend to be larger
+than those produced by BestGuess.  It is possible that the technique used by
+Hyperfine introduces a measurement bias wherein the execution of some (varying
+amount of) non-benchmarked code is included in each timing.
+
+BestGuess uses the system calls `fork`, `execvp`, and `wait4`, all of which are
+supported on Linux and BSD Unixes (including macOS).  The resource usage for the
+benchmarked program (a child process) is returned by `wait4`:
+1. Call `fork`
+2. In the child process, call `freopen` to redirect `stdin`, `stdout`, and `stderr`
+3. In the child process, call `execvp` to launch the benchmarked program
+4. In the parent process, call `wait4` to both wait on the child and collect its
+   resource usage
+
+Hyperfine takes a different approach, as follows:
+
+1. Call `getrusage` to record current system and user CPU times
+2. Spawning the benchmarked command via `command.spawn`
+3. Reading and discarding anything sent to `stdout` by the benchmarked program
+4. Waiting on the benchmarked program to exit via `child.wait`
+5. Call `getrusage` to record current system and user CPU times
+
+The time interval between steps 1 and 5 are attributed to the benchmarked
+program, but likely includes some processing done in the `spawn` function of
+`std::process::Command` after the process fork.
+
+It is possible that the rich feature set and platform support of Rust's
+`std::process::Command` is working against our purpose here.  Hyperfine's
+accounting accrues to the child process -- the benchmarked command -- all of the
+effort needed to spawn a child process through a rich process abstraction.
+
+See the discussion section, below, for more.
+
+
+## BestGuess and Hyperfine differ in data analysis
+
+There are many ways that descriptive statistics can fail to represent the set of
+observations that make up a sample, and thus mislead the reader about the
+population from which the sample is drawn.
+
+It is ineffectual to use the mean and standard deviation to describe an
+empirical distribution that is measurably not normal.  Similarly, neither ANOVA nor
+t-tests are appropriate here.
+
+The following description from
+[Wikipedia](https://en.wikipedia.org/wiki/Kurtosis_risk) of one such risk sums
+up the situation:
+
+| In statistics and decision theory, kurtosis risk is the risk that results when a
+| statistical model assumes the normal distribution, but is applied to
+| observations that have a tendency to occasionally be much farther (in terms of
+| number of standard deviations) from the average than is expected for a normal
+| distribution.
+
+In actual use, both BestGuess and Hyperfine produce samples (collections of
+observations of program run times) that are demonstrably not normal.  As a
+result:
+* BestGuess does not attempt to identify or remove outliers, as they are valid
+  measurements. 
+* BestGuess measures the normality of each sample if requested.
+* BestGuess uses nonparametric statistics to summarize each sample.  These are
+  the median and inter-quartile range, although other summary data is available
+  if requested.
+* BestGuess uses nonparametric tests to compare samples, i.e. to represent which
+  command ran fastest.
+
+See the discussion section, below, for more.
 
 ## Example: Simple unix commands
 
@@ -71,7 +141,7 @@ Summary
 $
 ```
 
-## Observations
+## Discussion
 
 First, we don't know the _actual_ runtimes because Hyperfine automatically
 estimates the overhead of using a shell and subtracts it from the full runtime:
@@ -158,7 +228,7 @@ matter the goal of benchmarking.
     techniques to compute the runtimes.
 	- BestGuess is getting the user and system time from the OS using
       [wait4()](https://linux.die.net/man/2/wait4), via which the OS reports
-      process statistics as of the moment the child exited.  
+      process statistics as of the moment the child exited.
 	- Hyperfine calls `getrusage(RUSAGE_CHILDREN, &mut buf)` twice: before
       spawning a child process to run the command, and after the child has
       exited.  Because the two calls to `getrusage()` specify `RUSAGE_CHILDREN`,
@@ -167,7 +237,7 @@ matter the goal of benchmarking.
       found that user and systems times were identical (to the microsecond
       accuracy of `getrusage()`) when a call to `wait4()` was used to wait on
       the child exit.  Changing to `waitpid()` produced identical results to the
-      0.1ms resolution that BestGuess prints on the terminal.  
+      0.1ms resolution that BestGuess prints on the terminal.
 	- We conclude that the Hyperfine technique of using `getrusage()` and
       `waitpid()` produces identical measurements of user and system time to
       those returned by `wait4()`.  The difference in the techniques is down to
@@ -177,14 +247,8 @@ matter the goal of benchmarking.
     Hyperfine to represent user and system times internally in units of seconds.
     But could this account for the somewhat large differences we are seeing?
     Probably not.
-  - Is it possible that the way the Rust `std::process` library performs
-    fork/exec (in the Unix case) accrues extra time to the child process?  It
-    seems unlikely, but (1) any work done after `fork()` but before `exec()`
-    will be attributed to the child process, and (2) Rust appears to set up
-    pipes to communicate with the child process, which is example of such work.
-    In Hyperfine, the output from the child process is collected even when that
-    output is to be discarded.  Could these actions explain the longer runtimes
-    for the child process in the Hyperfine/Rust case compared with BestGuess/C?
+  - Given the Hyperfine approach, work done in the Rust `std::process` library
+    after `fork()` but before `exec()` will be attributed to the child process.
   - Looks like Rust provides a very generic and robust interface to process
     control (fork/exec/spawn).  For benchmarking, this has an unfortunate
     effect, because a certain amount of work is done after `fork` but before

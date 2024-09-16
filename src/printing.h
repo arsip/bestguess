@@ -22,9 +22,11 @@ typedef struct DisplayTable {
   int         *margins;
   const char  *justifications;
   char       **items;
+  const char  *title;
 } DisplayTable;
 
-DisplayTable *new_display_table(int width,
+DisplayTable *new_display_table(const char *title,
+				int width,
 				int cols,
 				int *colwidths,
 				int *margins,

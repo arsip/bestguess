@@ -101,6 +101,10 @@ State_.
 
 ## Measurement techniques
 
+- [ ] Provide configurable environment randomization.  (Really this is just
+      creating an environment variable of a random size before launching the
+      process to be benchmarked.)
+
 - [ ] Programs that use pthreads do not have thread resources accrue to the
       "parent" process.  Is there any reasonable way to measure them, short of
       introducing a shim library for pthreads?

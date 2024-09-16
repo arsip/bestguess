@@ -540,28 +540,8 @@ static const char *utf8_index(const char *str, int i) {
 // 
 int utf8_length(const char *str) {
   if (!str) PANIC_NULL();
-  int len = 0, cbytes = 0;
-  const char *s = str;
-  while (*s) {
-    while (cbytes--) {
-      if ((*(s++) & 0xC0) != 0x80) goto invalid;
-    }
-    if (!*s) return len;
-    if ((*s & 0x80) == 0x00) {
-      cbytes = 0; 
-    } else if ((*s & 0xE0) == 0xC0) {
-      cbytes = 1;
-    } else if ((*s & 0xF0) == 0xE0) {
-      cbytes = 2;
-    } else if ((*s & 0xF8) == 0xF0) {
-      cbytes = 3;
-    } else {
-    invalid:
-      PANIC("Invalid UTF-8 at index %zu of '%s'", (s - str), str);
-    }
-    s++;
-    len++;
-  }
+  int len = 0;
+  while ((str = utf8_next(str))) len++;
   return len;
 }
 
