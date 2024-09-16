@@ -17,6 +17,9 @@
 #define MIDLINE    1
 #define BOTTOMLINE 2
 
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
 // -----------------------------------------------------------------------------
 // 
 // -----------------------------------------------------------------------------
@@ -61,7 +64,8 @@ DisplayTable *new_display_table(int width,
   dt->margins[cols] = width - 2 - total;
 
   if (dt->margins[cols] < 0)
-    PANIC("Columns and margins total %d chars, more than table width of %d", total, width);
+    PANIC("Columns, margins, and table borders total %d chars,"
+	  " more than table width of %d", total + 2, width);
 
 
   return dt;
@@ -120,9 +124,10 @@ void display_table(DisplayTable *dt, int indent) {
   if (!dt) PANIC_NULL();
   if (indent < 0) indent = 0;
   int bytesperbar = (uint8_t) "─"[0] >> 6; // Assumes UTF-8
-  int barlength = (dt->width - indent - 2) * bytesperbar;
+  int barlength = (dt->width - 2) * bytesperbar;
   char justif;
-  int fwidth;
+  const char *item;
+  int fwidth, padding, nchars, nbytes;
   
   printf("%*s%s%.*s%s\n", indent, "",
 	 bar(LEFT, TOPLINE),
@@ -133,10 +138,19 @@ void display_table(DisplayTable *dt, int indent) {
     if (all_null(&(dt->items[row * dt->cols]), dt->cols)) continue;
     printf("%*s%s%*s", indent, "", bar(LEFT, MIDLINE), dt->margins[0], "");
     for (int col = 0; col < dt->cols; col++) {
-      const char *item = dt->items[row * dt->cols + col] ?: "";
+      item = dt->items[row * dt->cols + col] ?: "";
       justif = dt->justifications[col];
-      fwidth = (justif == 'l') ? - dt->colwidths[col] : dt->colwidths[col];
-      printf("%*.*s", fwidth, dt->colwidths[col], item);
+      fwidth = dt->colwidths[col];
+      nchars = utf8_length(item);
+      padding = fwidth - nchars;
+      if ((justif == 'r') && (padding > 0))
+	printf("%*s", padding, "");
+      // Field width is in characters.  How many bytes are used by the
+      // first 'fwidth' characters in the UTF-8 string 'item'?
+      nbytes = utf8_width(item, fwidth);
+      printf("%.*s", nbytes, item);
+      if ((justif == 'l') && (padding > 0))
+	printf("%*s", padding, "");
       printf("%*s", dt->margins[col+1], "");
     }
     printf("%s\n", bar(RIGHT, MIDLINE));

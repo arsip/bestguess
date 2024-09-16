@@ -50,9 +50,9 @@ void announce_command(const char *cmd, int index) {
 }
 
 #define FMT "%6.1f"
-#define FMTL "%-6.1f"
+#define FMTL "%-.1f"
 #define FMTs "%6.2f"
-#define FMTsL "%-6.2f"
+#define FMTsL "%-.2f"
 #define IFMT "%6" PRId64
 #define IFMTL "%-6" PRId64
 #define LABEL "  %15s "
@@ -133,10 +133,10 @@ void print_summary(Summary *s, bool briefly) {
   }
 
   if (briefly)
-    printf(LABEL "    Mode" GAP "  %s    Min    Median     Max   %s\n",
+    printf(LABEL "    Mode" GAP "  %s    Min   Median      Max   %s\n",
 	   "", bar(LEFT, TOPLINE), bar(RIGHT, TOPLINE));
   else
-    printf(LABEL "    Mode" GAP "  %s    Min       Q₁    Median      Q₃      Max   %s\n",
+    printf(LABEL "    Mode" GAP "  %s    Min       Q₁   Median       Q₃      Max   %s\n",
 	   "", bar(LEFT, TOPLINE), bar(RIGHT, TOPLINE));
 
 
@@ -488,57 +488,68 @@ static void print_boxplot(int index,
 #define INDENT "  "
 #define LBLFMT "%-14s"
 
-static void print_ADscore(Measures *m) {
-  printf(INDENT LBLFMT, "AD normality");
+static const char *ADscore_repr(Measures *m) {
+  char *tmp;
   if (HAS_NONE(m->code)) {
     assert(m->ADscore > 0);
-    printf(" %6.2f", m->ADscore);
-    printf("        p = %0.4f", m->p_normal);
-    if (m->p_normal <= 0.05)
-      printf("  (NOT normal)\n");
-    else
-      printf("  (cannot rule out normal)\n");
-  } else {
-    printf("%6s", "- ");
-    if (HAS(m->code, CODE_LOWVARIANCE)) {
-      printf("         Very low variance suggests NOT normal\n");
-    } else if (HAS(m->code, CODE_SMALLN)) {
-      printf("         Too few data points to measure normality\n");
-   } else if (HAS(m->code, CODE_HIGHZ)) {
-      printf("         Long tail (extreme values) suggests NOT normal\n");
-    } else {
-      printf("\n");
-    }
+    asprintf(&tmp, "%6.2f", m->ADscore);
+    return tmp;
   }
+  return "-";
 }
 
-static void print_skew(Measures *m) {
-  printf(INDENT LBLFMT, "Skew");
+static const char *ADscore_description(Measures *m) {
+  if (HAS_NONE(m->code)) {
+    if (m->p_normal <= 0.05)
+      return "(NOT normal)";
+    else
+      return "(cannot rule out normal)";
+  }
+  if (HAS(m->code, CODE_LOWVARIANCE))
+    return "Very low variance suggests NOT normal";
+  if (HAS(m->code, CODE_SMALLN))
+    return "Too few data points to measure";
+  if (HAS(m->code, CODE_HIGHZ))
+    return "Extreme values suggest NOT normal";
+  return "(not calculated)";
+}
+
+static const char *skew_repr(Measures *m) {
+  char *tmp;
   if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN)) {
-    printf(" %6.2f        %s (magnitude is %s %0.2f)\n",
-	   m->skew,
-	   (fabs(m->skew) > SKEWSIGNIFICANCE) ? "SIGNIFICANT" : "Insignificant",
-	   (fabs(m->skew) > SKEWSIGNIFICANCE) ? "above" : "at/below",
-	   SKEWSIGNIFICANCE);
+    asprintf(&tmp, "%6.2f", m->skew);
   } else {
-    printf("%6s", "- ");
-    if (HAS(m->code, CODE_LOWVARIANCE)) {
-      printf("         Low variance\n");
-    } else if (HAS(m->code, CODE_HIGHZ)) {
-      printf("         High variance\n");
-    } else if (HAS(m->code, CODE_SMALLN)) {
-      printf("         Too few data points\n");
-    } else {
-      printf("\n");
-    }
+    return "-";
+  }
+  return tmp;
+}
+
+static const char *skew_description(Measures *m) {
+  char *tmp;
+  if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN)) {
+    asprintf(&tmp, "%s (magnitude %s %0.2f)",
+	     (fabs(m->skew) > SKEWSIGNIFICANCE) ? "SIGNIFICANT" : "Insignificant",
+	     (fabs(m->skew) > SKEWSIGNIFICANCE) ? ">" : "≤",
+	     SKEWSIGNIFICANCE);
+    return tmp;
+  }
+  if (HAS(m->code, CODE_LOWVARIANCE)) {
+    return "Variance too low to measure";
+  } else if (HAS(m->code, CODE_HIGHZ)) {
+    return("Variance too high to measure");
+  } else if (HAS(m->code, CODE_SMALLN)) {
+    return("Too few data points to measure");
+  } else {
+    return "(not calculated)";
   }
 }
 
 void print_descriptive_stats(Summary *s) {
   if (!s || (s->runs == 0)) return; // No data
 
+  char *tmp = NULL;
   Measures *m = &(s->total);
-  int n = s->runs;
+  int N = s->runs;
   
   int sec = 1;
   double div = MICROSECS;
@@ -548,64 +559,67 @@ void print_descriptive_stats(Summary *s) {
     sec = 0;
     div = MILLISECS;
   }
-  int bytesperbar = (uint8_t) "─"[0] >> 6; // Assumes UTF-8
-  printf("%s%s%.*s%s\n",
-	 INDENT,
-	 bar(LEFT, TOPLINE),
-	 75 * bytesperbar,
-	 "────────────────────────────────────────"
-	 "────────────────────────────────────────",
-	 bar(RIGHT, TOPLINE));
-  printf("%s%s%-75s%s\n",
-	 INDENT, bar(LEFT, MIDLINE), "Total CPU time", bar(RIGHT, MIDLINE));
 
-  printf(INDENT "%s  " LBLFMT "%6d", bar(LEFT, MIDLINE), "N (observations)", n);
-  printf("%36s%s\n", "", bar(RIGHT, MIDLINE));
-  printf(INDENT "%s  " LBLFMT "    ", bar(LEFT, MIDLINE), "Median");
-  printf(sec ? FMTs : FMT, ROUND1(m->median, div));
-  printf("%11s", sec ? "s" : "ms");
-  printf("%40s%s\n", "", bar(RIGHT, MIDLINE));
+  printf("%s%s\n", INDENT, "Total CPU time");
+  DisplayTable *t = new_display_table(78, 3, (int []){16,15,40}, (int []){2,1,1}, "rrl");
+  int row = 0;
+
+  display_table_set(t, row, 0, "N (observations)");
+  display_table_set(t, row, 1, "%6d", N);
+  display_table_set(t, row, 2, "ct");
+  row++;
+
+  display_table_set(t, row, 0, "Median");
+  display_table_set(t, row, 1, (sec ? FMTs : FMT), ROUND1(m->median, div));
+  display_table_set(t, row, 2, sec ? "s" : "ms");
+  row++;
 
   int64_t range = m->max - m->min;
-  printf(INDENT LBLFMT, "Range");
-  printf(sec ? FMTs : FMT, ROUND1(m->min, div));
-  printf(" … ");
-  printf(sec ? FMTsL : FMTL, ROUND1(m->max, div));
-  printf("%s\n", sec ? "s" : "ms");
-  printf(INDENT LBLFMT, "");
-  printf(sec ? FMTs : FMT, ROUND1(range, div));
-  printf("%11s\n", sec ? "s" : "ms");
+  display_table_set(t, row, 0, "Range");
+  if (sec)
+    asprintf(&tmp, FMTs " … " FMTsL, ROUND1(m->min, div), ROUND1(m->max, div));
+  else
+    asprintf(&tmp, FMT " … " FMTL, ROUND1(m->min, div), ROUND1(m->max, div));
+  display_table_set(t, row, 1, tmp);
+  display_table_set(t, row, 2, sec ? "s" : "ms");
+  row++;
+
+  display_table_set(t, row, 1, (sec ? FMTs : FMT), ROUND1(range, div));
+  display_table_set(t, row, 2, sec ? "s" : "ms");
+  row++;
 
   int64_t IQR = m->Q3 - m->Q1;
-  printf(INDENT LBLFMT, "IQR");
-  printf(sec ? FMTs : FMT, ROUND1(m->Q1, div));
-  printf(" … ");
-  printf(sec ? FMTsL : FMTL, ROUND1(m->Q3, div));
-  printf("%s\n", sec ? "s" : "ms");
-  printf(INDENT LBLFMT, "");
-  printf(sec ? FMTs : FMT, ROUND1(IQR, div));
-  printf("%11s", sec ? "s" : "ms");
-  if (range > 0) {
-    printf("  (%.1f%% of range)\n", (MS(IQR) * 100.0/ MS(range)));
-  } else {
-    printf("\n");
-  }
-#if 0
-  // How far below and above the median
-  if (IQR > 0) {
-    int64_t IQ1delta = m->median - m->Q1;
-    int64_t IQ3delta = m->Q3 - m->median;
-    printf(INDENT "%-15s", "Median ± IQR");
-    printf(sec ? FMTs : FMT, - ROUND1(IQ1delta, div));
-    printf(" … +");
-    printf(sec ? FMTsL : FMTL, ROUND1(IQ3delta, div));
-    printf(" %s\n", sec ? "s" : "ms");
-  }
-  printf("\n");
-#endif
 
-  print_skew(m);
-  print_ADscore(m);
+  display_table_set(t, row, 0, "IQR");
+  if (sec)
+    asprintf(&tmp, FMTs " … " FMTsL, ROUND1(m->Q1, div), ROUND1(m->Q3, div));
+  else
+    asprintf(&tmp, FMT " … " FMTL, ROUND1(m->Q1, div), ROUND1(m->Q3, div));
+  display_table_set(t, row, 1, tmp);
+  display_table_set(t, row, 2, sec ? "s" : "ms");
+  row++;
+
+  display_table_set(t, row, 1, (sec ? FMTs : FMT), ROUND1(IQR, div));
+  if (range > 0) 
+    display_table_set(t, row, 2, "%-2s (%.1f%% of range)",
+		      sec ? "s" : "ms", MS(IQR) * 100.0/ MS(range));
+  else
+    display_table_set(t, row, 2, sec ? "s" : "ms");
+  row++;
+
+  display_table_set(t, row, 0, "");
+  row++;
+  
+  display_table_set(t, row, 0, "Skew");
+  display_table_set(t, row, 1, skew_repr(m));
+  display_table_set(t, row, 2, skew_description(m));
+  row++;
+
+  display_table_set(t, row, 0, "AD normality");
+  display_table_set(t, row, 1, ADscore_repr(m));
+  display_table_set(t, row, 2, ADscore_description(m));
+  row++;
+
 
   printf("\n");
   printf(INDENT "Tail:     95th     99th      Max\n");
@@ -613,7 +627,11 @@ void print_descriptive_stats(Summary *s) {
   PRINTTIME(m->pct95, div);
   PRINTTIME(m->pct99, div);
   PRINTTIME(m->max, div);
+
   printf("\n");
+
+  display_table(t, 2);
+  free_display_table(t);
 }
 
 // -----------------------------------------------------------------------------
@@ -945,7 +963,7 @@ void report(Usage *usage) {
     printf("\nDisplay table:\n");
     DisplayTable *t = new_display_table(30, 1, (int []){10}, (int []){3}, "r");
     display_table_set(t, 0, 0, "Hello!");
-    display_table_set(t, 1, 0, "%12.10f", 3.1415926536);
+    display_table_set(t, 1, 0, "%10.7f", 3.1415926536);
     display_table(t, 0);
     free_display_table(t);
 
@@ -954,11 +972,14 @@ void report(Usage *usage) {
     display_table_set(t, 0, 1, "%d", 1200);
     display_table_set(t, 0, 2, "%s", "ct");
     display_table_set(t, 1, 0, "Frobnitzes");
-    display_table_set(t, 1, 1, "%d", 300);
+    display_table_set(t, 1, 1, "%d … %d", 3,7);
     display_table_set(t, 1, 2, "%s", "doz");
     display_table(t, 0);
     free_display_table(t);
     
+    printf("\nLength a...⛄ is %d\n", utf8_length("a…⛄"));
+
+
 
   }
 

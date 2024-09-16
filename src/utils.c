@@ -485,10 +485,6 @@ FILE *maybe_open(const char *filename, const char *mode) {
   return f;
 }
 
-// -----------------------------------------------------------------------------
-// Misc
-// -----------------------------------------------------------------------------
-
 int64_t min64(int64_t a, int64_t b) {
   return (a < b) ? a : b;
 }
@@ -497,3 +493,85 @@ int64_t max64(int64_t a, int64_t b) {
   return (a > b) ? a : b;
 }
 
+// Returns pointer to first byte after CURRENT utf-8 character, or
+// NULL if there are none.
+static const char *utf8_next(const char *str) {
+  if (!str || !*str) return NULL;
+  int cbytes;
+  const char *s = str;
+  if ((*s & 0x80) == 0x00) {
+    cbytes = 0; 
+  } else if ((*s & 0xE0) == 0xC0) {
+    cbytes = 1;
+  } else if ((*s & 0xF0) == 0xE0) {
+    cbytes = 2;
+  } else if ((*s & 0xF8) == 0xF0) {
+    cbytes = 3;
+  } else {
+  invalid:
+    PANIC("Invalid UTF-8 at index %zu of '%s'", (s - str), str);
+  }
+  s++;
+  while (cbytes--) {
+    if ((*(s++) & 0xC0) != 0x80) goto invalid;
+  }
+  return s;
+}
+
+// Return a pointer to the start of the ith UTF-8 character
+// (codepoint) in 'str'.  The first character is at i = 0.  If there
+// are less than i characters, NULL is returned.
+//
+// NOTE: When called with i=0, current character is NOT examined, and
+// may be the end of 'str' or may be invalid UTF-8.
+//
+static const char *utf8_index(const char *str, int i) {
+  if (!str) PANIC_NULL();
+  if (i == 0) return str;
+  while (--i >= 0) str = utf8_next(str);
+  return str;
+}
+
+// Limitation: Counts codepoints, not displayed characters, so the
+// utf8 length of 'str' is not the same as its displayed width.
+// E.g. if 'str' contains Unicode combining characters, or zero width
+// characters, it will take up less horizontal space than its utf8
+// length suggests.
+// 
+int utf8_length(const char *str) {
+  if (!str) PANIC_NULL();
+  int len = 0, cbytes = 0;
+  const char *s = str;
+  while (*s) {
+    while (cbytes--) {
+      if ((*(s++) & 0xC0) != 0x80) goto invalid;
+    }
+    if (!*s) return len;
+    if ((*s & 0x80) == 0x00) {
+      cbytes = 0; 
+    } else if ((*s & 0xE0) == 0xC0) {
+      cbytes = 1;
+    } else if ((*s & 0xF0) == 0xE0) {
+      cbytes = 2;
+    } else if ((*s & 0xF8) == 0xF0) {
+      cbytes = 3;
+    } else {
+    invalid:
+      PANIC("Invalid UTF-8 at index %zu of '%s'", (s - str), str);
+    }
+    s++;
+    len++;
+  }
+  return len;
+}
+
+// How many bytes of 'str' are in the first 'count' characters?  If
+// there are less than 'count' characters, returns the length of 'str'.
+//
+int utf8_width(const char *str, int count) {
+  if (!str) PANIC_NULL();
+  if (count < 0)
+    PANIC("Width in bytes cannot be calculated for %d (< 0) codepoints", count);
+  const char *s = utf8_index(str, count);
+  return s ? (int) (s - str) : strlen(str);
+}

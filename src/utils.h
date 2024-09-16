@@ -152,6 +152,8 @@ bool try_strtoint64(const char *str, int64_t *result);
 // Misc:
 
 FILE *maybe_open(const char *filename, const char *mode);
+int utf8_length(const char *str);
+int utf8_width(const char *str, int count);
 
 /* ----------------------------------------------------------------------------- */
 /* Error handling for runtime errors                                             */
@@ -194,6 +196,5 @@ void error_report(const char *fmt, ...);
 void panic_report(const char *prelude,
 		  const char *filename, int lineno,
 		  const char *fmt, ...);
-
 
 #endif
