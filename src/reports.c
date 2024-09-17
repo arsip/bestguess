@@ -741,7 +741,7 @@ Usage *read_input_files(int argc, char **argv) {
     }
     // Check for error reading this particular file (EOF is ok)
     if (errfield > 0)
-      csv_error(argv[i], lineno, "data", errfield, buf, buflen);
+      csv_error(argv[i], lineno + 1, "data", errfield, buf, buflen);
   }
   free(buf);
   for (int i = config.first; i < argc; i++) fclose(input[i]);
@@ -883,25 +883,30 @@ void report(Usage *usage) {
   // TEMP: Experimental new features below
   printf("==================================================================\n");
 
-  int best = fastest(s, 0, count);
-  Summary *summary1 = s[best];
+  int *index = sort_by_totaltime(s, count);
+  int bestidx = index[0];
+
+  for (int k = 0; k < count; k++)
+    printf("#%d is command %d (%s)\n", k+1, index[k]+1, s[index[k]]->cmd);
+
+  Summary *summary1 = s[bestidx];
   Summary *summary2;
 
-  printf("Command                      N   Median    p    p_adj      Diff  Confidence Interval             Â     rbs\n");
-  printf("%-25.25s %4d %8" PRId64 "\n",
-	 summary1->cmd, summary1->runs, summary1->total.median);
+  printf("Command                         N   Median    p    p_adj      Diff  Confidence Interval             Â     rbs\n");
+  printf("%2d %-25.25s %4d %8" PRId64 "\n",
+	 bestidx+1, summary1->cmd, summary1->runs, summary1->total.median);
 
   for (int i = 0; i < count; i++) {
-    if (i == best) continue;
-    summary2 = s[i];
+    if (index[i] == bestidx) continue;
+    summary2 = s[index[i]];
     RankedCombinedSample RCS =
       rank_difference_magnitude(usage,
-				usageidx[best], usageidx[best+1],
-				usageidx[i], usageidx[i+1],
+				usageidx[bestidx], usageidx[bestidx+1],
+				usageidx[index[i]], usageidx[index[i]+1],
 				F_TOTAL);
 
-    printf("%-25.25s %4d %8" PRId64,
-	   summary2->cmd, summary2->runs, summary2->total.median);
+    printf("%2d %-25.25s %4d %8" PRId64,
+	   index[i]+1, summary2->cmd, summary2->runs, summary2->total.median);
 
     double W = mann_whitney_w(RCS);
     //printf("Mann-Whitney W (rank sum) = %.0f\n", W);
@@ -937,8 +942,8 @@ void report(Usage *usage) {
     int64_t low, high;
     RankedCombinedSample RCS3 =
       rank_difference_signed(usage,
-			     usageidx[i], usageidx[i+1],
-			     usageidx[best], usageidx[best+1],
+			     usageidx[index[i]], usageidx[index[i]+1],
+			     usageidx[bestidx], usageidx[bestidx+1],
 			     F_TOTAL);
 
     double diff = median_diff_estimate(RCS3);
@@ -968,7 +973,8 @@ void report(Usage *usage) {
 #endif
     
     double U1 = W - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
-    double Ahat = 1.0 - ranked_diff_Ahat(RCS);
+    double Ahat = ranked_diff_Ahat(RCS);
+//     double Ahat = 1.0 - ranked_diff_Ahat(RCS);
 //     printf("Â estimates probability of superiority, i.e. that\n"
 // 	   "a randomly-chosen observation from the first sample\n"
 // 	   "will have a shorter run time than a randomly-chosen\n"
@@ -991,7 +997,7 @@ void report(Usage *usage) {
 //     printf("  Rank biserial correlation r = %8.3f\n",
 // 	   (2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0);
     printf("  ");
-    printf("%0.3f\n", (2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0);
+    printf("%0.3f", - ((2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0));
 
 
     printf("\n");

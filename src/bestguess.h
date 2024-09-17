@@ -48,13 +48,6 @@ extern const char *progname;
 #define PROGNAME_REPORT "bestreport"
 #define CLI_OPTION_REPORT "report"
 
-// qsort arg order differs between linux and macos
-#ifdef __linux__
-  #define sort(base, n, sz, context, compare) qsort_r((base), (n), (sz), (compare), (context))
-#else
-  #define sort qsort_r
-#endif
-
 // -----------------------------------------------------------------------------
 // Global configuration (based on CLI args)
 // -----------------------------------------------------------------------------

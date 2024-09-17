@@ -1,0 +1,3 @@
+awk -F ',' '/208\.43\.117\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk
+grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep
+rosie match -o line 'find:"208.43.117.11"' /users/jennings/Data/syslog10k > /tmp/results.rosie

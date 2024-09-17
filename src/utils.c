@@ -160,13 +160,10 @@ int64_t rmajflt(struct rusage *ru) {
   return ru->ru_majflt;
 }
 
-// The arg order for comparators passed to qsort_r differs between
-// linux and macOS.
-#ifdef __linux__
 #define MAKE_COMPARATOR(name, fieldcode)				\
-  int compare_##name(const void *idx_ptr1,				\
-		     const void *idx_ptr2,				\
-		     void *context) {					\
+  int name(const void *idx_ptr1,					\
+	   const void *idx_ptr2,					\
+	   void *context) {						\
     Usage *usage = context;						\
     const int idx1 = *((const int *)idx_ptr1);				\
     const int idx2 = *((const int *)idx_ptr2);				\
@@ -176,30 +173,41 @@ int64_t rmajflt(struct rusage *ru) {
     if (val1 < val2) return -1;						\
     return 0;								\
   }
-#else
-#define MAKE_COMPARATOR(name, fieldcode)				\
-  int compare_##name(void *context,					\
-		     const void *idx_ptr1,				\
-		     const void *idx_ptr2) {				\
-    Usage *usage = context;						\
-    const int idx1 = *((const int *)idx_ptr1);				\
-    const int idx2 = *((const int *)idx_ptr2);				\
-    int64_t val1 = get_int64(usage, idx1, fieldcode);			\
-    int64_t val2 = get_int64(usage, idx2, fieldcode);			\
-    if (val1 > val2) return 1;						\
-    if (val1 < val2) return -1;						\
-    return 0;								\
-  }
-#endif
 
-MAKE_COMPARATOR(usertime, F_USER)
-MAKE_COMPARATOR(systemtime, F_SYSTEM)
-MAKE_COMPARATOR(totaltime, F_TOTAL)
-MAKE_COMPARATOR(maxrss, F_MAXRSS)
-MAKE_COMPARATOR(vcsw, F_VCSW)
-MAKE_COMPARATOR(icsw, F_ICSW)
-MAKE_COMPARATOR(tcsw, F_TCSW)
-MAKE_COMPARATOR(wall, F_WALL)
+MAKE_COMPARATOR(compare_usertime, F_USER)
+MAKE_COMPARATOR(compare_systemtime, F_SYSTEM)
+MAKE_COMPARATOR(compare_totaltime, F_TOTAL)
+MAKE_COMPARATOR(compare_maxrss, F_MAXRSS)
+MAKE_COMPARATOR(compare_vcsw, F_VCSW)
+MAKE_COMPARATOR(compare_icsw, F_ICSW)
+MAKE_COMPARATOR(compare_tcsw, F_TCSW)
+MAKE_COMPARATOR(compare_wall, F_WALL)
+
+// The argument order for comparators passed to qsort_r differs
+// between linux and macOS.  This is C, where we can't have nice
+// things.
+typedef struct macOS_qsort_context {
+  int (*compare)(const void *, const void *, void *);
+  void *context;
+} macOS_qsort_context;
+
+static int macOS_qsort_compare(void *_mqc, const void *a, const void *b) {
+  macOS_qsort_context *mqc = _mqc;
+  return mqc->compare(a, b, mqc->context);
+}
+
+void sort(void *base, size_t nel, size_t width, 
+	  int (*compare)(const void *, const void *, void *),
+	  void *context) {
+#ifdef HAVE_LINUX_QSORT_R
+  qsort_r(base, nel, width, compare, context);
+#else
+  macOS_qsort_context mqc;
+  mqc.compare = compare;
+  mqc.context = context;
+  qsort_r(base, nel, width, (void *)&mqc, macOS_qsort_compare);
+#endif
+}
 
 // -----------------------------------------------------------------------------
 // Parsing utilities

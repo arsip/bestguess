@@ -278,7 +278,7 @@ static int *make_index(Usage *usage, int start, int end, Comparator compare) {
   int *index = malloc(runs * sizeof(int));
   if (!index) PANIC_OOM();
   for (int i = 0; i < runs; i++) index[i] = start + i;
-  sort(index, runs, sizeof(int), usage, compare);
+  sort(index, runs, sizeof(int), compare, usage);
   return index;
 }
 
@@ -643,7 +643,7 @@ static double *assign_ranks(int64_t *X, int *index, int N) {
 
 // This comparator works when 'data' is an index vector and also when
 // 'data' is NULL and there is no index.
-static int i64_lt(void *data, const void *a, const void *b) {
+static int i64_lt(const void *a, const void *b, void *data) {
   if (!data) {
     return *(const int64_t *)a - *(const int64_t *)b;
   }
@@ -658,7 +658,7 @@ typedef struct XO {
   int origin;
 } XO;
 
-static int XO_lt(void *data, const void *a, const void *b) {
+static int XO_lt(const void *a, const void *b, void *data) {
   if (data) PANIC("XO_lt does not work with an index vector");
   int64_t Xa = ((const XO *)a)->X;
   int64_t Xb = ((const XO *)b)->X;
@@ -701,7 +701,7 @@ RankedCombinedSample rank_combined_samples(Usage *usage,
     XOs[i + n1].origin = 2;
   }
 
-  sort(XOs, N, sizeof(XO), NULL, XO_lt);
+  sort(XOs, N, sizeof(XO), XO_lt, NULL);
 
   int64_t *X = malloc(N * sizeof(int64_t));
   if (!X) PANIC_OOM();
@@ -734,7 +734,8 @@ RankedCombinedSample rank_difference_magnitude(Usage *usage,
     PANIC("Invalid sample sizes");
   if (((start1 >= start2) && (start1 < end2))
       || ((end1 > start2) && (end1 < end2)))
-    PANIC("Invalid sample index ranges in usage structure");
+    PANIC("Invalid sample index ranges in usage structure: "
+	  "[%d, %d) and [%d, %d)", start1, end1, start2, end2);
 
   int64_t *X = malloc(N * sizeof(int64_t));
   if (!X) PANIC_OOM();
@@ -757,7 +758,7 @@ RankedCombinedSample rank_difference_magnitude(Usage *usage,
   int *index = malloc(N * sizeof(int));
   if (!index) PANIC_OOM();
   for (int i = 0; i < N; i++) index[i] = i;
-  sort(index, N, sizeof(int), X, i64_lt);
+  sort(index, N, sizeof(int), i64_lt, X);
 
 //   for (int k = 0; k < N; k++)
 //     printf("[%3d] sorted data = %" PRId64 "\n", k, X[index[k]]);
@@ -810,7 +811,7 @@ RankedCombinedSample rank_difference_signed(Usage *usage,
 //   for (int k = 0; k < N; k++)
 //     printf("[%3d] data = %" PRId64 "\n", k, X[k]);
 
-  sort(X, N, sizeof(int64_t), NULL, i64_lt);
+  sort(X, N, sizeof(int64_t), i64_lt, NULL);
 
   double *ranks = assign_ranks(X, NULL, N);
 
@@ -1111,3 +1112,29 @@ double median_diff_estimate(RankedCombinedSample RCS) {
   return RCS.X[h];
 }
 
+// -----------------------------------------------------------------------------
+// Misc
+// -----------------------------------------------------------------------------
+
+static int compare_median_total_time(const void *idx_ptr1,
+			      const void *idx_ptr2,
+			      void *context) {
+  Summary **s = context;
+  const int idx1 = *((const int *)idx_ptr1);
+  const int idx2 = *((const int *)idx_ptr2);
+  int64_t val1 = s[idx1]->total.median;
+  int64_t val2 = s[idx2]->total.median;
+  if (val1 > val2) return 1;
+  if (val1 < val2) return -1;
+  return 0;
+}
+
+int *sort_by_totaltime(Summary *summaries[], int n) {
+  if (!summaries) PANIC_NULL();
+  if (n < 1) return NULL;
+  int *index = malloc(n * sizeof(int));
+  if (!index) PANIC_OOM();
+  for (int i = 0; i < n; i++) index[i] = i;
+  sort(index, n, sizeof(int), compare_median_total_time, summaries);
+  return index;
+}

@@ -99,24 +99,39 @@ int64_t ricsw(struct rusage *ru);
 int64_t rminflt(struct rusage *ru);
 int64_t rmajflt(struct rusage *ru);
 
-// The arg order for comparators passed to qsort_r differs between
-// linux and macos.
-#ifdef __linux__
 typedef int (Comparator)(const void *, const void *, void *);
+
+#define COMPARATOR(name) Comparator name
+
+COMPARATOR(compare_usertime);
+COMPARATOR(compare_systemtime);
+COMPARATOR(compare_totaltime);
+COMPARATOR(compare_maxrss);
+COMPARATOR(compare_vcsw);
+COMPARATOR(compare_icsw);
+COMPARATOR(compare_tcsw);
+COMPARATOR(compare_wall);
+
+#if (defined __APPLE__ || defined __MACH__ || defined __DARWIN__ ||	\
+     defined __DragonFly__ || (defined __FreeBSD__ && !defined(qsort_r)))
+#define HAVE_BSD_QSORT_R
+#elif (defined __GLIBC__ || (defined (__FreeBSD__) && defined(qsort_r)))
+#define HAVE_LINUX_QSORT_R
+#elif (defined _WIN32 || defined _WIN64 || defined __WINDOWS__ ||	\
+       defined __MINGW32__ || defined __MINGW64__)
+#define HAVE_MS_QSORT_R
 #else
-typedef int (Comparator)(void *, const void *, const void *);
+#error "Cannot determine the version of qsort_r for this platform"
 #endif
 
-#define COMPARATOR(accessor) Comparator compare_##accessor
+#ifdef HAVE_MS_QSORT_R
+#error "MS qsort_r or qsort_s not supported"
+#endif
 
-COMPARATOR(usertime);
-COMPARATOR(systemtime);
-COMPARATOR(totaltime);
-COMPARATOR(maxrss);
-COMPARATOR(vcsw);
-COMPARATOR(icsw);
-COMPARATOR(tcsw);
-COMPARATOR(wall);
+// Like the GNU/Linux qsort_r
+void sort(void *base, size_t nel, size_t width, 
+	  int (*compare)(const void *, const void *, void *),
+	  void *context);
 
 // -----------------------------------------------------------------------------
 // Argument lists for calling exec

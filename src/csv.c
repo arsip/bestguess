@@ -76,9 +76,9 @@ static int parse_CSVrow(char *line, CSVrow *row) {
     start = p;
     if (quotep(p)) {
       // Quoted field
-      while (p++, !newlinep(p)) {
-	if (((*p == '\\') || quotep(p)) && quotep(p+1)) p++;
+      while (p++, *p && !newlinep(p)) {
 	if (quotep(p) && !quotep(p+1)) break;
+	if (((*p == '\\') || quotep(p)) && quotep(p+1)) p++;
       }
       CSV_add(row, start+1, p);
       p++;
@@ -125,7 +125,8 @@ void free_CSVrow(CSVrow *row) {
 }
 
 // 'colnum' should be a non-zero return value from read_CSVrow().
-void csv_error(char *input, int lineno,
+void csv_error(char *input,
+	       int lineno,
 	       const char *desc,
 	       int colnum,
 	       char *buf, size_t buflen) {
@@ -168,8 +169,8 @@ void write_line(FILE *f, Usage *usage, int idx) {
   char *escaped_cmd = escape_csv(get_string(usage, idx, F_CMD));
   char *shell_cmd = escape_csv(get_string(usage, idx, F_SHELL));
 
-  WRITEFIELD(F_CMD, "%s", escaped_cmd, F_RAWNUMEND);
-  WRITEFIELD(F_SHELL, "%s", shell_cmd, F_RAWNUMEND);
+  WRITEFIELD(F_CMD, "\"%s\"", escaped_cmd, F_RAWNUMEND);
+  WRITEFIELD(F_SHELL, "\"%s\"", shell_cmd, F_RAWNUMEND);
   for (FieldCode fc = F_RAWNUMSTART; fc < F_RAWNUMEND; fc++) {
     WRITEFIELD(fc, INT64FMT, GETFIELD(fc), F_RAWNUMEND);
   }

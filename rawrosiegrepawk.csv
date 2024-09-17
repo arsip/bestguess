@@ -1,0 +1,301 @@
+Command,Shell,Exit code,User time (us),System time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches,Wall clock (us)
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,27159,9581,1851392,670,20,5,7,55241
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26202,2221,1900544,686,7,1,4,49052
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26151,2081,1900544,689,4,1,4,48918
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26160,2069,1900544,689,4,1,4,48688
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26153,2089,1900544,689,4,1,4,48811
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26148,2069,1900544,689,4,1,4,48533
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26310,2089,1900544,689,4,1,5,49080
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26139,2046,1900544,689,4,1,4,49400
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26165,2070,1900544,689,4,1,4,48774
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26142,2042,1900544,689,4,1,4,48608
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26141,2052,1900544,689,4,1,4,48908
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26091,2030,1900544,689,4,1,4,48549
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26128,2029,1900544,689,4,1,4,48852
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26128,1996,1900544,690,4,1,4,48597
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26103,2003,1900544,690,4,1,4,48734
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26106,2019,1900544,690,4,1,4,48434
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26119,2009,1900544,690,4,1,4,48746
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26225,2249,1900544,690,4,1,4,48825
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26160,2079,1900544,691,4,1,4,48896
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26162,2114,1900544,691,4,1,4,48800
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26143,2077,1900544,691,4,1,4,48962
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26140,2069,1900544,691,4,1,4,48747
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26133,2012,1900544,691,4,1,4,48831
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26131,2037,1900544,691,4,1,4,48617
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26162,2046,1900544,691,4,1,4,48757
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26372,2015,1900544,691,4,1,4,48886
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26142,2071,1900544,691,4,1,4,49037
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26363,2053,1900544,691,4,1,4,48798
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26131,2132,1900544,691,4,1,5,48996
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26128,2057,1900544,691,4,1,4,48513
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26146,2050,1900544,691,4,1,4,48694
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26113,2056,1900544,691,4,1,4,48506
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26100,1995,1900544,691,4,1,4,48511
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26140,2041,1900544,691,4,1,4,48414
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26119,2020,1900544,691,4,1,4,48567
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26123,2040,1900544,691,4,1,4,48400
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26125,2016,1900544,691,4,1,4,48559
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26243,2056,1851392,687,4,1,5,48677
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26159,2112,1900544,691,4,1,5,49114
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26139,2050,1900544,691,4,1,4,48767
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26111,2026,1851392,687,4,1,5,48818
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26141,2085,1900544,691,4,1,4,48809
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26129,2017,1900544,691,4,1,4,48633
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26102,2004,1900544,691,4,1,4,48310
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26122,2013,1900544,689,4,1,4,48470
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26196,1998,1900544,689,4,1,4,48369
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26110,2016,1900544,689,4,1,4,48731
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26100,2029,1900544,689,4,1,5,48433
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26185,1983,1900544,689,4,1,4,48956
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26120,2075,1900544,689,4,1,4,48444
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26132,2031,1900544,689,4,1,4,48609
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26141,2057,1900544,689,4,1,4,48661
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26153,2028,1900544,689,4,1,4,48686
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26122,2037,1900544,689,4,1,4,48547
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26115,2019,1900544,689,4,1,4,48716
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26094,1976,1900544,689,4,1,4,48412
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26100,1997,1900544,689,4,1,4,48621
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26111,2029,1900544,689,4,1,4,48447
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26285,2267,1900544,689,4,1,4,49031
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26171,2063,1900544,689,4,1,4,48405
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26150,2044,1900544,689,4,1,4,48618
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26149,2057,1900544,690,4,1,4,48440
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26132,2061,1900544,690,4,1,4,48582
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26124,1996,1900544,691,4,1,4,48388
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26117,2036,1900544,691,4,1,4,48507
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26105,2008,1900544,691,4,1,4,48480
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26098,1957,1900544,691,4,1,4,48448
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26098,1969,1900544,691,4,1,4,48473
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26234,1981,1900544,691,4,1,4,48580
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26110,2043,1900544,691,4,1,4,48525
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26098,1982,1900544,691,4,1,4,48536
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26103,2019,1900544,691,4,1,4,48618
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26134,2049,1900544,691,4,1,4,48342
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26107,2025,1900544,691,4,1,5,48312
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26132,2008,1900544,691,4,1,4,48283
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26120,2039,1900544,691,4,1,4,48283
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26067,1998,1900544,691,4,1,4,48416
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26103,1977,1900544,691,4,1,4,48494
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26100,1970,1900544,691,4,1,4,48445
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26117,2060,1900544,691,4,1,4,48661
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26095,2027,1851392,689,4,1,5,48553
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26165,2042,1900544,693,4,1,5,48376
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26120,2038,1900544,693,4,1,4,48425
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26137,2046,1851392,689,4,1,5,48346
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26189,2051,1900544,693,4,1,4,48457
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26138,2042,1900544,693,4,1,4,48220
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26117,2057,1900544,693,4,1,4,48389
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26127,2003,1900544,693,4,1,4,48310
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26116,2044,1900544,693,4,1,4,48657
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26150,2041,1900544,693,4,1,4,48869
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26077,1996,1900544,693,4,1,4,48442
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26086,2055,1900544,693,4,1,4,48350
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26117,1993,1900544,694,4,1,4,48410
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26133,2018,1900544,694,4,1,4,48222
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26156,2005,1900544,694,4,1,4,48570
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26157,2008,1900544,693,4,1,4,48329
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26123,2022,1900544,692,4,1,4,48305
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26118,2014,1900544,692,4,1,4,48186
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26122,2021,1900544,692,4,1,4,48435
+"awk -F ',' '/208\\.43\\.117\\.11/ {print $0}' /users/jennings/Data/syslog10k >/tmp/results.awk","/bin/bash -c",0,26228,2022,1900544,692,4,1,5,48527
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,14071,2757,1900544,683,12,4,4,39934
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13676,2550,1900544,758,5,1,5,37748
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13656,2149,1900544,759,4,1,4,36228
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13517,2222,1900544,759,4,1,7,36278
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13507,2079,1900544,759,4,1,5,36550
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13505,2165,1900544,759,4,1,4,36027
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13520,2120,1900544,759,4,1,4,36276
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13379,2073,1900544,759,4,1,5,35813
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13527,2164,1900544,759,4,1,5,36646
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13542,2137,1900544,759,4,1,4,36329
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13560,2152,1851392,758,4,1,4,36413
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13659,2134,1900544,762,4,1,4,36386
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13598,2081,1851392,758,4,1,4,36454
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13573,2153,1900544,762,4,1,5,36477
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13545,2148,1900544,762,4,1,5,36600
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13634,2127,1851392,758,4,1,4,36140
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13542,2163,1900544,762,4,1,4,36408
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13548,2132,1900544,762,4,1,5,36082
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13516,2097,1900544,762,4,1,4,36306
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13525,2125,1900544,762,4,1,4,36252
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13523,2102,1900544,762,4,1,5,36557
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13585,2124,1900544,763,4,1,5,36104
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13545,2131,1900544,763,4,1,5,36330
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13517,2068,1900544,763,4,1,4,36041
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13499,2055,1900544,763,4,1,4,36305
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13507,2118,1900544,763,4,1,4,36252
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13615,2121,1900544,763,4,1,4,36726
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13515,2175,1900544,763,4,1,4,36203
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13552,2099,1900544,763,4,1,4,36431
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13526,2072,1900544,763,4,1,4,35967
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13503,2075,1900544,764,4,1,4,36600
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13514,2120,1900544,764,4,1,4,36071
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13503,2129,1900544,764,4,1,5,36542
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13542,2119,1900544,763,4,1,4,36166
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13491,2071,1900544,763,4,1,4,36266
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13504,2073,1900544,763,4,1,4,36025
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13369,2088,1900544,764,4,1,4,36485
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13669,2175,1900544,764,4,1,5,36400
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13560,2128,1900544,764,4,1,4,36485
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13523,2084,1900544,764,4,1,4,36269
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13513,2073,1900544,764,4,1,4,37333
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13480,2184,1900544,764,4,1,5,36703
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13544,2124,1900544,764,4,1,4,36537
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13518,2105,1900544,764,4,1,4,36213
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13498,2072,1900544,764,4,1,4,36454
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13502,2067,1900544,764,4,1,4,36125
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13501,2101,1900544,764,4,1,5,36839
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13498,2070,1900544,764,4,1,4,36198
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13548,2074,1900544,764,4,1,4,36204
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13583,2057,1900544,764,4,1,4,36251
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13692,2118,1900544,766,4,1,6,39408
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13607,2307,1900544,764,4,2,6,37315
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13530,2146,1900544,764,4,1,4,36279
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13559,2112,1900544,764,4,1,4,36161
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13568,2090,1900544,764,4,1,4,36495
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13575,2099,1900544,764,4,1,4,36248
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13521,2130,1900544,764,4,1,4,36256
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13543,2114,1900544,764,4,1,4,36098
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13684,2127,1851392,760,4,1,4,36288
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13566,2089,1900544,764,4,1,4,36158
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13556,2098,1900544,764,4,1,5,36525
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13523,2077,1900544,765,4,1,4,36413
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13593,2090,1900544,765,4,1,4,36420
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13527,2130,1900544,765,4,1,5,36377
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13585,2075,1900544,765,4,1,5,36384
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13513,2092,1900544,765,4,1,4,36224
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13574,2082,1900544,765,4,1,4,36400
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13625,2126,1851392,761,4,1,5,36525
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13549,2208,1900544,765,4,1,5,36490
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13629,2163,1851392,761,4,1,5,36281
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13505,2104,1900544,765,4,1,4,36165
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13512,2094,1900544,765,4,1,4,36229
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13507,2136,1900544,765,4,1,4,36509
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13354,2111,1900544,765,4,1,4,36123
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13445,8061,1900544,765,4,1,5,36076
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13541,2085,1900544,765,4,1,5,36211
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13416,2106,1900544,765,4,1,4,36021
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13528,2069,1900544,765,4,1,4,36436
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13526,2082,1900544,765,4,1,4,36279
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13482,2100,1900544,765,4,1,4,36248
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13534,2073,1900544,765,4,1,4,36127
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13604,2090,1900544,764,4,1,4,36973
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13486,2082,1851392,760,4,1,4,36384
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13598,2128,1900544,764,4,1,4,36403
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13515,2158,1900544,764,4,1,5,36139
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13549,2118,1851392,760,4,1,4,36137
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13584,2063,1851392,760,4,1,4,36218
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13512,2096,1900544,764,4,1,4,36005
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13569,2114,1900544,764,4,1,4,36642
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13515,2120,1900544,764,4,1,4,36305
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13514,2130,1900544,764,4,1,5,36086
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13538,2112,1900544,764,4,1,4,36079
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13516,2093,1900544,765,4,1,4,36036
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13495,2093,1900544,765,4,1,4,36034
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13527,2089,1900544,765,4,1,4,36119
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13547,2116,1900544,765,4,1,4,36407
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13515,2141,1900544,765,4,1,5,36228
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13522,2111,1900544,765,4,1,5,36220
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13527,2105,1900544,765,4,1,4,36029
+"grep '208.43.117.11' /users/jennings/Data/syslog10k > /tmp/results.grep","/bin/bash -c",0,13519,2068,1900544,765,4,1,4,36146
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,34350,4933,12746752,1453,5,1,5,62146
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32205,4303,12746752,1453,5,1,5,57895
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32218,4259,12746752,1458,4,1,4,57248
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32004,4187,12746752,1458,4,1,4,57213
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32193,4101,12746752,1458,4,1,4,57411
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32379,4186,12746752,1458,4,1,4,57388
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32270,4175,12746752,1458,4,1,4,57478
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32165,4138,12877824,1466,4,1,4,57076
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32287,4136,12861440,1465,4,1,4,57328
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32176,4216,12746752,1458,4,1,4,56985
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32325,4138,12746752,1458,4,1,4,57268
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32285,4155,12861440,1465,4,1,4,57316
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32119,4086,12746752,1458,4,1,4,56934
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32631,4150,12746752,1458,4,1,4,57619
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32395,4213,12877824,1466,4,1,4,57819
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32164,4167,12746752,1458,4,1,4,57143
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32247,4112,12746752,1454,4,1,6,57114
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32222,4231,12746752,1458,4,1,4,57414
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32184,4143,12746752,1458,4,1,4,56950
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32345,4128,12894208,1467,4,1,4,57297
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32135,4143,12746752,1458,4,1,4,56909
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32234,4169,12746752,1458,4,1,5,57207
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32264,4122,12795904,1461,4,1,4,57110
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32437,4095,12894208,1468,4,1,4,57595
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32231,4157,12746752,1459,4,1,4,57308
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32324,4131,12746752,1460,4,1,4,57138
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32176,4124,12746752,1460,4,1,4,57163
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32386,4190,12746752,1460,4,1,5,57271
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32146,4133,12746752,1460,4,1,4,57021
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32150,4168,12746752,1460,4,1,4,57272
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32141,4159,12746752,1460,4,1,5,57223
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32335,4194,12861440,1467,4,1,4,57672
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32064,4103,12746752,1460,4,1,4,56928
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32465,4113,12746752,1460,4,1,4,57485
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32217,4112,12746752,1460,4,1,5,57151
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32261,4064,12795904,1463,4,1,5,57339
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32301,4075,12746752,1460,4,1,4,57106
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,31942,4138,12746752,1460,4,1,4,58216
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32380,4166,12746752,1460,4,1,4,57204
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32102,4128,12746752,1460,4,1,4,56855
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32219,4447,12828672,1461,4,1,12,57802
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,31992,4156,12746752,1460,4,1,4,56805
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32023,4195,12746752,1460,4,1,4,57123
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32089,4191,12746752,1460,4,1,5,57179
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32253,4189,12861440,1469,4,1,4,57519
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32164,4148,12746752,1461,4,1,5,57063
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32284,4203,12910592,1467,4,1,6,57318
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,33019,4693,12779520,1459,4,1,8,65601
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32319,4286,12746752,1461,4,1,5,59287
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32061,4242,12746752,1461,4,1,4,57269
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32205,4143,12746752,1461,4,1,4,57114
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32099,4144,12746752,1461,4,1,5,57006
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32063,4155,12746752,1461,4,1,5,57017
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32132,4190,12746752,1461,4,1,5,57057
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32138,4116,12812288,1465,4,1,5,57041
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32381,4114,12746752,1461,4,1,4,57227
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32190,4128,12746752,1461,4,1,4,56953
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32256,4156,12746752,1461,4,1,4,57025
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32035,4089,12910592,1471,4,1,4,56702
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,31956,4117,12746752,1457,4,1,6,56886
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32210,4255,12746752,1461,4,1,4,57443
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,31968,4098,12746752,1461,4,1,5,57103
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32032,4149,12746752,1461,4,1,4,56895
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32070,4184,12746752,1461,4,1,4,57186
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32370,4132,12746752,1461,4,1,4,57301
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32158,4110,12746752,1461,4,1,4,57124
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32176,4165,12812288,1465,4,1,4,57398
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,31983,4212,12746752,1461,4,1,5,57145
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32115,4183,12746752,1461,4,1,5,57296
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32259,4175,12746752,1461,4,1,4,57296
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32143,4115,12746752,1461,4,1,4,57163
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32163,4115,12746752,1461,4,1,4,57148
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32086,4144,12746752,1461,4,1,4,57039
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32310,4080,12746752,1461,4,1,5,57247
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32091,4057,12746752,1461,4,1,5,57221
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32343,4173,12877824,1469,4,1,4,57503
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32030,4165,12746752,1461,4,1,5,57139
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32422,4122,12894208,1470,4,1,5,57817
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32036,4135,12746752,1461,4,1,4,57143
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32115,4139,12746752,1461,4,1,5,57423
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32086,4083,12746752,1461,4,1,5,57179
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32246,4188,12894208,1470,4,1,5,57592
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32039,4189,12746752,1461,4,1,4,57264
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32099,4140,12746752,1457,4,1,6,57437
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32214,4187,12746752,1461,4,1,4,57385
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32103,4134,12746752,1461,4,1,4,57153
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32401,4198,12746752,1461,4,1,4,57556
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32441,4144,12746752,1461,4,1,5,57407
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,33054,4277,12746752,1461,4,1,4,58527
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32466,4161,12746752,1461,4,1,5,57619
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32393,4093,12746752,1461,4,1,4,57477
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32623,4225,12746752,1461,4,1,4,57746
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32277,4190,12845056,1467,4,1,4,57389
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32655,4084,12746752,1461,4,1,4,57770
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32492,4271,12746752,1461,4,1,5,57488
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32417,4184,12746752,1461,4,1,4,57573
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32378,4199,12746752,1461,4,1,4,57395
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32529,4241,12746752,1461,4,1,4,57907
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32458,4085,12746752,1461,4,1,4,57317
+"rosie match -o line 'find:""208.43.117.11""' /users/jennings/Data/syslog10k > /tmp/results.rosie","/bin/bash -c",0,32369,4191,12746752,1461,4,1,4,57670
