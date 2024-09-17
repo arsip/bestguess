@@ -284,6 +284,7 @@ static int fastest(Summary *summaries[], int start, int end) {
   return best;
 }
 
+// ASSUMES 'start' and 'end' are valid indexes into 'summaries'
 void print_overall_summary(Summary *summaries[], int start, int end) {
   if (!summaries) PANIC_NULL();
 
@@ -789,6 +790,36 @@ void print_boxplots(Summary *summaries[], int start, int end) {
   printf("\n");
 }
 
+// ASSUMES 'start' and 'end' are valid indexes into 'summaries'
+void print_overall_inferences(Summary *summaries[], int start, int end) {
+  if (!summaries) PANIC_NULL();
+
+  // Need at least two commands in order to have a comparison
+  if ((end - start) < 2) {
+    // Groups are a feature of commands read from a file (not from
+    // the command line)
+    if (config.input_filename && (config.action == actionExecute)) {
+      printf("Group contains only one command\n");
+    }
+    return;
+  }
+
+  if (!summaries[start]) return; // No data
+
+  int best = fastest(summaries, start, end);
+
+  printf("Best guess is:\n");
+  printf("  %s ran\n", *COMMAND(best) ? COMMAND(best) : "(empty)");
+  for (int i = start; i < end; i++) {
+    if (i != best) {
+      double factor = (double) MODE(i) / (double) MEDIAN(best);
+      printf("  %6.2f times faster than %s\n",
+	     factor, *COMMAND(i) ? COMMAND(i) : "(empty)");
+    }
+  }
+  fflush(stdout);
+}
+
 // TODO: We index into input[] starting at config.first, not 0
 
 // TODO: The CSV reader was not coded for speed.  Could reuse input
@@ -856,6 +887,10 @@ void report(Usage *usage) {
   Summary *summary1 = s[best];
   Summary *summary2;
 
+  printf("Command                      N   Median    p    p_adj      Diff  Confidence Interval             Â     rbs\n");
+  printf("%-25.25s %4d %8" PRId64 "\n",
+	 summary1->cmd, summary1->runs, summary1->total.median);
+
   for (int i = 0; i < count; i++) {
     if (i == best) continue;
     summary2 = s[i];
@@ -865,17 +900,11 @@ void report(Usage *usage) {
 				usageidx[i], usageidx[i+1],
 				F_TOTAL);
 
-    printf("Command                 N   Median\n");
-    printf("%-20s %4d %8" PRId64 "\n",
-	   summary1->cmd, summary1->runs, summary1->total.median);
-    printf("%-20s %4d %8" PRId64 "\n",
+    printf("%-25.25s %4d %8" PRId64,
 	   summary2->cmd, summary2->runs, summary2->total.median);
-    
-    printf("\n");
-    double W = mann_whitney_w(RCS);
-    printf("Mann-Whitney W (rank sum) = %.0f\n", W);
 
-    int N = RCS.n1 * RCS.n2;
+    double W = mann_whitney_w(RCS);
+    //printf("Mann-Whitney W (rank sum) = %.0f\n", W);
 
     // TODO: Should compare dispersions (e.g. IQR) because if they
     // differ a lot, then the W test may not be showing a displacement
@@ -885,95 +914,87 @@ void report(Usage *usage) {
 
     double adjustedp;
     double p = mann_whitney_p(RCS, W, &adjustedp);
-    printf("Hypothesis: median 1 ≠ median 2\n");
+    //printf("Hypothesis: median 1 ≠ median 2\n");
     bool psignificant = p <= (alpha + 0.00005);
     bool adjpsignificant = adjustedp <= (alpha + 0.00005);
-    printf("  p                   %.4f  (%ssignificant)\n",
-	   p, psignificant ? "" : "not ");
-    printf("  p adjusted for ties %.4f  (%ssignificant)\n",
-	   adjustedp, adjpsignificant ? "" : "not ");
+
+    printf("  ");
+
+    //printf("  p                   ");
+    if (p < 0.001) printf("<.001");
+    else printf("%5.3f", p);
+    //printf(" (%ssignificant)", psignificant ? "" : "not ");
+
+    printf("  ");
+
+    //printf("  p adjusted for ties ");
+    if (adjustedp < 0.001) printf("<.001");
+    else printf("%5.3f", adjustedp);
+    //printf(" (%ssignificant)", adjpsignificant ? "" : "not ");
+
+    printf("  ");
 
     int64_t low, high;
     RankedCombinedSample RCS3 =
       rank_difference_signed(usage,
-			     usageidx[best], usageidx[best+1],
 			     usageidx[i], usageidx[i+1],
+			     usageidx[best], usageidx[best+1],
 			     F_TOTAL);
 
-    printf("\n");
     double diff = median_diff_estimate(RCS3);
-    printf("Median difference (Hodges–Lehmann estimate) = %.0f\n", diff);
+    //printf("Median difference (Hodges–Lehmann estimate) = %.0f\n", diff);
+    printf("%8.0f", diff);
+
     double confidence = median_diff_ci(RCS3, alpha, &low, &high);
-    printf("  %.2f%% confidence interval (%.0f, %.0f)\n",
-	   confidence * 100.0, (double) low, (double) high);
+    //printf("  %.2f%% confidence interval (%.0f, %.0f)\n",
+    //    confidence * 100.0, (double) low, (double) high);
+    char *tmp;
+    asprintf(&tmp, "  %4.2f%% (%.0f, %.0f)",
+	     confidence * 100.0, (double) low, (double) high);
+    printf("%-30.30s", tmp);
+    free(tmp);
+
+#if 0
     if ((llabs(low) <= 0.005) || (llabs(high) <= 0.005)) {
       if (psignificant || adjpsignificant)
-	printf("  Note: Confidence interval barely includes zero\n"
-	       "  and p is is significant\n");
+	printf(" Confidence interval barely includes zero and p is is significant\n");
     } else if ((low <= 0.0) && (high >= 0.0)) {
       if (!psignificant || !adjpsignificant)
-	printf("  Note: Confidence interval includes zero and p is not significant\n");
+	printf(" Confidence interval includes zero and p is not significant");
     } else {
       if (psignificant || adjpsignificant)
-	printf("  Note: Confidence interval does not include zero and p is significant\n");
+	printf(" Confidence interval does not include zero and p is significant");
     }
-
-//     double Tpos = wilcoxon(RCS);
-//     printf("Wilcoxon signed rank test Tpos = %8.1f\n", Tpos);
-
-//     RankedCombinedSample RCS2 =
-//       rank_combined_samples(usage,
-// 		       usageidx[i-2], usageidx[i-1],
-// 		       usageidx[i-1], usageidx[i],
-// 		       F_TOTAL);
-
-//     double U1, U2;
-//     double U = mann_whitney_u(RCS2, &U1, &U2);
-//     printf("Mann-Whitney U (combined rank sum) = %8.3f\n", U);
-//     printf("             U1 = %8.3f, U2 = %8.3f\n", U1, U2);
-
+#endif
+    
     double U1 = W - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
-//    printf("U1 calculated from W is = %.0f\n", U1);
-
-//     double eff = U1 / (double) N;
-//     printf("The CEL estimates ...\n");
-//     printf("  Common Language Effect (CEL) f (or Θ) = %4.1f%%\n", eff * 100.0);
-//     printf("  Effect size is %s\n",
-// 	   (eff > 0.5) ? "large (> 50%)" :
-// 	   ((eff >= 0.3) ? "medium (30%..50%)" : "small (< 30%)"));
-
-//     double U2 = N - U1;
-//     double U = fmin(U1, U2);
-//     double rho = U / (double) N;
-//     printf("ρ (distribution overlap) = U / N = %.4f\n", rho);
-//     double rho_dist = fabs(rho - 0.5);
-//     printf("  ρ interpretation: %s\n",
-// 	   (rho_dist > 0.25) ? "little overlap in samples (far from 0.5)" :
-// 	   ((rho_dist > 0.10) ? "some overlap in samples (around 0.10 to 0.25 from 0.5)" :
-// 	    "large overlap in samples (within 0.10 of 0.5)"));
-
-
-    printf("\n");
     double Ahat = 1.0 - ranked_diff_Ahat(RCS);
-    printf("Â estimates probability of superiority, i.e. that\n"
-	   "a randomly-chosen observation from the first sample\n"
-	   "will have a shorter run time than a randomly-chosen\n"
-	   "observation from the second sample.\n");
-    printf("  Â = %8.3f\n", Ahat);
-    if (fabs(Ahat - 0.5) < 0.100) 
-      printf("  Interpretation: large overlap in distributions, i.e.\n"
-	     "  roughly equal probability of a random X > a random Y\n");
-    else 
-      printf("  Interpretation: %s chance that a run of \n"
-	     "  command 1 takes less time than a run of command 2\n",
-	     (Ahat > 0.5) ? "high" : "low");
+//     printf("Â estimates probability of superiority, i.e. that\n"
+// 	   "a randomly-chosen observation from the first sample\n"
+// 	   "will have a shorter run time than a randomly-chosen\n"
+// 	   "observation from the second sample.\n");
+//     printf("  Â = %8.3f\n", Ahat);
+//     if (fabs(Ahat - 0.5) < 0.100) 
+//       printf("  Interpretation: large overlap in distributions, i.e.\n"
+// 	     "  roughly equal probability of a random X > a random Y\n");
+//     else 
+//       printf("  Interpretation: %s chance that a run of \n"
+// 	     "  command 1 takes less time than a run of command 2\n",
+// 	     (Ahat > 0.5) ? "high" : "low");
+
+    printf("  ");
+    printf("%.3f", Ahat);
+    
+//     printf("A rank biserial correlation of +1 (-1) indicates positive\n"
+// 	   "(negative) correlation between the samples, with 0 indicating\n"
+// 	   "no correlation at all.\n");
+//     printf("  Rank biserial correlation r = %8.3f\n",
+// 	   (2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0);
+    printf("  ");
+    printf("%0.3f\n", (2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0);
+
 
     printf("\n");
-    printf("A rank biserial correlation of +1 (-1) indicates positive\n"
-	   "(negative) correlation between the samples, with 0 indicating\n"
-	   "no correlation at all.\n");
-    printf("  Rank biserial correlation r = %8.3f\n",
-	   (2.0 * U1 / (double) N) - 1.0);
 
 //     printf("\ncdf(1-alpha/2) = cdf(%f) = %8.3f\n",
 // 	   1.0 - (alpha / 2.0), inverseCDF(1.0 - (alpha / 2.0)));
@@ -1000,27 +1021,6 @@ void report(Usage *usage) {
     free(RCS.X);
     free(RCS.rank);
     free(RCS.index);
-
-#if 0
-    printf("\nDisplay table:\n");
-    DisplayTable *t = new_display_table(30, 1, (int []){10}, (int []){3}, "r");
-    display_table_set(t, 0, 0, "Hello!");
-    display_table_set(t, 1, 0, "%10.7f", 3.1415926536);
-    display_table(t, 0);
-    free_display_table(t);
-
-    t = new_display_table(40, 3, (int []){12,5,3}, (int []){4,1,2}, "rrl");
-    display_table_set(t, 0, 0, "Widgets");
-    display_table_set(t, 0, 1, "%d", 1200);
-    display_table_set(t, 0, 2, "%s", "ct");
-    display_table_set(t, 1, 0, "Frobnitzes");
-    display_table_set(t, 1, 1, "%d … %d", 3,7);
-    display_table_set(t, 1, 2, "%s", "doz");
-    display_table(t, 0);
-    free_display_table(t);
-    
-    printf("\nLength a...⛄ is %d\n", utf8_length("a…⛄"));
-#endif
   }
 
 

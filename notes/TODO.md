@@ -123,6 +123,20 @@ State_.
 
 ## BestGuess features
 
+- [ ] Raw data files should have a "batch number" in every row.  That way, users
+      can benchmark the same command more than once (or combine results files
+      that include the same command) and the reporting can use the batch numbers
+      to tell them apart.
+
+- [ ] A log feature might be useful.  It would log actions such as warmup runs
+      and timed runs, to make the overall behavior explicit.  This feature could
+      be used by people who want to better understand the operation of BestGuess
+      as well as scientists who want to record an experiment log.
+	  - Including some information about the platform at the start of the log
+        could be useful.  OS and hardware (CPU, memory)?
+	  - Writing timestamps and measures of system load (and temperature?) into
+        the log file between timed executions would be nice.
+
 - [ ] Maybe compute medcouple, a non-parametric measure of skewness.
 
 - [ ] There are several conventions for drawing box plots.  Should we adopt the

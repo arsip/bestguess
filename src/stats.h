@@ -57,6 +57,8 @@ typedef struct Summary {
 #define CODE_SMALLN 1
 #define CODE_LOWVARIANCE 2
 
+// IMPORTANT: A RankedCombinedSample may contain n1+n2 elements (size
+// of 'X' and 'ranks') or n1*n2 elements.
 typedef struct RankedCombinedSample {
   int      n1;		// size of sample 1
   int      n2;		// size of sample 2
@@ -65,7 +67,17 @@ typedef struct RankedCombinedSample {
   double  *rank;	// assigned ranks for X[]
 } RankedCombinedSample;
 
-// TEMP!
+// Inferential statistics across a collection of samples
+typedef struct Inference {
+  char     *cmd;
+  char     *shell;
+  int       runs;
+} Inference;
+
+
+
+
+
 double ranked_diff_Ahat(RankedCombinedSample RCS);
 double mann_whitney_w(RankedCombinedSample RCS);
 double mann_whitney_u(RankedCombinedSample RCS, double *U1, double *U2);
@@ -76,8 +88,7 @@ double median_diff_ci(RankedCombinedSample RCS,
 		      int64_t *lowptr,
 		      int64_t *highptr);
 double median_diff_estimate(RankedCombinedSample RCS);
-double wilcoxon(RankedCombinedSample RCS);
-int ci_rank(int N, double alpha, double Q);
+
 RankedCombinedSample rank_difference_magnitude(Usage *usage,
 					       int start1, int end1,
 					       int start2, int end2,
