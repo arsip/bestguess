@@ -123,6 +123,14 @@ State_.
 
 ## BestGuess features
 
+- [ ] We can compute Mann-Whitney U values for sample sizes under 20 if we use a
+	  table of critical U values instead of the normal-based approximation to
+	  p-value calculation we support today.  See,
+	  e.g. https://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/BS704_Nonparametric/BS704_Nonparametric4.html
+
+- [ ] The Hyperfine ability to let the user name their commands is another good
+      one from that project.  It should make reports much easier to read.
+
 - [ ] Raw data files should have a "batch number" in every row.  That way, users
       can benchmark the same command more than once (or combine results files
       that include the same command) and the reporting can use the batch numbers

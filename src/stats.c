@@ -491,6 +491,19 @@ Ztable[] = {2, 2, 2, 2, 3, 3, 3, 3, 3, 3,
 	    99995, 99995, 99996, 99996, 99996, 99996, 99996, 99996, 99997, 99997, 
 	    99997, 99997, 99997, 99997, 99997, 99997, 99998, 99998, 99998, 99998};
 
+// https://owlcalculator.com/statistics/normal-distribution-calculator/by-z-score
+// 4.09, 0.99997842
+// 4.10, 0.99997933
+// 4.11, 0.99998021
+// 4.12, 0.99998105
+// 4.13, 0.99998185
+// 4.14, 0.99998262
+// 4.15, 0.99998337
+//
+// 4.50, 0.9999966
+//
+
+
 static int integer_normalCDF(int scaled_z) {
   if (scaled_z < -409) return 0;
   if (scaled_z > 409) return 100000;
@@ -1129,12 +1142,13 @@ static int compare_median_total_time(const void *idx_ptr1,
   return 0;
 }
 
-int *sort_by_totaltime(Summary *summaries[], int n) {
+int *sort_by_totaltime(Summary *summaries[], int start, int end) {
   if (!summaries) PANIC_NULL();
+  int n = end - start;
   if (n < 1) return NULL;
   int *index = malloc(n * sizeof(int));
   if (!index) PANIC_OOM();
-  for (int i = 0; i < n; i++) index[i] = i;
+  for (int i = 0; i < (end - start); i++) index[i] = i+start;
   sort(index, n, sizeof(int), compare_median_total_time, summaries);
   return index;
 }

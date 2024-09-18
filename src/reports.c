@@ -297,21 +297,18 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
     }
     return;
   }
-
   if (!summaries[start]) return;
+  if ((end - start) <= 1) return;
+  
+  int *index = sort_by_totaltime(summaries, start, end);
+  int bestidx = index[0];
 
-  int best = fastest(summaries, start, end);
-
-  if ((end - start) > 1) {
-    printf("Best guess is:\n");
-    printf("  %s ran\n", *COMMAND(best) ? COMMAND(best) : "(empty)");
-    for (int i = start; i < end; i++) {
-      if (i != best) {
-	double factor = (double) MODE(i) / (double) MEDIAN(best);
-	printf("  %6.2f times faster than %s\n",
-	       factor, *COMMAND(i) ? COMMAND(i) : "(empty)");
-      }
-    }
+  printf("Best guess is:\n");
+  printf("  #%d %s ran\n", bestidx+1, *COMMAND(bestidx) ? COMMAND(bestidx) : "(empty)");
+  for (int i = 1; i < (end - start); i++) {
+    double factor = (double) MEDIAN(index[i]) / (double) MEDIAN(bestidx);
+    printf("  %6.2f times faster than #%d %s\n",
+	   factor, index[i]+1, *COMMAND(index[i]) ? COMMAND(index[i]) : "(empty)");
   }
 
   fflush(stdout);
@@ -806,17 +803,16 @@ void print_overall_inferences(Summary *summaries[], int start, int end) {
 
   if (!summaries[start]) return; // No data
 
-  int best = fastest(summaries, start, end);
+//   int *index = sort_by_totaltime(summaries, start, end);
+//   int bestidx = index[0];
 
-  printf("Best guess is:\n");
-  printf("  %s ran\n", *COMMAND(best) ? COMMAND(best) : "(empty)");
-  for (int i = start; i < end; i++) {
-    if (i != best) {
-      double factor = (double) MODE(i) / (double) MEDIAN(best);
-      printf("  %6.2f times faster than %s\n",
-	     factor, *COMMAND(i) ? COMMAND(i) : "(empty)");
-    }
-  }
+//   printf("Best guess is:\n");
+//   printf("  #%d %s ran\n", *COMMAND(bestidx) ? COMMAND(bestidx) : "(empty)");
+//   for (int i = 1; i < (end - start); i++) {
+//     double factor = (double) MEDIAN(index[i]) / (double) MEDIAN(bestidx);
+//     printf("  %6.2f times faster than #%d %s\n",
+// 	   factor, index[i], *COMMAND(index[i]) ? COMMAND(index[i]) : "(empty)");
+//   }
   fflush(stdout);
 }
 
@@ -883,30 +879,31 @@ void report(Usage *usage) {
   // TEMP: Experimental new features below
   printf("==================================================================\n");
 
-  int *index = sort_by_totaltime(s, count);
+  int *index = sort_by_totaltime(s, 0, count);
   int bestidx = index[0];
 
-  for (int k = 0; k < count; k++)
-    printf("#%d is command %d (%s)\n", k+1, index[k]+1, s[index[k]]->cmd);
+//   for (int k = 0; k < count; k++)
+//     printf("#%d is command %d (%s)\n", k+1, index[k]+1, s[index[k]]->cmd);
 
   Summary *summary1 = s[bestidx];
   Summary *summary2;
 
-  printf("Command                         N   Median    p    p_adj      Diff  Confidence Interval             Â     rbs\n");
-  printf("%2d %-25.25s %4d %8" PRId64 "\n",
+  printf("Command                    N   Median       W    p    p_adj   Diff  Confidence Interval         Â     rbs\n");
+  printf("%2d %-20.20s %4d %8" PRId64 "\n",
 	 bestidx+1, summary1->cmd, summary1->runs, summary1->total.median);
 
   for (int i = 0; i < count; i++) {
     if (index[i] == bestidx) continue;
+
     summary2 = s[index[i]];
+    printf("%2d %-20.20s %4d %8" PRId64,
+	   index[i]+1, summary2->cmd, summary2->runs, summary2->total.median);
+
     RankedCombinedSample RCS =
       rank_difference_magnitude(usage,
 				usageidx[bestidx], usageidx[bestidx+1],
 				usageidx[index[i]], usageidx[index[i]+1],
 				F_TOTAL);
-
-    printf("%2d %-25.25s %4d %8" PRId64,
-	   index[i]+1, summary2->cmd, summary2->runs, summary2->total.median);
 
     double W = mann_whitney_w(RCS);
     //printf("Mann-Whitney W (rank sum) = %.0f\n", W);
@@ -924,7 +921,9 @@ void report(Usage *usage) {
     bool adjpsignificant = adjustedp <= (alpha + 0.00005);
 
     printf("  ");
+    printf("%6.1f", W);
 
+    printf("  ");
     //printf("  p                   ");
     if (p < 0.001) printf("<.001");
     else printf("%5.3f", p);
@@ -948,7 +947,7 @@ void report(Usage *usage) {
 
     double diff = median_diff_estimate(RCS3);
     //printf("Median difference (Hodges–Lehmann estimate) = %.0f\n", diff);
-    printf("%8.0f", diff);
+    printf("%6.0f", diff);
 
     double confidence = median_diff_ci(RCS3, alpha, &low, &high);
     //printf("  %.2f%% confidence interval (%.0f, %.0f)\n",
@@ -956,7 +955,7 @@ void report(Usage *usage) {
     char *tmp;
     asprintf(&tmp, "  %4.2f%% (%.0f, %.0f)",
 	     confidence * 100.0, (double) low, (double) high);
-    printf("%-30.30s", tmp);
+    printf("%-24.24s", tmp);
     free(tmp);
 
 #if 0
@@ -973,6 +972,7 @@ void report(Usage *usage) {
 #endif
     
     double U1 = W - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
+//     printf("U1 = %8.0f\n", U1);
     double Ahat = ranked_diff_Ahat(RCS);
 //     double Ahat = 1.0 - ranked_diff_Ahat(RCS);
 //     printf("Â estimates probability of superiority, i.e. that\n"

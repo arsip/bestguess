@@ -105,7 +105,7 @@ RankedCombinedSample rank_combined_samples(Usage *usage,
 
 
 
-int *sort_by_totaltime(Summary *summaries[], int n);
+int *sort_by_totaltime(Summary *summaries[], int start, int end);
 
 Summary *summarize(Usage *usage, int *next);
 void     free_summary(Summary *s);

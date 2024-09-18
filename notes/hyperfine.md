@@ -192,32 +192,41 @@ calculation](https://github.com/sharkdp/hyperfine/blob/master/src/outlier_detect
 scales the MAD figure so that it may be used to estimate the standard deviation
 of a normal distribution.  Emphatically we repeat that performance measurements
 do not typically follow a normal distribution.  Thus the MAD-based outlier
-warning is at best misleading and at worst not a useful measure of anything.
+warning is at worst misleading and at best not a useful measure of anything.
 
 The second concern is more fundamental.  What is the nature of an outlier?  If
 each data point is a valid (correctly performed) measurement, then each point is
-as important as the others.  We would never want to throw away such data, so a
-warning about outliers is improper.  Of course, if our goal is to identify the
-_fastest_ possible execution for a program, then we will discard all points
-above the minimum measurement.  Here, outlier detection is irrelevant.  On the
-other hand, our goal may be to capture a notion of _typical_ runtime.  In that
-case, we certainly would not use the mean value, and even the median may not be
+as important as the others.  We would never want to throw away valid data, so a
+warning about outliers is unneeded.  Said differently, if we intend to keep all
+measured observations in our data set, a warning about outliers reduces to a
+characterization of the sample, specifically that it contains extreme values.
+(The presence of extreme values can be an indication that the sample
+distribution is not normal.)
+
+Of course, if our goal is to identify the _fastest_ possible execution for a
+program, then we should discard all points above the minimum measurement.  Here,
+outlier detection is also irrelevant.  
+
+Or, our goal may be to capture a notion of _typical_ runtime.  In that case, we
+certainly would not use the mean value, and even the median may not be
 sufficiently representative.  In a possibly-mixed distribution with multiple
-peaks and a long tail, the modal value(s) may be the most useful
-characterization.  By definition, the mode represents the most frequently
-occurring runtime. 
+peaks and a long tail, a modal value(s) may be the most useful characterization.
+By definition, the mode represents the most frequently occurring runtime.
 
-Our goal might be neither of the above.  In the kind of performance engineering
-often seen in industry, analyzing applications running on servers, the long tail
-_is the problem_.  The longest runtimes may represent unsatisfactory customer
-experiences or poor server utilization, for instance.  Here, the goal is usually
-to identify the 99th percentile figure (where 99/100 executions took less time).
-By then profiling the executions in the 99th percentile, changes to code,
-configuration, or runtime environment can be tested to see if a reduction in the
-99th percentile figure is obtainable.
+Finally, our goal might instead be to understand the tail of the sample
+distribution.  In the kind of performance engineering often seen in industry,
+analyzing applications running on servers, the long tail _is the problem_.  The
+longest runtimes may represent unsatisfactory customer experiences or poor
+server utilization, for instance.  Here, the goal is usually to identify the
+99th percentile figure.  By isolating and profiling the executions that make up
+the 99th percentile, we hope to find a root cause.  Then we can make changes to
+code, configuration, or runtime environment to see if a reduction in the 99th
+percentile figure is obtainable.
 
-Regarding outlier detection, we conclude that it is not an appropriate method no
-matter the goal of benchmarking.
+Regarding outlier detection and warnings, we conclude that it is not an
+appropriate method for any of the three benchmarking goals mentioned above,
+i.e. finding the fastest run time, the typical run time, or the shape of the
+distribution's tail.
 
 
 ## Detailed discussion
