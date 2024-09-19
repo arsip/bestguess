@@ -1115,7 +1115,13 @@ double ranked_diff_Ahat(RankedCombinedSample RCS) {
 }
 
 // Hodges-Lehmann estimation of location shift, sometimes called the
-// median difference.
+// median difference, but that term is easily confused with the
+// difference of the medians.
+// 
+// https://en.wikipedia.org/wiki/Hodges–Lehmann_estimator "The
+// Hodges–Lehmann statistic is the median of the m × n differences"
+// between two samples.
+//
 double median_diff_estimate(RankedCombinedSample RCS) {
   int N = RCS.n1 * RCS.n2;
   if (N < 1) PANIC("Invalid ranked combined sample");

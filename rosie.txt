@@ -1,0 +1,4 @@
+rosie match -o line 'find:{[0-9]{2} "T" [0-9]{2}}' /users/jennings/Data/syslog10k >/tmp/results.time
+rosie match -o line 'find:[0-9]{5}' /users/jennings/Data/syslog10k >/tmp/results.pid
+rosie match -o line 'find:{[0-9]{2} ":" [0-9]{2}}' /users/jennings/Data/syslog10k >/tmp/results.tz
+rosie match -o line 'find:{[0-9]{4} "-" [0-9]{2} "-" [0-9]{2}}' /users/jennings/Data/syslog10k >/tmp/results.date

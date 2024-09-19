@@ -900,7 +900,7 @@ void report(Usage *usage) {
   Units *units;
   char *tmp, *tmp2, *tmp3;
 
-  printf("Command                 N     Median     W      p    p_adj       Diff     Confidence Interval         Â      rbs\n");
+  printf("Command                 N     Median     W      p    p_adj      Shift     Confidence Interval         Â \n");
   announce_command(summary1->cmd, bestidx, "#%d: %s", 20);
   units = select_units(summary1->total.max, time_units);
   tmp = apply_units(summary1->total.median, units, UNITS);
@@ -911,7 +911,7 @@ void report(Usage *usage) {
 
     summary2 = s[index[i]];
 
-    announce_command(summary1->cmd, index[i], "#%d: %s", 20);
+    announce_command(summary2->cmd, index[i], "#%d: %s", 20);
     units = select_units(summary2->total.max, time_units);
     tmp = apply_units(summary2->total.median, units, UNITS);
     printf(" %4d " NUMFMT, summary2->runs, tmp);
@@ -942,17 +942,14 @@ void report(Usage *usage) {
     printf("%6.1f", W);
 
     printf("  ");
-    //printf("  p                   ");
     if (p < 0.001) printf("<.001");
     else printf("%5.3f", p);
-    //printf(" (%ssignificant)", psignificant ? "" : "not ");
 
     printf("  ");
-
-    //printf("  p adjusted for ties ");
+    // Adjusted for ties
     if (adjustedp < 0.001) printf("<.001");
     else printf("%5.3f", adjustedp);
-    //printf(" (%ssignificant)", adjpsignificant ? "" : "not ");
+
 
     printf("  ");
 
@@ -987,19 +984,6 @@ void report(Usage *usage) {
     free(tmp2);
     free(tmp3);
     
-#if 0
-    if ((llabs(low) <= 0.005) || (llabs(high) <= 0.005)) {
-      if (psignificant || adjpsignificant)
-	printf(" Confidence interval barely includes zero and p is is significant\n");
-    } else if ((low <= 0.0) && (high >= 0.0)) {
-      if (!psignificant || !adjpsignificant)
-	printf(" Confidence interval includes zero and p is not significant");
-    } else {
-      if (psignificant || adjpsignificant)
-	printf(" Confidence interval does not include zero and p is significant");
-    }
-#endif
-    
     double U1 = W - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
 //     printf("U1 = %8.0f\n", U1);
     double Ahat = ranked_diff_Ahat(RCS);
@@ -1025,9 +1009,23 @@ void report(Usage *usage) {
 // 	   "no correlation at all.\n");
 //     printf("  Rank biserial correlation r = %8.3f\n",
 // 	   (2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0);
-    printf("  ");
-    printf("%6.3f", - ((2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0));
+//     printf("  ");
+//     printf("%6.3f", - ((2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0));
 
+    printf("  ");
+    if ((llabs(low) <= 0.005) || (llabs(high) <= 0.005)) {
+      if (psignificant || adjpsignificant)
+	//printf(" Confidence interval barely includes zero and p is is significant\n");
+	printf("*");
+    } else if ((low <= 0.0) && (high >= 0.0)) {
+      if (!psignificant || !adjpsignificant)
+	//printf(" Confidence interval includes zero and p is not significant");
+	printf("*");
+    }
+//     else {
+//       if (psignificant || adjpsignificant)
+// 	printf(" Confidence interval does not include zero and p is significant");
+//     }
 
     printf("\n");
 
