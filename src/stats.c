@@ -967,19 +967,24 @@ double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp) {
   //double Zne = (k + cc) / stddev;
   //printf("Unadjusted p value η₁ ≠ η₂ is %.4f\n", 2 * (1 - normalCDF(Zne)));
 
+  // At high Z scores, the calculation of p may produce a value
+  // outside of [0.0, 1.0].  Here we clamp p to that range:
+  if (p < 0.0) p = 0.0;
+  if (p > 1.0) p = 1.0;
 
-  double f1 = (double) (n1 * n2) / (double) ((n1 + n2)*(n1 + n2 - 1));
-  double addend1 = pow((double) (n1 + n2), 3.0) / 12.0;
-  double addend2 = tie_correction(RCS) / ((n1 + n2)*(n1+n2-1));
-  double stddev_adjusted = sqrt(f1) * sqrt(addend1 - addend2);
-  //printf("STDDEV = %.4f, ADJUSTED = %.4f\n", stddev, stddev_adjusted);
-  double adjustedZ = (mean_distanceK - cc) / stddev_adjusted;
-  //printf("Zne = %.4f, ADJUSTED Zne = %.4f\n", Zne, adjustedZ);
   if (adjustedp) {
+    double f1 = (double) (n1 * n2) / (double) ((n1 + n2)*(n1 + n2 - 1));
+    double addend1 = pow((double) (n1 + n2), 3.0) / 12.0;
+    double addend2 = tie_correction(RCS) / ((n1 + n2)*(n1+n2-1));
+    double stddev_adjusted = sqrt(f1) * sqrt(addend1 - addend2);
+    //printf("STDDEV = %.4f, ADJUSTED = %.4f\n", stddev, stddev_adjusted);
+    double adjustedZ = (mean_distanceK - cc) / stddev_adjusted;
+    //printf("Zne = %.4f, ADJUSTED Zne = %.4f\n", Zne, adjustedZ);
     *adjustedp = 2 * (1 - normalCDF(adjustedZ));
+    if (*adjustedp < 0.0) *adjustedp = 0.0;
+    if (*adjustedp > 1.0) *adjustedp = 1.0;
     //printf("Adjusted for ties, p value is %.4f\n", *adjustedp);
   }
-
   return p;
 }
 

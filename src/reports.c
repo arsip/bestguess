@@ -10,6 +10,7 @@
 #include "csv.h"
 #include "printing.h"
 #include <assert.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -45,14 +46,14 @@ ReportCode interpret_report_option(const char *op) {
   return REPORT_ERROR;
 }
 
-// 'maxlen' is the max length of the resulting string. 
-void announce_command(const char *cmd, int index, const char *fmt, int maxlen) {
+// 'len' is the desired length of the returned string.
+void announce_command(const char *cmd, int index, const char *fmt, int len) {
   char *tmp;
   asprintf(&tmp, fmt, index + 1, *cmd ? cmd : "(empty)");
-  if (maxlen == NOLIMIT)
+  if (len == NOLIMIT)
     printf("%s", tmp);
   else
-    printf("%.*s", maxlen, tmp);
+    printf("%-*.*s", len, len, tmp);
   free(tmp);
 }
 
@@ -67,7 +68,7 @@ void announce_command(const char *cmd, int index, const char *fmt, int maxlen) {
 #define IFMT "%6" PRId64
 #define IFMTL "%-6" PRId64
 #define LABEL "  %15s "
-#define GAP   "   "
+#define GAP   "  "
 
 #define LEFT       0
 #define RIGHT      1
@@ -94,40 +95,44 @@ static const char *bar(int side, int line) {
     printf("   %s\n", bar(RIGHT, line));			\
   } while (0)
 
-#define PRINTMODE(field, divisor, units, line) do {		\
-    printf(sec ? FMTs : FMT, ROUND1(field, divisor));		\
-    printf(" %-3s", units);					\
+#define PRINTMODE(field, units, line) do {			\
+    tmp = apply_units(field, units, UNITS);			\
+    printf(NUMFMT, tmp);					\
+    free(tmp);							\
     printf(GAP);						\
     LEFTBAR(line);						\
   } while (0)
 
-#define PRINTTIME(field, divisor) do {				\
+#define PRINTTIME(field, units) do {				\
     if ((field) < 0) {						\
-      printf("%6s", "   - ");					\
+      printf(NUMFMT_NOUNITS, "   - ");				\
     } else {							\
-      printf(sec ? FMTs : FMT, ROUND1(field, divisor));		\
+      tmp = apply_units(field, units, NOUNITS);			\
+      printf(NUMFMT_NOUNITS, tmp);				\
+      free(tmp);						\
     }								\
     printf(GAP);						\
   } while (0)
 
-#define PRINTTIMENL(field, divisor, line) do {			\
+#define PRINTTIMENL(field, units, line) do {			\
     if ((field) < 0) {						\
-      printf("%6s", "   - ");					\
+      printf(NUMFMT_NOUNITS, "   - ");				\
     } else {							\
-      printf(sec ? FMTs : FMT, ROUND1(field, divisor));		\
+      tmp = apply_units(field, units, NOUNITS);			\
+      printf(NUMFMT_NOUNITS, tmp);				\
+      free(tmp);						\
     }								\
     RIGHTBAR(line);						\
   } while (0)
 
-#define PRINTCOUNT(field, divisor, showunits) do {		\
+#define PRINTCOUNT(field, units, showunits) do {		\
     if ((field) < 0)						\
-      printf("%6s", "   - ");					\
-    else if (divisor == 1) {					\
-      printf("%6" PRId64, (field));				\
-    } else {							\
-      printf(FMTs, ROUND1(field, divisor));			\
+      printf(showunits ? NUMFMT : NUMFMT_NOUNITS, "   - ");	\
+    else {							\
+      tmp = apply_units(field, units, showunits);		\
+      printf(showunits ? NUMFMT : NUMFMT_NOUNITS, tmp);		\
+      free(tmp);						\
     }								\
-    if (showunits) printf(" %-3s", units);			\
   } while (0)
 
 void print_summary(Summary *s, bool briefly) {
@@ -137,106 +142,83 @@ void print_summary(Summary *s, bool briefly) {
   }
 
   if (briefly)
-    printf(LABEL "    Mode" GAP "  %s    Min   Median      Max   %s\n",
+    printf(LABEL "    Mode" GAP "  %s     Min   Median      Max   %s\n",
 	   "", bar(LEFT, TOPLINE), bar(RIGHT, TOPLINE));
   else
-    printf(LABEL "    Mode" GAP "  %s    Min       Q₁   Median       Q₃      Max   %s\n",
+    printf(LABEL "    Mode" GAP "  %s     Min      Q₁    Median      Q₃       Max   %s\n",
 	   "", bar(LEFT, TOPLINE), bar(RIGHT, TOPLINE));
 
 
-  int sec = 1;
-  double div = MICROSECS;
-  const char *units = "s";
-  
-  // Decide on which time unit to use for printing the summary
-  if (s->total.max < div) {
-    sec = 0;
-    div = MILLISECS;
-    units = "ms";
-  }
+  char *tmp;
+  Units *units = select_units(s->total.max, time_units);
 
   printf(LABEL, "Total CPU time");
-  PRINTMODE(s->total.mode, div, units, MIDLINE);
-  PRINTTIME(s->total.min, div);
+  PRINTMODE(s->total.mode, units, MIDLINE);
+  PRINTTIME(s->total.min, units);
   if (briefly) {
-    PRINTTIME(s->total.median, div);
+    PRINTTIME(s->total.median, units);
   } else {
-    PRINTTIME(s->total.Q1, div);
-    PRINTTIME(s->total.median, div);
-    PRINTTIME(s->total.Q3, div);
+    PRINTTIME(s->total.Q1, units);
+    PRINTTIME(s->total.median, units);
+    PRINTTIME(s->total.Q3, units);
   }
-  PRINTTIMENL(s->total.max, div, MIDLINE);
+  PRINTTIMENL(s->total.max, units, MIDLINE);
 
   if (!briefly) {
     printf(LABEL, "User time");
-    PRINTMODE(s->user.mode, div, units, MIDLINE);
-    PRINTTIME(s->user.min, div);
-    PRINTTIME(s->user.Q1, div);
-    PRINTTIME(s->user.median, div);
-    PRINTTIME(s->user.Q3, div);
-    PRINTTIMENL(s->user.max, div, MIDLINE);
+    PRINTMODE(s->user.mode, units, MIDLINE);
+    PRINTTIME(s->user.min, units);
+    PRINTTIME(s->user.Q1, units);
+    PRINTTIME(s->user.median, units);
+    PRINTTIME(s->user.Q3, units);
+    PRINTTIMENL(s->user.max, units, MIDLINE);
 
     printf(LABEL, "System time");
-    PRINTMODE(s->system.mode, div, units, MIDLINE);
-    PRINTTIME(s->system.min, div);
-    PRINTTIME(s->system.Q1, div);
-    PRINTTIME(s->system.median, div);
-    PRINTTIME(s->system.Q3, div);
-    PRINTTIMENL(s->system.max, div, MIDLINE);
+    PRINTMODE(s->system.mode, units, MIDLINE);
+    PRINTTIME(s->system.min, units);
+    PRINTTIME(s->system.Q1, units);
+    PRINTTIME(s->system.median, units);
+    PRINTTIME(s->system.Q3, units);
+    PRINTTIMENL(s->system.max, units, MIDLINE);
   }
 
   printf(LABEL, "Wall clock");
-  PRINTMODE(s->wall.mode, div, units, briefly ? BOTTOMLINE : MIDLINE);
-  PRINTTIME(s->wall.min, div);
+  PRINTMODE(s->wall.mode, units, briefly ? BOTTOMLINE : MIDLINE);
+  PRINTTIME(s->wall.min, units);
   if (briefly) {
-    PRINTTIME(s->wall.median, div);
+    PRINTTIME(s->wall.median, units);
   } else {
-    PRINTTIME(s->wall.Q1, div);
-    PRINTTIME(s->wall.median, div);
-    PRINTTIME(s->wall.Q3, div);
+    PRINTTIME(s->wall.Q1, units);
+    PRINTTIME(s->wall.median, units);
+    PRINTTIME(s->wall.Q3, units);
   }
-  PRINTTIMENL(s->wall.max, div, briefly ? BOTTOMLINE : MIDLINE);
+  PRINTTIMENL(s->wall.max, units, briefly ? BOTTOMLINE : MIDLINE);
 
   if (!briefly) {
-    div = MEGA;
-    units = "MiB";
-    // More than 3 digits left of decimal place?
-    if (s->maxrss.max >= MEGA * 1000) {
-      div *= 1024;
-      units = "GiB";
-    }
+    units = select_units(s->maxrss.max, space_units);
     printf(LABEL, "Max RSS");
-    PRINTMODE(s->maxrss.mode, div, units, MIDLINE);
+    PRINTMODE(s->maxrss.mode, units, MIDLINE);
     // Misusing PRINTTIME here because it does the right thing
-    PRINTTIME(s->maxrss.min, div);
-    PRINTTIME(s->maxrss.Q1, div);
-    PRINTTIME(s->maxrss.median, div);
-    PRINTTIME(s->maxrss.Q3, div);
-    PRINTTIMENL(s->maxrss.max, div, MIDLINE);
+    PRINTTIME(s->maxrss.min, units);
+    PRINTTIME(s->maxrss.Q1, units);
+    PRINTTIME(s->maxrss.median, units);
+    PRINTTIME(s->maxrss.Q3, units);
+    PRINTTIMENL(s->maxrss.max, units, MIDLINE);
 
-    div = 1;
-    units = "ct";
-    if (s->tcsw.max >= 10000) {
-      div = 1000;
-      units = "Kct";
-    }
-    if (s->tcsw.max >= MICROSECS) { // Not a time but
-      div = MICROSECS;		    // MICROSECS is a
-      units = "Mct";		    // convenient constant
-    }
+    units = select_units(s->tcsw.max, count_units);
     printf(LABEL, "Context sw");
-    PRINTCOUNT(s->tcsw.mode, div, UNITS);
+    PRINTCOUNT(s->tcsw.mode, units, UNITS);
     printf(GAP);
     LEFTBAR(BOTTOMLINE);
-    PRINTCOUNT(s->tcsw.min, div, NOUNITS);
+    PRINTCOUNT(s->tcsw.min, units, NOUNITS);
     printf(GAP);
-    PRINTCOUNT(s->tcsw.Q1, div, NOUNITS);
+    PRINTCOUNT(s->tcsw.Q1, units, NOUNITS);
     printf(GAP);
-    PRINTCOUNT(s->tcsw.median, div, NOUNITS);
+    PRINTCOUNT(s->tcsw.median, units, NOUNITS);
     printf(GAP);
-    PRINTCOUNT(s->tcsw.Q3, div, NOUNITS);
+    PRINTCOUNT(s->tcsw.Q3, units, NOUNITS);
     printf(GAP);
-    PRINTCOUNT(s->tcsw.max, div, NOUNITS);
+    PRINTCOUNT(s->tcsw.max, units, NOUNITS);
     RIGHTBAR(BOTTOMLINE);
 
   } // if not brief report
@@ -309,7 +291,6 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
   int *index = sort_by_totaltime(summaries, start, end);
   int bestidx = index[0];
 
-  int width = config.width;
   printf("Best guess is:\n");
   printf("  ");
   announce_command(COMMAND(bestidx), bestidx, "#%d: %s", NOLIMIT);
@@ -447,7 +428,10 @@ static void print_boxplot(int index,
   }
   printf("\n");
   // Middle line
-  printf("%-*d", indent, index+1);
+  if (index+1 < 100)
+    printf("#%-*d", indent-1, index+1);
+  else
+    printf("%-*d", indent, index+1);
   if (minpos == maxpos) {
     printf("%*s", minpos, "");
     printf("┼\n");
@@ -893,18 +877,28 @@ void report(Usage *usage) {
   // TEMP: Experimental new features below
   printf("==================================================================\n");
 
+  if (count < 2) {
+    printf("Only one command.  Not printing experimental new info.\n");
+    goto done;
+  }
+
   int *index = sort_by_totaltime(s, 0, count);
   int bestidx = index[0];
 
-//   for (int k = 0; k < count; k++)
-//     printf("#%d is command %d (%s)\n", k+1, index[k]+1, s[index[k]]->cmd);
+  int min_observations = INT_MAX;
+  for (int k = 0; k < count; k++)
+    min_observations = (min_observations < s[k]->runs) ? min_observations : s[k]->runs;
+
+  if (min_observations < 20) {
+    printf("Minimum observations must be at least 20 for this analysis.\n");
+    goto done;
+  }
+
 
   Summary *summary1 = s[bestidx];
   Summary *summary2;
   Units *units;
   char *tmp, *tmp2, *tmp3;
-
-#define NUMFMT "%10s"
 
   printf("Command                 N     Median     W      p    p_adj       Diff     Confidence Interval         Â      rbs\n");
   announce_command(summary1->cmd, bestidx, "#%d: %s", 20);
@@ -1032,7 +1026,7 @@ void report(Usage *usage) {
 //     printf("  Rank biserial correlation r = %8.3f\n",
 // 	   (2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0);
     printf("  ");
-    printf("%0.3f", - ((2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0));
+    printf("%6.3f", - ((2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0));
 
 
     printf("\n");
@@ -1064,7 +1058,7 @@ void report(Usage *usage) {
     free(RCS.index);
   }
 
-
+ done:
   for (int i = 0; i < count; i++) free_summary(s[i]);
   return;
 }
