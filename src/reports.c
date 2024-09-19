@@ -900,7 +900,7 @@ void report(Usage *usage) {
   Units *units;
   char *tmp, *tmp2, *tmp3;
 
-  printf("Command                 N     Median     W      p    p_adj      Shift     Confidence Interval         Â \n");
+  printf("Command                 N     Median      W      p    p_adj      Shift     Confidence Interval         Â \n");
   announce_command(summary1->cmd, bestidx, "#%d: %s", 20);
   units = select_units(summary1->total.max, time_units);
   tmp = apply_units(summary1->total.median, units, UNITS);
@@ -935,11 +935,11 @@ void report(Usage *usage) {
     double adjustedp;
     double p = mann_whitney_p(RCS, W, &adjustedp);
     //printf("Hypothesis: median 1 ≠ median 2\n");
-    bool psignificant = p <= (alpha + 0.00005);
-    bool adjpsignificant = adjustedp <= (alpha + 0.00005);
+    bool psignificant = p < alpha;
+    bool adjpsignificant = adjustedp < alpha;
 
     printf("  ");
-    printf("%6.1f", W);
+    printf("%8.0f", W);
 
     printf("  ");
     if (p < 0.001) printf("<.001");
@@ -1012,20 +1012,25 @@ void report(Usage *usage) {
 //     printf("  ");
 //     printf("%6.3f", - ((2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0));
 
+    // TODO: Decide on a minimum effect size
+    const int64_t mineffect = 200;  // μs
+    const int64_t epsilon = 100;    // μs
+    const double too_high_superiority = 1.0 / 3.0;
+
     printf("  ");
-    if ((llabs(low) <= 0.005) || (llabs(high) <= 0.005)) {
-      if (psignificant || adjpsignificant)
-	//printf(" Confidence interval barely includes zero and p is is significant\n");
-	printf("*");
-    } else if ((low <= 0.0) && (high >= 0.0)) {
-      if (!psignificant || !adjpsignificant)
-	//printf(" Confidence interval includes zero and p is not significant");
-	printf("*");
-    }
-//     else {
-//       if (psignificant || adjpsignificant)
-// 	printf(" Confidence interval does not include zero and p is significant");
-//     }
+    bool nonsignificant = !psignificant || !adjpsignificant;
+    // Check for end of CI interval being too close to zero
+    bool ci_touches_0 = (llabs(low) < epsilon) || (llabs(high) < epsilon);
+    // Or outright including zero
+    bool ci_includes_0 = (low < 0) && (high > 0);
+    // Or median difference too small
+    bool small_effect = fabs(diff) < (double) mineffect;
+    bool high_superiority = Ahat > too_high_superiority;
+
+    if (nonsignificant) printf("p");
+    if (ci_touches_0 || ci_includes_0) printf("0");
+    if (small_effect) printf("Δ");
+    if (high_superiority) printf("↑");
 
     printf("\n");
 
