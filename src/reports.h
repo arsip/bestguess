@@ -34,7 +34,7 @@ ReportCode  interpret_report_option(const char *op);
 void   report(Usage *usage);
 Usage *read_input_files(int argc, char **argv);
 
-void announce_command(const char *cmd, int number);
+void announce_command(const char *cmd, int index, const char *fmt, int maxlen);
 void print_summary(Summary *s, bool briefly);
 void print_graph(Summary *s, Usage *usagedata, int start, int end);
 void print_overall_summary(Summary *summaries[], int start, int end);

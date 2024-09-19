@@ -25,7 +25,7 @@ const char *ReportOptionDesc[] = {XReports(THIRD)};
 #define BOXPLOT_LABEL_ABOVE 1
 #define BOXPLOT_LABEL_BELOW 2
 
-// For printing help.  Caller must free the returned string.
+// For printing program help.  Caller must free the returned string.
 char *report_options(void) {
   size_t bufsize = 1000;
   char *buf = malloc(bufsize);
@@ -45,9 +45,20 @@ ReportCode interpret_report_option(const char *op) {
   return REPORT_ERROR;
 }
 
-void announce_command(const char *cmd, int index) {
-  printf("Command %d: %s\n", index + 1, *cmd ? cmd : "(empty)");
+// 'maxlen' is the max length of the resulting string. 
+void announce_command(const char *cmd, int index, const char *fmt, int maxlen) {
+  char *tmp;
+  asprintf(&tmp, fmt, index + 1, *cmd ? cmd : "(empty)");
+  if (maxlen == NOLIMIT)
+    printf("%s", tmp);
+  else
+    printf("%.*s", maxlen, tmp);
+  free(tmp);
 }
+
+// static void announce_command_short(const char *cmd, int index, int width, int precision) {
+//   printf("#%d: %*.*s", index + 1, width, precision, *cmd ? cmd : "(empty)");
+// }
 
 #define FMT "%6.1f"
 #define FMTL "%-.1f"
@@ -57,13 +68,6 @@ void announce_command(const char *cmd, int index) {
 #define IFMTL "%-6" PRId64
 #define LABEL "  %15s "
 #define GAP   "   "
-#define UNITS 1
-#define NOUNITS 0
-// Scale and round to one or two decimal places
-#define ROUND1(intval, divisor) \
-  (round((double)((intval) * 10) / (divisor)) / 10.0)
-#define ROUND2(intval, divisor) \
-  (round((double)((intval) * 100) / (divisor)) / 100.0)
 
 #define LEFT       0
 #define RIGHT      1
@@ -268,6 +272,7 @@ void print_graph(Summary *s, Usage *usage, int start, int end) {
 #define MEDIAN(i) (summaries[i]->total.median)
 #define COMMAND(i) (summaries[i]->cmd)
 
+#if 0
 // Returns index into summaries
 static int fastest(Summary *summaries[], int start, int end) {
   int best = start;
@@ -283,6 +288,7 @@ static int fastest(Summary *summaries[], int start, int end) {
   }
   return best;
 }
+#endif
 
 // ASSUMES 'start' and 'end' are valid indexes into 'summaries'
 void print_overall_summary(Summary *summaries[], int start, int end) {
@@ -303,12 +309,16 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
   int *index = sort_by_totaltime(summaries, start, end);
   int bestidx = index[0];
 
+  int width = config.width;
   printf("Best guess is:\n");
-  printf("  #%d %s ran\n", bestidx+1, *COMMAND(bestidx) ? COMMAND(bestidx) : "(empty)");
+  printf("  ");
+  announce_command(COMMAND(bestidx), bestidx, "#%d: %s", NOLIMIT);
+  printf(" ran\n");
   for (int i = 1; i < (end - start); i++) {
     double factor = (double) MEDIAN(index[i]) / (double) MEDIAN(bestidx);
-    printf("  %6.2f times faster than #%d %s\n",
-	   factor, index[i]+1, *COMMAND(index[i]) ? COMMAND(index[i]) : "(empty)");
+    printf("  %6.2f times faster than ", factor);
+    announce_command(COMMAND(index[i]), index[i], "#%d: %s", NOLIMIT);
+    puts("");
   }
 
   fflush(stdout);
@@ -782,11 +792,13 @@ void print_boxplots(Summary *summaries[], int start, int end) {
   printf("Box plot legend:\n");
   for (int i = start; i < end; i++) {
     printf("  ");
-    announce_command(summaries[i]->cmd, i);
+    announce_command(summaries[i]->cmd, i, "#%d: %s", NOLIMIT); // width - 2
+    puts("");
   }
-  printf("\n");
+  puts("");
 }
 
+#if 0
 // ASSUMES 'start' and 'end' are valid indexes into 'summaries'
 void print_overall_inferences(Summary *summaries[], int start, int end) {
   if (!summaries) PANIC_NULL();
@@ -815,6 +827,7 @@ void print_overall_inferences(Summary *summaries[], int start, int end) {
 //   }
   fflush(stdout);
 }
+#endif
 
 // TODO: We index into input[] starting at config.first, not 0
 
@@ -848,13 +861,14 @@ void report(Usage *usage) {
       write_hf_line(hf_output, s[count]);
 
     if (config.report != REPORT_NONE) {
-      announce_command(s[count]->cmd, count);
+      announce_command(s[count]->cmd, count, "Command #%d: %s", NOLIMIT);
+      printf("\n\n");
       print_summary(s[count], (config.report == REPORT_BRIEF));
       printf("\n");
     }
     if (config.graph) {
       if (config.report == REPORT_NONE)
-	announce_command(s[count]->cmd, count);
+	announce_command(s[count]->cmd, count, "Command #%d: %s", NOLIMIT);
       print_graph(s[count], usage, *(next - 1), *next);
       printf("\n");
     }
@@ -887,17 +901,27 @@ void report(Usage *usage) {
 
   Summary *summary1 = s[bestidx];
   Summary *summary2;
+  Units *units;
+  char *tmp, *tmp2, *tmp3;
 
-  printf("Command                    N   Median       W    p    p_adj   Diff  Confidence Interval         Â     rbs\n");
-  printf("%2d %-20.20s %4d %8" PRId64 "\n",
-	 bestidx+1, summary1->cmd, summary1->runs, summary1->total.median);
+#define NUMFMT "%10s"
+
+  printf("Command                 N     Median     W      p    p_adj       Diff     Confidence Interval         Â      rbs\n");
+  announce_command(summary1->cmd, bestidx, "#%d: %s", 20);
+  units = select_units(summary1->total.max, time_units);
+  tmp = apply_units(summary1->total.median, units, UNITS);
+  printf(" %4d " NUMFMT "\n", summary1->runs, tmp);
 
   for (int i = 0; i < count; i++) {
     if (index[i] == bestidx) continue;
 
     summary2 = s[index[i]];
-    printf("%2d %-20.20s %4d %8" PRId64,
-	   index[i]+1, summary2->cmd, summary2->runs, summary2->total.median);
+
+    announce_command(summary1->cmd, index[i], "#%d: %s", 20);
+    units = select_units(summary2->total.max, time_units);
+    tmp = apply_units(summary2->total.median, units, UNITS);
+    printf(" %4d " NUMFMT, summary2->runs, tmp);
+    free(tmp);
 
     RankedCombinedSample RCS =
       rank_difference_magnitude(usage,
@@ -947,17 +971,28 @@ void report(Usage *usage) {
 
     double diff = median_diff_estimate(RCS3);
     //printf("Median difference (Hodges–Lehmann estimate) = %.0f\n", diff);
-    printf("%6.0f", diff);
+    tmp = apply_units(diff, units, UNITS);
+    printf(NUMFMT, tmp);
+    free(tmp);
 
     double confidence = median_diff_ci(RCS3, alpha, &low, &high);
     //printf("  %.2f%% confidence interval (%.0f, %.0f)\n",
     //    confidence * 100.0, (double) low, (double) high);
-    char *tmp;
-    asprintf(&tmp, "  %4.2f%% (%.0f, %.0f)",
-	     confidence * 100.0, (double) low, (double) high);
-    printf("%-24.24s", tmp);
-    free(tmp);
+//     char *tmp;
+//     asprintf(&tmp, "  %4.2f%% (%.0f, %.0f)",
+// 	     confidence * 100.0, (double) low, (double) high);
+//     printf("%-24.24s", tmp);
+//     free(tmp);
 
+    printf("  %4.2f%% ", confidence * 100.0);
+    tmp = apply_units(low, units, NOUNITS);
+    tmp2 = apply_units(high, units, NOUNITS);
+    asprintf(&tmp3, "(%s, %s) %2s", lefttrim(tmp), lefttrim(tmp2), units->unitname);
+    printf("%-20s", tmp3);
+    free(tmp);
+    free(tmp2);
+    free(tmp3);
+    
 #if 0
     if ((llabs(low) <= 0.005) || (llabs(high) <= 0.005)) {
       if (psignificant || adjpsignificant)

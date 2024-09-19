@@ -161,14 +161,59 @@ int split(const char *in, arglist *args);
 int split_unescape(const char *in, arglist *args);
 int ends_in(const char *str, const char *suffix);
 
-int64_t strtoint64(const char *str);
-bool try_strtoint64(const char *str, int64_t *result);
+int64_t     strtoint64(const char *str);
+bool    try_strtoint64(const char *str, int64_t *result);
 
 // Misc:
 
 FILE *maybe_open(const char *filename, const char *mode);
-int utf8_length(const char *str);
-int utf8_width(const char *str, int count);
+
+char *lefttrim(char *str);
+
+int   utf8_length(const char *str);
+int   utf8_width(const char *str, int count);
+
+// TODO: DROP THESE!
+// Scale and round to one or two decimal places
+#define ROUND1(intval, divisor) \
+  (round((double)((intval) * 10) / (divisor)) / 10.0)
+#define ROUND2(intval, divisor) \
+  (round((double)((intval) * 100) / (divisor)) / 100.0)
+
+typedef struct Units {
+  const char    *unitname;  // Optionally display this after the value
+  const int64_t  divisor;   // Scale down from native units
+  const int64_t  threshold; // This Units applies to values below threshold
+  const char    *fmt_units;
+  const char    *fmt_nounits;
+} Units;
+
+static Units time_units[] = {
+  {"μs", 1,          1000,      "%7.0f %-2s", "%7.0f"}, // 1234567 Un
+  {"ms", 1000,       1000*1000, "%7.2f %-2s", "%7.2f"}, // 1234.67 Un
+  {"s",  1000*1000, -1,         "%7.2f %-2s", "%7.2f"}, // 1234.67 Un
+};
+
+static Units space_units[] = {
+  {"B",   1,              1024,           "%7.0f %-2s", "%7.0f"},
+  {"KB", 1024,            1024*1024,      "%7.2f %-2s", "%7.2f"},
+  {"MB", 1024*1024,       1024*1024*1024, "%7.2f %-2s", "%7.2f"},
+  {"GB", 1024*1024*1024, -1,              "%7.2f %-2s", "%7.2f"},
+};
+
+static Units count_units[] = {
+  {"ct", 1,               1000,           "%7.0f %-2s", "%7.0f"},
+  {"K",  1000,            1000*1000,      "%7.2f %-2s", "%7.2f"},
+  {"M",  1000*1000,       1000*1000*1000, "%7.2f %-2s", "%7.2f"},
+  {"G",  1000*1000*1000, -1,              "%7.2f %-2s", "%7.2f"},
+};
+
+#define UNITS 1
+#define NOUNITS 0
+#define NOLIMIT -1
+
+Units *select_units(int64_t maxvalue, Units *options);
+char  *apply_units(int64_t value, Units *units, bool show_unit_names);
 
 /* ----------------------------------------------------------------------------- */
 /* Error handling for runtime errors                                             */

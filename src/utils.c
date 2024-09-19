@@ -493,6 +493,52 @@ FILE *maybe_open(const char *filename, const char *mode) {
   return f;
 }
 
+char *lefttrim(char *str) {
+  if (!str) PANIC_NULL();
+  while (*str && (*str == ' ')) str++;
+  return str;
+}
+
+// Problem: Microseconds are awkward to display because the numbers
+// are large.  Milliseconds is better, until the number exceeds 1,000
+// (then seconds is the better unit).  We need to (1) convert μs to ms
+// or sec, (2) format the number appropriately, and (3) know what unit
+// to print after it.
+//
+// It's a two-step process, because we choose units based on the
+// maximum of a set of values to be displayed together.  We need a
+// function to choose the units, and another to apply that choice.
+//
+
+Units *select_units(int64_t maxvalue, Units *options) {
+  if (!options) PANIC_NULL();
+  int i = 0;
+  while (1) {
+    if (options[i].threshold == -1) break;
+    if (maxvalue < options[i].threshold) break;
+    i++;
+  }
+  return &(options[i]);
+}
+
+// Caller must free the returned string
+char *apply_units(int64_t value, Units *units, bool include_unit_name) {
+  if (!units) PANIC_NULL();
+  char *str;
+  double display_value = (double) value / (double) units->divisor;
+  // Note: The printf family of functions rounds float types to the
+  // precision specified in the format string.
+  if (include_unit_name)
+    asprintf(&str, units->fmt_units, display_value, units->unitname);
+  else
+    asprintf(&str, units->fmt_nounits, display_value);
+  return str;
+}
+
+// -----------------------------------------------------------------------------
+// UTF-8 (for now, we don't need much, so we'll avoid adding a dependency)
+// -----------------------------------------------------------------------------
+
 int64_t min64(int64_t a, int64_t b) {
   return (a < b) ? a : b;
 }

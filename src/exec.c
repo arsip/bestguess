@@ -219,7 +219,8 @@ static Summary *run_command(int num,
 
   if (!config.output_to_stdout) {
     if ((config.report != REPORT_NONE) || config.graph) {
-      announce_command(cmd, num);
+      announce_command(cmd, num, "Command #%d: %s", NOLIMIT);
+      printf("\n");
       fflush(stdout);
     }
   }
