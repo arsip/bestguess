@@ -925,113 +925,37 @@ void report(Usage *usage) {
     printf(" %4d " NUMFMT, summary2->runs, tmp);
     free(tmp);
 
-    RankedCombinedSample RCS =
-      rank_difference_magnitude(usage,
-				usageidx[bestidx], usageidx[bestidx+1],
-				usageidx[index[i]], usageidx[index[i]+1],
-				F_TOTAL);
-
-    double W = mann_whitney_w(RCS);
-    //printf("Mann-Whitney W (rank sum) = %.0f\n", W);
-
-    // TODO: Should compare dispersions (e.g. IQR) because if they
-    // differ a lot, then the W test may not be showing a displacement
-    // of the median.
-
-    double adjustedp;
-    double p = mann_whitney_p(RCS, W, &adjustedp);
-    //printf("Hypothesis: median 1 ≠ median 2\n");
-//     bool psignificant = p < alpha;
-//     bool adjpsignificant = adjustedp < alpha;
+    printf("  ");
+    printf("%8.0f", stat->W);
 
     printf("  ");
-    printf("%8.0f", W);
-
-    printf("  ");
-    if (p < 0.001) printf("<.001");
-    else printf("%5.3f", p);
+    if (stat->p < 0.001) printf("<.001");
+    else printf("%5.3f", stat->p);
 
     printf("  ");
     // Adjusted for ties
-    if (adjustedp < 0.001) printf("<.001");
-    else printf("%5.3f", adjustedp);
-
+    if (stat->p_adj < 0.001) printf("<.001");
+    else printf("%5.3f", stat->p_adj);
 
     printf("  ");
 
-    int64_t low, high;
-    RankedCombinedSample RCS3 =
-      rank_difference_signed(usage,
-			     usageidx[index[i]], usageidx[index[i]+1],
-			     usageidx[bestidx], usageidx[bestidx+1],
-			     F_TOTAL);
-
-    double diff = median_diff_estimate(RCS3);
-    //printf("Median difference (Hodges–Lehmann estimate) = %.0f\n", diff);
-    tmp = apply_units(diff, units, UNITS);
+    tmp = apply_units(stat->shift, units, UNITS);
     printf(NUMFMT, tmp);
     free(tmp);
 
-    double confidence = median_diff_ci(RCS3, alpha, &low, &high);
-    //printf("  %.2f%% confidence interval (%.0f, %.0f)\n",
-    //    confidence * 100.0, (double) low, (double) high);
-//     char *tmp;
-//     asprintf(&tmp, "  %4.2f%% (%.0f, %.0f)",
-// 	     confidence * 100.0, (double) low, (double) high);
-//     printf("%-24.24s", tmp);
-//     free(tmp);
-
-    printf("  %4.2f%% ", confidence * 100.0);
-    tmp = apply_units(low, units, NOUNITS);
-    tmp2 = apply_units(high, units, NOUNITS);
+    printf("  %4.2f%% ", stat->confidence * 100.0);
+    tmp = apply_units(stat->ci_low, units, NOUNITS);
+    tmp2 = apply_units(stat->ci_high, units, NOUNITS);
     asprintf(&tmp3, "(%s, %s) %2s", lefttrim(tmp), lefttrim(tmp2), units->unitname);
     printf("%-20s", tmp3);
     free(tmp);
     free(tmp2);
     free(tmp3);
     
-//    double U1 = W - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
-//     printf("U1 = %8.0f\n", U1);
-    double Ahat = ranked_diff_Ahat(RCS);
-//     double Ahat = 1.0 - ranked_diff_Ahat(RCS);
-//     printf("Â estimates probability of superiority, i.e. that\n"
-// 	   "a randomly-chosen observation from the first sample\n"
-// 	   "will have a shorter run time than a randomly-chosen\n"
-// 	   "observation from the second sample.\n");
-//     printf("  Â = %8.3f\n", Ahat);
-//     if (fabs(Ahat - 0.5) < 0.100) 
-//       printf("  Interpretation: large overlap in distributions, i.e.\n"
-// 	     "  roughly equal probability of a random X > a random Y\n");
-//     else 
-//       printf("  Interpretation: %s chance that a run of \n"
-// 	     "  command 1 takes less time than a run of command 2\n",
-// 	     (Ahat > 0.5) ? "high" : "low");
-
     printf("  ");
-    printf("%.3f", Ahat);
+    printf("%.3f", stat->p_super);
     
-//     printf("A rank biserial correlation of +1 (-1) indicates positive\n"
-// 	   "(negative) correlation between the samples, with 0 indicating\n"
-// 	   "no correlation at all.\n");
-//     printf("  Rank biserial correlation r = %8.3f\n",
-// 	   (2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0);
-//     printf("  ");
-//     printf("%6.3f", - ((2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0));
-
-//     // TODO: Decide on a minimum effect size
-//     const int64_t mineffect = 250;  // μs
-//     const int64_t epsilon = 125;    // μs
-//     const double too_high_superiority = 1.0 / 3.0;
-
     printf("  ");
-//     bool nonsignificant = !psignificant || !adjpsignificant;
-//     // Check for end of CI interval being too close to zero
-//     bool ci_touches_0 = (llabs(low) < epsilon) || (llabs(high) < epsilon);
-//     // Or outright including zero
-//     bool ci_includes_0 = (low < 0) && (high > 0);
-//     // Or median difference too small
-//     bool small_effect = fabs(diff) < (double) mineffect;
-//     bool high_superiority = Ahat > too_high_superiority;
 
     if (HAS(stat->results, INF_NONSIG)) printf("p");
     if (HAS(stat->results, INF_CIZERO)) printf("0");
@@ -1041,9 +965,6 @@ void report(Usage *usage) {
     printf("\n");
 
     free(stat);
-    free(RCS.X);
-    free(RCS.rank);
-    free(RCS.index);
   }
 
  done:

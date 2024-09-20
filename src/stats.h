@@ -74,6 +74,7 @@ typedef struct RankedCombinedSample {
 typedef struct Inference {
   int     index;	// 0-based index into Summary array
   uint8_t results;	// See below
+  double  W;		// Mann-Whitney-Wilcoxon rank sum
   double  p;		// p value that η₁ ≠ η₂ (conservative)
   double  p_adj;	// p value adjusted for ties
   double  shift;	// Hodges-Lehmann estimation of median shift

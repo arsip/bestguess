@@ -1198,9 +1198,8 @@ Inference *compare_samples(Usage *usage,
 			      ref_start, ref_end,
 			      idx_start, idx_end,
 			      F_TOTAL);
-  double W = mann_whitney_w(RCSmag);
-
-  stat->p = mann_whitney_p(RCSmag, W, &(stat->p_adj));
+  stat->W = mann_whitney_w(RCSmag);
+  stat->p = mann_whitney_p(RCSmag, stat->W, &(stat->p_adj));
   stat->p_super = ranked_diff_Ahat(RCSmag);
 
   RankedCombinedSample RCSsigned =
