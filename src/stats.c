@@ -297,6 +297,25 @@ static int64_t *ranked_sample(Usage *usage,
     return X;
 }
 
+// When the AD test for normality says "not close to normal", we may
+// want to know why.  The kurtosis can tell us if the shape is not
+// normal in the sense of the peak and tails, and skewness can tell us
+// about asymmetry.
+
+// Excess kurtosis = (1 / n) * Σ((X_i - mean) / std)⁴ - 3
+//   > 0 ==> "sharp peak, heavy tails"
+//   < 0 ==> "flat peak, light tails"
+//   near zero, the distribution resembles a normal one
+
+
+// Moment-based calculation of skew
+// skew = (n / ((n - 1) * (n - 2))) * Σ((X_i - mean) / std)³
+//   abs(skew) < 0.5 ==> approximately symmetric
+//   0.5 < abs(skew) < 1.0 ==> moderately skewed
+//   abs(skew) > 1.0 ==> highly skewed
+
+
+
 // TODO: How close to zero is too small a stddev (or variance) for
 // ADscore to be meaningful?
 
@@ -957,7 +976,6 @@ double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp) {
   // samples are not real numbered values of a function (which would
   // never produce a tie).
   double cc = 0.5;
-  double mean_distance = fabs(W - meanW);
   double mean_distanceK = fabs(K - meanW);
   double stddev = sqrt((double) (n1 * n2 * (n1 + n2 + 1)) / 12.0);
    // p-value for hypothesis that η₁ ≠ η₂
@@ -1162,4 +1180,62 @@ int *sort_by_totaltime(Summary *summaries[], int start, int end) {
   for (int i = 0; i < (end - start); i++) index[i] = i+start;
   sort(index, n, sizeof(int), compare_median_total_time, summaries);
   return index;
+}
+
+
+// 'idx' 0-based index into Summary array
+Inference *compare_samples(Usage *usage,
+			   int idx,
+			   double alpha,
+			   int ref_start, int ref_end,
+			   int idx_start, int idx_end) {
+  Inference *stat = malloc(sizeof(Inference));
+  if (!stat) PANIC_OOM();
+  stat->index = idx;
+
+  RankedCombinedSample RCSmag =
+    rank_difference_magnitude(usage,
+			      ref_start, ref_end,
+			      idx_start, idx_end,
+			      F_TOTAL);
+  double W = mann_whitney_w(RCSmag);
+
+  stat->p = mann_whitney_p(RCSmag, W, &(stat->p_adj));
+  stat->p_super = ranked_diff_Ahat(RCSmag);
+
+  RankedCombinedSample RCSsigned =
+    rank_difference_signed(usage,
+			   idx_start, idx_end,
+			   ref_start, ref_end,
+			   F_TOTAL);
+
+  stat->shift = median_diff_estimate(RCSsigned);
+  stat->confidence = median_diff_ci(RCSsigned,
+				    alpha,
+				    &(stat->ci_low),
+				    &(stat->ci_high));
+
+  stat->results = 0;
+
+  // Is the p value (or adjusted one) not low enough?
+  if (!(stat->p < alpha) || !(stat->p_adj < alpha))
+    SET(stat->results, INF_NONSIG);
+
+  // Check for end of CI interval being too close to zero
+  bool ci_touches_0 = ((llabs(stat->ci_low) < config.ci_epsilon) ||
+		       (llabs(stat->ci_high) < config.ci_epsilon));
+  // Or CI outright includes zero
+  bool ci_includes_0 = (stat->ci_low < 0) && (stat->ci_high > 0);
+
+  if (ci_touches_0 || ci_includes_0)
+    SET(stat->results, INF_CIZERO);
+
+  // Check for median difference (effect size) too small
+  if (fabs(stat->shift) < (double) config.min_effect) 
+    SET(stat->results, INF_NOEFFECT);
+
+  if (stat->p_super > config.high_superiority)
+    SET(stat->results, INF_HIGHSUPER);
+    
+  return stat;
 }

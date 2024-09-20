@@ -77,7 +77,11 @@ typedef struct Config {
   bool groups;
   int  report;
   bool boxplot;
-  int width;
+  int  width;
+  // Inferential statistics interpretation
+  int64_t ci_epsilon;		// μs
+  double  min_effect;		// μs
+  double  high_superiority;	// probability
 } Config;
 
 extern Config config;

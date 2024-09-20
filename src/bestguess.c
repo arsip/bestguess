@@ -40,7 +40,11 @@ Config config = {
   .groups = false,
   .report = REPORT_SUMMARY,
   .boxplot = false,
-  .width = 80,			// terminal width
+  .width = 80,			 // terminal width
+  // Inferential stats report
+  .ci_epsilon = 125,		 // μs
+  .min_effect = 250,		 // μs
+  .high_superiority = 1.0 / 3.0, // probability
 };
 
 // -----------------------------------------------------------------------------

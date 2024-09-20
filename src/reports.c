@@ -894,20 +894,28 @@ void report(Usage *usage) {
     goto done;
   }
 
-
   Summary *summary1 = s[bestidx];
   Summary *summary2;
   Units *units;
   char *tmp, *tmp2, *tmp3;
-
+  Inference *stat;
+  
   printf("Command                 N     Median      W      p    p_adj      Shift     Confidence Interval         Â \n");
   announce_command(summary1->cmd, bestidx, "#%d: %s", 20);
   units = select_units(summary1->total.max, time_units);
   tmp = apply_units(summary1->total.median, units, UNITS);
   printf(" %4d " NUMFMT "\n", summary1->runs, tmp);
 
+  double alpha = 0.05;
+
   for (int i = 0; i < count; i++) {
     if (index[i] == bestidx) continue;
+
+    stat = compare_samples(usage,
+			   index[i],
+			   alpha,
+			   usageidx[bestidx], usageidx[bestidx+1],
+			   usageidx[index[i]], usageidx[index[i]+1]);
 
     summary2 = s[index[i]];
 
@@ -930,13 +938,11 @@ void report(Usage *usage) {
     // differ a lot, then the W test may not be showing a displacement
     // of the median.
 
-    double alpha = 0.05;
-
     double adjustedp;
     double p = mann_whitney_p(RCS, W, &adjustedp);
     //printf("Hypothesis: median 1 ≠ median 2\n");
-    bool psignificant = p < alpha;
-    bool adjpsignificant = adjustedp < alpha;
+//     bool psignificant = p < alpha;
+//     bool adjpsignificant = adjustedp < alpha;
 
     printf("  ");
     printf("%8.0f", W);
@@ -984,7 +990,7 @@ void report(Usage *usage) {
     free(tmp2);
     free(tmp3);
     
-    double U1 = W - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
+//    double U1 = W - (double) (RCS.n1 * (RCS.n1 + 1)) / 2.0;
 //     printf("U1 = %8.0f\n", U1);
     double Ahat = ranked_diff_Ahat(RCS);
 //     double Ahat = 1.0 - ranked_diff_Ahat(RCS);
@@ -1012,50 +1018,29 @@ void report(Usage *usage) {
 //     printf("  ");
 //     printf("%6.3f", - ((2.0 * U1 / (double) (RCS.n1 * RCS.n2)) - 1.0));
 
-    // TODO: Decide on a minimum effect size
-    const int64_t mineffect = 200;  // μs
-    const int64_t epsilon = 100;    // μs
-    const double too_high_superiority = 1.0 / 3.0;
+//     // TODO: Decide on a minimum effect size
+//     const int64_t mineffect = 250;  // μs
+//     const int64_t epsilon = 125;    // μs
+//     const double too_high_superiority = 1.0 / 3.0;
 
     printf("  ");
-    bool nonsignificant = !psignificant || !adjpsignificant;
-    // Check for end of CI interval being too close to zero
-    bool ci_touches_0 = (llabs(low) < epsilon) || (llabs(high) < epsilon);
-    // Or outright including zero
-    bool ci_includes_0 = (low < 0) && (high > 0);
-    // Or median difference too small
-    bool small_effect = fabs(diff) < (double) mineffect;
-    bool high_superiority = Ahat > too_high_superiority;
+//     bool nonsignificant = !psignificant || !adjpsignificant;
+//     // Check for end of CI interval being too close to zero
+//     bool ci_touches_0 = (llabs(low) < epsilon) || (llabs(high) < epsilon);
+//     // Or outright including zero
+//     bool ci_includes_0 = (low < 0) && (high > 0);
+//     // Or median difference too small
+//     bool small_effect = fabs(diff) < (double) mineffect;
+//     bool high_superiority = Ahat > too_high_superiority;
 
-    if (nonsignificant) printf("p");
-    if (ci_touches_0 || ci_includes_0) printf("0");
-    if (small_effect) printf("Δ");
-    if (high_superiority) printf("↑");
+    if (HAS(stat->results, INF_NONSIG)) printf("p");
+    if (HAS(stat->results, INF_CIZERO)) printf("0");
+    if (HAS(stat->results, INF_NOEFFECT)) printf("Δ");
+    if (HAS(stat->results, INF_HIGHSUPER)) printf("↑");
 
     printf("\n");
 
-//     printf("\ncdf(1-alpha/2) = cdf(%f) = %8.3f\n",
-// 	   1.0 - (alpha / 2.0), inverseCDF(1.0 - (alpha / 2.0)));
-
-//     printf("\ncdf(alpha/2) = cdf(%f) = %8.3f\n",
-// 	   (alpha / 2.0), inverseCDF(alpha / 2.0));
-    
-//     int NQ = runs * 0.5;
-//     double alpha = 0.10;
-//     int plusminusrank = ci_rank(runs, alpha, 0.5);
-//     printf("alpha = %.2f: NQ = %d ± %d == (rank %d, rank %d) ==> (%" PRId64 ", %" PRId64 ")\n",
-// 	   alpha,
-// 	   NQ, plusminusrank,
-// 	   NQ - plusminusrank,
-// 	   NQ + plusminusrank,
-// 	   RCS.X[RCS.index[NQ - plusminusrank - 1]],
-// 	   RCS.X[RCS.index[NQ + plusminusrank - 1]]);
-
-
-//     alpha = 0.01;
-//     low = mann_whitney_ci(RCS, alpha, &high);
-//     printf("alpha = %.2f: (%8.3f, %8.3f)\n", alpha, diff - low, diff + high);
-
+    free(stat);
     free(RCS.X);
     free(RCS.rank);
     free(RCS.index);

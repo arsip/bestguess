@@ -45,17 +45,19 @@ typedef struct Summary {
   Measures  wall;
 } Summary;
 
-// bitmasks
+// Bitmasks
 #define HAS_NONE(byte) (byte == 0)
 #define HAS(byte, flagname) (((uint8_t)1)<<(flagname) & byte)
 #define SET(byte, flagname) do {		\
     byte = (byte) | (((uint8_t)1)<<(flagname));	\
   } while (0)
 
-// flags for 'code' in Measures 
-#define CODE_HIGHZ 0
-#define CODE_SMALLN 1
-#define CODE_LOWVARIANCE 2
+// Flags for 'code' in Measures
+enum MeasureCodes {
+  CODE_HIGHZ,
+  CODE_SMALLN,
+  CODE_LOWVARIANCE,
+};
 
 // IMPORTANT: A RankedCombinedSample may contain n1+n2 elements (size
 // of 'X' and 'ranks') or n1*n2 elements.
@@ -67,16 +69,35 @@ typedef struct RankedCombinedSample {
   double  *rank;	// assigned ranks for X[]
 } RankedCombinedSample;
 
-// Inferential statistics across a collection of samples
+// Inferential statistics comparing a sample to a reference sample
+// (like the fastest performer)
 typedef struct Inference {
-  char     *cmd;
-  char     *shell;
-  int       runs;
+  int     index;	// 0-based index into Summary array
+  uint8_t results;	// See below
+  double  p;		// p value that η₁ ≠ η₂ (conservative)
+  double  p_adj;	// p value adjusted for ties
+  double  shift;	// Hodges-Lehmann estimation of median shift
+  double  confidence;	// Confidence for shift, e.g. 0.955 for 95.5%
+  int64_t ci_low;	// Confidence interval for shift
+  int64_t ci_high;
+  double  p_super;	// Probability of superiority
 } Inference;
 
+// Flags for 'results' in Inference (results of evaluating inferential
+// statistics).  When 'results' is zero, we have a significant,
+// sizable difference between two samples.
+enum InferenceFlags {
+  INF_NONSIG,		// p value not significant
+  INF_CIZERO,		// CI includes zero
+  INF_NOEFFECT,		// Effect size (diff) too small
+  INF_HIGHSUPER,	// Prob of superiority too high
+};
 
-
-
+Inference *compare_samples(Usage *usage,
+			   int idx,
+			   double alpha,
+			   int ref_start, int ref_end,
+			   int idx_start, int idx_end);
 
 double ranked_diff_Ahat(RankedCombinedSample RCS);
 double mann_whitney_w(RankedCombinedSample RCS);
