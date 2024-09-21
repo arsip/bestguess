@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h> 
 #include <assert.h>
+#include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 
@@ -26,5 +27,13 @@ int main(int argc, char **argv) {
   printf("Stop  %ld sec, %d μsec\n\n", stop.ru_utime.tv_sec, stop.ru_utime.tv_usec);
 
   printf("Granularity %d μsec\n", stop.ru_utime.tv_usec - start.ru_utime.tv_usec);
+
+  struct timespec tp;
+  if (clock_getres(CLOCK_PROCESS_CPUTIME_ID, &tp)) {
+    printf("clock_getres failed!\n");
+    exit(-1);
+  }
+  printf("Clock resolution from API is %ld ns\n",
+	 tp.tv_nsec + tp.tv_sec * 1000 * 1000 * 1000);
 
 }

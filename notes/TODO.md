@@ -153,8 +153,11 @@ State_.
         could be useful.  OS and hardware (CPU, memory)?
 	  - Writing timestamps and measures of system load (and temperature?) into
         the log file between timed executions would be nice.
+		
+	    Function: int getloadavg (double loadavg[], int nelem)
+		This function gets the 1, 5 and 15 minute load averages of the system.
 
-- [ ] Maybe compute medcouple, a non-parametric measure of skewness.
+- [-] Maybe compute medcouple, a non-parametric measure of skewness.
 
 - [ ] There are several conventions for drawing box plots.  Should we adopt the
       one where the whiskers extend at most 1.5 x IQR, with observations beyond
