@@ -22,12 +22,15 @@ const char *ReportOptionName[] = {XReports(SECOND)};
 const char *ReportOptionDesc[] = {XReports(THIRD)};
 #undef THIRD
 
+static char *report_option_string = NULL;
+
 #define BOXPLOT_NOLABELS 0
 #define BOXPLOT_LABEL_ABOVE 1
 #define BOXPLOT_LABEL_BELOW 2
 
 // For printing program help.  Caller must free the returned string.
 char *report_options(void) {
+  if (report_option_string) return report_option_string;
   size_t bufsize = 1000;
   char *buf = malloc(bufsize);
   if (!buf) PANIC_OOM();
@@ -37,7 +40,12 @@ char *report_options(void) {
     len += snprintf(buf + len, bufsize, "\n  %-8s %s",
 		    ReportOptionName[i], ReportOptionDesc[i]);
   }
-  return buf;
+  report_option_string = buf;
+  return report_option_string;
+}
+
+void free_report_options(void) {
+  free(report_option_string);
 }
 
 ReportCode interpret_report_option(const char *op) {
@@ -302,6 +310,7 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
     puts("");
   }
 
+  free(index);
   fflush(stdout);
 }
 
@@ -499,6 +508,7 @@ static bool have_valid_ADscore(Measures *m) {
 	  && !HAS(m->code, CODE_LOWVARIANCE));
 }
 
+// Caller must free returned string
 static const char *ADscore_repr(Measures *m) {
   char *tmp;
   if (have_valid_ADscore(m)) {
@@ -508,6 +518,7 @@ static const char *ADscore_repr(Measures *m) {
   return ". ";
 }
 
+// Caller must free returned string
 static const char *ADscore_description(Measures *m) {
   char *tmp;
   if (have_valid_ADscore(m)) {
@@ -539,6 +550,7 @@ static const char *ADscore_description(Measures *m) {
   return "(not calculated)";
 }
 
+// Caller must free returned string
 static const char *skew_repr(Measures *m) {
   char *tmp;
   if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN)) {
@@ -549,6 +561,7 @@ static const char *skew_repr(Measures *m) {
   return tmp;
 }
 
+// Caller must free returned string
 static const char *skew_description(Measures *m) {
   char *tmp;
   if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN)) {
@@ -569,6 +582,7 @@ static const char *skew_description(Measures *m) {
   }
 }
 
+// Caller must free returned string
 static const char *kurtosis_repr(Measures *m) {
   char *tmp;
   if (!HAS(m->code, CODE_SMALLN)) {
@@ -579,6 +593,7 @@ static const char *kurtosis_repr(Measures *m) {
   return tmp;
 }
 
+// Caller must free returned string
 static const char *kurtosis_description(Measures *m) {
   char *tmp;
   if (!HAS(m->code, CODE_SMALLN)) {
@@ -742,16 +757,17 @@ Usage *read_input_files(int argc, char **argv) {
   char *buf = malloc(buflen);
   if (!buf) PANIC_OOM();
   char *str;
-  int errfield;
-  int lineno;
   CSVrow *row;
   int64_t value;
+  int errfield;
+  int lineno = 1;
   
   for (int i = config.first; i < argc; i++) {
     input[i] = (strcmp(argv[i], "-") == 0) ? stdin : maybe_open(argv[i], "r");
     if (!input[i]) PANIC_NULL();
     // Skip CSV header
     errfield = read_CSVrow(input[i], &row, buf, buflen);
+    free_CSVrow(row);
     if (errfield)
       csv_error(argv[i], lineno, "data", errfield, buf, buflen);
     // Read all the rows
@@ -760,12 +776,14 @@ Usage *read_input_files(int argc, char **argv) {
       lineno++;
       int idx = usage_next(usage);
       str = CSVfield(row, F_CMD);
-      if (!str) csv_error(argv[i], lineno, "string", F_CMD+1, buf, buflen);
+      if (!str)
+	csv_error(argv[i], lineno, "string", F_CMD+1, buf, buflen);
       str = unescape_csv(str);
       set_string(usage, idx, F_CMD, str);
       free(str);
       str = CSVfield(row, F_SHELL);
-      if (!str) csv_error(argv[i], lineno, "string", F_SHELL+1, buf, buflen);
+      if (!str)
+	csv_error(argv[i], lineno, "string", F_SHELL+1, buf, buflen);
       str = unescape_csv(str);
       set_string(usage, idx, F_SHELL, str);
       free(str);
@@ -836,37 +854,6 @@ void print_boxplots(Summary *summaries[], int start, int end) {
   puts("");
 }
 
-#if 0
-// ASSUMES 'start' and 'end' are valid indexes into 'summaries'
-void print_overall_inferences(Summary *summaries[], int start, int end) {
-  if (!summaries) PANIC_NULL();
-
-  // Need at least two commands in order to have a comparison
-  if ((end - start) < 2) {
-    // Groups are a feature of commands read from a file (not from
-    // the command line)
-    if (config.input_filename && (config.action == actionExecute)) {
-      printf("Group contains only one command\n");
-    }
-    return;
-  }
-
-  if (!summaries[start]) return; // No data
-
-//   int *index = sort_by_totaltime(summaries, start, end);
-//   int bestidx = index[0];
-
-//   printf("Best guess is:\n");
-//   printf("  #%d %s ran\n", *COMMAND(bestidx) ? COMMAND(bestidx) : "(empty)");
-//   for (int i = 1; i < (end - start); i++) {
-//     double factor = (double) MEDIAN(index[i]) / (double) MEDIAN(bestidx);
-//     printf("  %6.2f times faster than #%d %s\n",
-// 	   factor, index[i], *COMMAND(index[i]) ? COMMAND(index[i]) : "(empty)");
-//   }
-  fflush(stdout);
-}
-#endif
-
 // TODO: We index into input[] starting at config.first, not 0
 
 // TODO: The CSV reader was not coded for speed.  Could reuse input
@@ -933,7 +920,7 @@ void report(Usage *usage) {
 
   if (count < 2) {
     printf("Only one command.  Not printing experimental new info.\n");
-    goto done;
+    goto done1;
   }
 
   int *index = sort_by_totaltime(s, 0, count);
@@ -945,7 +932,7 @@ void report(Usage *usage) {
 
   if (min_observations < 20) {
     printf("Minimum observations must be at least 20 for this analysis.\n");
-    goto done;
+    goto done2;
   }
 
   Summary *summary1 = s[bestidx];
@@ -1019,7 +1006,9 @@ void report(Usage *usage) {
     free(stat);
   }
 
- done:
+ done2:
+  free(index);
+ done1:
   for (int i = 0; i < count; i++) free_summary(s[i]);
   return;
 }

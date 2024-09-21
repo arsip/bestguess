@@ -170,8 +170,8 @@ FILE *maybe_open(const char *filename, const char *mode);
 
 char *lefttrim(char *str);
 
-int   utf8_length(const char *str);
-int   utf8_width(const char *str, int count);
+size_t utf8_length(const char *str);
+size_t utf8_width(const char *str, int count);
 
 // TODO: DROP THESE!
 // Scale and round to one or two decimal places
@@ -188,25 +188,9 @@ typedef struct Units {
   const char    *fmt_nounits;
 } Units;
 
-static Units time_units[] = {
-  {"μs", 1,          1000,      "%7.0f %-2s", "%7.0f"}, // 1234567 Un
-  {"ms", 1000,       1000*1000, "%7.2f %-2s", "%7.2f"}, // 1234.67 Un
-  {"s",  1000*1000, -1,         "%7.2f %-2s", "%7.2f"}, // 1234.67 Un
-};
-
-static Units space_units[] = {
-  {"B",   1,              1024,           "%7.0f %-2s", "%7.0f"},
-  {"KB", 1024,            1024*1024,      "%7.2f %-2s", "%7.2f"},
-  {"MB", 1024*1024,       1024*1024*1024, "%7.2f %-2s", "%7.2f"},
-  {"GB", 1024*1024*1024, -1,              "%7.2f %-2s", "%7.2f"},
-};
-
-static Units count_units[] = {
-  {"ct", 1,               1000,           "%7.0f %-2s", "%7.0f"},
-  {"K",  1000,            1000*1000,      "%7.2f %-2s", "%7.2f"},
-  {"M",  1000*1000,       1000*1000*1000, "%7.2f %-2s", "%7.2f"},
-  {"G",  1000*1000*1000, -1,              "%7.2f %-2s", "%7.2f"},
-};
+Units time_units[3];
+Units space_units[4];
+Units count_units[4];
 
 #define UNITS 1			// show units (e.g. ms, GB)
 #define NOUNITS 0		// do not show units

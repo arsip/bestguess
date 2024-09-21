@@ -29,6 +29,7 @@ extern const char *ReportOptionName[];
 extern const char *ReportOptionDesc[];
 
 char       *report_options(void);
+void        free_report_options(void);
 ReportCode  interpret_report_option(const char *op);
 
 void   report(Usage *usage);

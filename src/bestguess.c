@@ -137,5 +137,6 @@ int main(int argc, char *argv[]) {
     }
   }
   optable_free();
+  free_report_options();
   return 0;
 }

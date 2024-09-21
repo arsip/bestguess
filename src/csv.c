@@ -112,7 +112,7 @@ int read_CSVrow(FILE *f, CSVrow **ptr, char *buf, size_t buflen) {
   if (errfield) {
     free_CSVrow(*ptr);
     *ptr = NULL;
-    return errfield;
+    return errfield;		// 1-based field number
   }
   return 0;			// Success
 }

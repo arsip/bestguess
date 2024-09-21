@@ -191,10 +191,12 @@ typedef struct macOS_qsort_context {
   void *context;
 } macOS_qsort_context;
 
+#ifndef HAVE_LINUX_QSORT_R
 static int macOS_qsort_compare(void *_mqc, const void *a, const void *b) {
   macOS_qsort_context *mqc = _mqc;
   return mqc->compare(a, b, mqc->context);
 }
+#endif
 
 void sort(void *base, size_t nel, size_t width, 
 	  int (*compare)(const void *, const void *, void *),
@@ -510,6 +512,26 @@ char *lefttrim(char *str) {
 // function to choose the units, and another to apply that choice.
 //
 
+Units time_units[] = {
+  {"μs", 1,          1000,      "%7.0f %-2s", "%7.0f"}, // 1234567 Un
+  {"ms", 1000,       1000*1000, "%7.2f %-2s", "%7.2f"}, // 1234.67 Un
+  {"s",  1000*1000, -1,         "%7.2f %-2s", "%7.2f"}, // 1234.67 Un
+};
+
+Units space_units[] = {
+  {"B",   1,              1024,           "%7.0f %-2s", "%7.0f"},
+  {"KB", 1024,            1024*1024,      "%7.2f %-2s", "%7.2f"},
+  {"MB", 1024*1024,       1024*1024*1024, "%7.2f %-2s", "%7.2f"},
+  {"GB", 1024*1024*1024, -1,              "%7.2f %-2s", "%7.2f"},
+};
+
+Units count_units[] = {
+  {"ct", 1,               1000,           "%7.0f %-2s", "%7.0f"},
+  {"K",  1000,            1000*1000,      "%7.2f %-2s", "%7.2f"},
+  {"M",  1000*1000,       1000*1000*1000, "%7.2f %-2s", "%7.2f"},
+  {"G",  1000*1000*1000, -1,              "%7.2f %-2s", "%7.2f"},
+};
+
 Units *select_units(int64_t maxvalue, Units *options) {
   if (!options) PANIC_NULL();
   int i = 0;
@@ -592,9 +614,9 @@ static const char *utf8_index(const char *str, int i) {
 // characters, it will take up less horizontal space than its utf8
 // length suggests.
 // 
-int utf8_length(const char *str) {
+size_t utf8_length(const char *str) {
   if (!str) PANIC_NULL();
-  int len = 0;
+  size_t len = 0;
   while ((str = utf8_next(str))) len++;
   return len;
 }
@@ -602,10 +624,10 @@ int utf8_length(const char *str) {
 // How many bytes of 'str' are in the first 'count' characters?  If
 // there are less than 'count' characters, returns the length of 'str'.
 //
-int utf8_width(const char *str, int count) {
+size_t utf8_width(const char *str, int count) {
   if (!str) PANIC_NULL();
   if (count < 0)
     PANIC("Width in bytes cannot be calculated for %d (< 0) codepoints", count);
   const char *s = utf8_index(str, count);
-  return s ? (int) (s - str) : strlen(str);
+  return s ? (size_t) (s - str) : strlen(str);
 }

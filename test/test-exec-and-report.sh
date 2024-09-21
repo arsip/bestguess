@@ -40,13 +40,13 @@ function contains {
 
 # Default report is summary
 ok "$prog" /bin/bash
-contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
+contains "Command #1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
 ok "$prog" -R summary /bin/bash
-contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
+contains "Command #1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
 
 # Brief report
 ok "$prog" -R brief /bin/bash
-contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
+contains "Command #1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
 
 # No report and only one program, so nothing to compare it with
 ok "$prog" -R none /bin/bash
@@ -57,16 +57,16 @@ contains "times faster than"
 
 # Graph with default report
 ok "$prog" -g /bin/bash
-contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" "0     " "     max"
+contains "Command #1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" "0     " "     max"
 
 # Graph with no report
 ok "$prog" -R none -g /bin/bash
-contains "Command 1" "/bin/bash"
+contains "Command #1" "/bin/bash"
 contains "│▭▭▭▭▭▭▭▭" "0" "max"
 
 # Boxplot
 ok "$prog" -B /bin/bash
-contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" 
+contains "Command #1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" 
 contains "├────" "─┼─"
 
 # Boxplot with no report
@@ -80,7 +80,7 @@ for warmups in $(seq 0 5); do
 	if [[ $runs -eq 0 ]]; then
 	    contains "No data"
 	else
-	    contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
+	    contains "Command #1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
 	fi
 
 	# Brief report
@@ -88,7 +88,7 @@ for warmups in $(seq 0 5); do
 	if [[ $runs -eq 0 ]]; then
 	    contains "No data"
 	else
-	    contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
+	    contains "Command #1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
 	fi
 
 	# Graph
@@ -96,7 +96,7 @@ for warmups in $(seq 0 5); do
 	if [[ $runs -eq 0 ]]; then
 	    contains "No data"
 	else
-	    contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
+	    contains "Command #1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
 	    contains "0     "  "     max"
 	fi
 
