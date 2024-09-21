@@ -123,6 +123,20 @@ State_.
 
 ## BestGuess features
 
+- [ ] Raw data files should have a "batch number" in every row.  That way, users
+      can benchmark the same command more than once (or combine results files
+      that include the same command) and the reporting can use the batch numbers
+      to tell them apart.
+
+- [ ] Our reporting is becoming so comprehensive that we may want to support
+      reporting on a subset of samples found in raw data files.  Assuming each
+      sample has a "batch number" unique to its data file, we might allow users
+      to report on certain ones, e.g. `--batch 2,3-5,10`.
+
+- [ ] Consider an `--explain` option that prints explanations of descriptive and
+      inferential statistics.  E.g. `--explain infer` or maybe more granular
+      like `--explain skew`.
+
 - [ ] We can compute Mann-Whitney U values for sample sizes under 20 if we use a
 	  table of critical U values instead of the normal-based approximation to
 	  p-value calculation we support today.  See,
@@ -130,11 +144,6 @@ State_.
 
 - [ ] The Hyperfine ability to let the user name their commands is another good
       one from that project.  It should make reports much easier to read.
-
-- [ ] Raw data files should have a "batch number" in every row.  That way, users
-      can benchmark the same command more than once (or combine results files
-      that include the same command) and the reporting can use the batch numbers
-      to tell them apart.
 
 - [ ] A log feature might be useful.  It would log actions such as warmup runs
       and timed runs, to make the overall behavior explicit.  This feature could

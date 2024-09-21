@@ -42,6 +42,7 @@ Config config = {
   .boxplot = false,
   .width = 80,			 // terminal width
   // Inferential stats report
+  .alpha = 0.05,		 // p-value threshold
   .ci_epsilon = 125,		 // μs
   .min_effect = 250,		 // μs
   .high_superiority = 1.0 / 3.0, // probability

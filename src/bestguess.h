@@ -79,6 +79,7 @@ typedef struct Config {
   bool boxplot;
   int  width;
   // Inferential statistics interpretation
+  double  alpha;		// p-value threshold for significance
   int64_t ci_epsilon;		// μs
   double  min_effect;		// μs
   double  high_superiority;	// probability

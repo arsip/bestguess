@@ -19,14 +19,96 @@
    useful as it represents the most common value.  That is, the mode
    is the most "typical" runtime.
 
-   However, if we are most concerned with the long tail, then the 99th
-   percentile value should be highlighted.
+   However, if we are more concerned with the long tail, then the 95th
+   and 99th percentile values should be highlighted.
 
    Given a choice between either median or mean, the median of a
    right-skewed distribution is typically the closer of the two to the
    mode.
 
  */
+
+// -----------------------------------------------------------------------------
+// Z score calculation without a table
+// -----------------------------------------------------------------------------
+
+// Cumulative (less than Z) Z-score calculation.  Instead of a table,
+// we iteratively estimate each needed value to an accuracy greater
+// than that of most tables.
+//
+// Benefits:
+//
+// (1) Tables are only accurate to 5 digits, and we can get
+// around 15 digits from Phi(x) below.
+//
+// (2) Tables usually provide values for Z-scores from about -4.0 to
+// 4.0, and we can get fairly accurate results out to -8.0 and 8.0.
+//
+// Phi and cPhi functions are published here:
+//
+//   Marsaglia, G. (2004). Evaluating the Normal Distribution.
+//   Journal of Statistical Software, 11(4), 1–11.
+//   https://doi.org/10.18637/jss.v011.i04
+//
+// Phi(x) produces "an absolute error less than 8×10^−16."  Marsaglia
+// suggests returning 0 for x < −8 and 1 for x > 8 "since an error of
+// 10^−16 can make a true result near 0 negative, or near 1, exceed 1."
+//
+static double Phi(double x) {
+  if (x < -8.0) return 0.0;
+  if (x > 8.0) return 1.0;
+  long double s = x, t = 0.0, b = x, q = x*x, i = 1.0;
+  while (s != t)
+    s = (t=s) + (b *= q / (i += 2));
+  return 0.5 + s * exp(-0.5 * q - 0.91893853320467274178L);
+}
+
+static double cPhi(double x) {
+  int j= 0.5 * (fabs(x) + 1.0);
+  long double R[9]= { 1.25331413731550025L,
+		      0.421369229288054473L,
+		      0.236652382913560671L,
+		      0.162377660896867462L,
+		      0.123131963257932296L,
+		      0.0990285964717319214L,
+		      0.0827662865013691773L,
+		      0.0710695805388521071L,
+		      0.0622586659950261958L };
+  long double pwr = 1.0, a = R[j], z = 2*j, b = a*z - 1;
+  long double h = fabs(x) - z, s = a + h*b, t = a, q = h * h;
+  for (int i = 2; s != t; i += 2){
+    a = (a + z*b)/i;
+    b = (b+ z*a)/(i+1);
+    pwr *= q;
+    s = (t=s) + pwr*(a + h*b);
+  }
+  s = s * exp(-0.5*x*x - 0.91893853320467274178L);
+  if (x >= 0)
+    return (double) s;
+  return (double) (1.0 - s);
+}
+
+// The CDF of the normal function increases monotonically, so we can
+// numerically invert it using binary search.  It's not fast, but we
+// don't need it to be fast.
+static double invPhi(double p) {
+  if (p <= 0.0) return -8.0;
+  if (p >= 1.0) return  8.0;
+  double Zhigh = (p < 0.5) ? 0.0 : 8.0;
+  double Zlow = (p < 0.5) ? -8.0 : 0.0;
+  double Zmid, approx, err;
+  while (1) {
+    Zmid = Zlow + (Zhigh - Zlow) / 2.0;
+    approx = Phi(Zmid);
+    err = approx - p;
+    if (fabs(err) < 0.000001)	// Adjust as necessary
+      return Zmid;
+    if (err > 0.0) 
+      Zhigh = Zmid;
+    else
+      Zlow = Zmid;
+  }
+}
 
 // -----------------------------------------------------------------------------
 // Testing a sample distribution for normality
@@ -96,9 +178,9 @@
 // we examined is actually normal, or a 99% chance it is NOT normal.
 //
 static double calculate_p(double AD) {
-  if (AD <= 0.2) return 1.0 - exp(-13.436 + 101.14*AD - 223.73*AD*AD);
+  if (AD <= 0.20) return 1.0 - exp(-13.436 + 101.14*AD - 223.73*AD*AD);
   if (AD <= 0.34) return 1.0 - exp(-8.318 + 42.796*AD - 59.938*AD*AD);
-  if (AD <  0.6) return exp(0.9177 - 4.279*AD - 1.38*AD*AD);
+  if (AD <  0.60) return exp(0.9177 - 4.279*AD - 1.38*AD*AD);
   else return exp(1.2937 - 5.709*AD + 0.0186*AD*AD);
 }
 
@@ -125,13 +207,26 @@ static double AD_from_Y(int n,		      // number of data points
   return A;
 }
 
-static double AD_normality(int64_t *X,    // ranked data points
-			   int n,         // number of data points
-			   double mean,
-			   double stddev) {
+// Returns true if we were able to calculate an AD score, and false if
+// we encountered Z scores too high to do the calculation.  In the
+// latter case, the 'ADscore' value is the most extreme Z score seen.
+// The returned boolean should be saved as CODE_HIGHZ so that the
+// meaning of 'ADscore' can be properly interpreted.
+//
+static bool AD_normality(int64_t *X,    // ranked data points
+			 int n,         // number of data points
+			 double mean,
+			 double stddev,
+			 double *ADscore) {
   assert(X && (n > 0));
+  if (!X || !ADscore) PANIC_NULL();
+
   double *Y = malloc(n * sizeof(double));
   if (!Y) PANIC_OOM();
+
+  // Set zero value for 'extremeZ' as a sentinel
+  double extremeZ = 0.0;
+
   for (int i = 0; i < n; i++) {
     // Y is a vector of studentized residuals
     Y[i] = ((double) X[i] - mean) / stddev;
@@ -139,18 +234,19 @@ static double AD_normality(int64_t *X,    // ranked data points
       PANIC("Got NaN.  Should not have attempted AD test because stddev is zero.");
     }
     // Extreme values (i.e. high Z scores) indicate a long tail, and
-    // prevent the computation of a meaningful AD score.
-    // Approximately 1 observation in 15,787 will be more than 4 std
-    // deviations from the estimated mean per
-    // https://en.wikipedia.org/wiki/68–95–99.7_rule
-    if (fabs(Y[i]) > 4.0) {
-      free(Y);
-      return -1;
+    // prevent the computation of a meaningful AD score.  NOTE: An
+    // observation that is around 7 std deviations from the mean will
+    // occur in a normal distribution with probability 1 in 390 BILLION.
+    // See e.g. https://en.wikipedia.org/wiki/68–95–99.7_rule
+    if (fabs(Y[i]) > 7.0) {
+      // Track the highest Z score we encounter
+      if (fabs(Y[i]) > fabs(extremeZ))
+	extremeZ = Y[i];
     }
   }
-  double A = AD_from_Y(n, Y, normalCDF);
+  *ADscore = (extremeZ != 0.0) ? extremeZ : AD_from_Y(n, Y, Phi);
   free(Y);
-  return A;
+  return (extremeZ == 0.0);
 }
 
 // -----------------------------------------------------------------------------
@@ -302,19 +398,103 @@ static int64_t *ranked_sample(Usage *usage,
 // normal in the sense of the peak and tails, and skewness can tell us
 // about asymmetry.
 
+// https://www.stat.cmu.edu/~hseltman/files/spssSkewKurtosis.R
+// spssSkewKurtosis=function(x) {
+//   w=length(x)
+//   m1=mean(x)
+//   m2=sum((x-m1)^2)
+//   m3=sum((x-m1)^3)
+//   m4=sum((x-m1)^4)
+//   s1=sd(x)
+//   skew=w*m3/(w-1)/(w-2)/s1^3
+//   sdskew=sqrt( 6*w*(w-1) / ((w-2)*(w+1)*(w+3)) )
+//   kurtosis=(w*(w+1)*m4 - 3*m2^2*(w-1)) / ((w-1)*(w-2)*(w-3)*s1^4)
+//   sdkurtosis=sqrt( 4*(w^2-1) * sdskew^2 / ((w-3)*(w+5)) )
+//   mat=matrix(c(skew,kurtosis, sdskew,sdkurtosis), 2,
+//         dimnames=list(c("skew","kurtosis"), c("estimate","se")))
+//   return(mat)
+// }
+
 // Excess kurtosis = (1 / n) * Σ((X_i - mean) / std)⁴ - 3
 //   > 0 ==> "sharp peak, heavy tails"
 //   < 0 ==> "flat peak, light tails"
 //   near zero, the distribution resembles a normal one
-
+static double kurtosis(int64_t *X,
+		       int n,
+		       double mean,
+		       double stddev) {
+  double sum = 0.0;
+  for (int i = 0; i < n; i++)
+    sum += pow((X[i] - mean) / stddev, 4.0);
+  return (sum / n) - 3.0;
+}
 
 // Moment-based calculation of skew
 // skew = (n / ((n - 1) * (n - 2))) * Σ((X_i - mean) / std)³
 //   abs(skew) < 0.5 ==> approximately symmetric
 //   0.5 < abs(skew) < 1.0 ==> moderately skewed
 //   abs(skew) > 1.0 ==> highly skewed
+static double skew(int64_t *X,
+		   int n,
+		   double mean,
+		   double stddev) {
+  double sum = 0.0;
+  for (int i = 0; i < n; i++)
+    sum += pow((X[i] - mean) / stddev, 3.0);
+  return sum * n / (n-1) / (n-2);
+}
 
+// "As the standard errors get smaller when the sample size increases,
+// z-tests under null hypothesis of normal distribution tend to be
+// easily rejected in large samples"
+// https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3591587/
+//
+// If we follow the guidance in that article, we should use absolute
+// values of 2 (skew) and 4 (excess kurtosis) as thresholds of
+// substantial deviation from normality for sample sizes > 300.
+// 
+// Sample sizes < 50
+//   ==> Reject normality when Zskew or Zkurtosis > 1.96 (alpha = .05)
+// Sample sizes 50..300
+//   ==> Reject normality when Zskew or Zkurtosis > 3.29 (alpha = .001)
+//
+// Similar advice is given in
+// https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3693611/
+//
+// Reminder:
+//   α = .05 ==> critical Z score (abs) 1.96
+//   α = .01 ==> critical Z score (abs) 2.58
+//   α = .001 ==> critical Z score (abs) 3.29
 
+static double Zcrit(double alpha) {
+  return fabs(invPhi(alpha / 2.0));
+}
+
+static double skew_stddev(int n) {
+  return sqrt(6.0 * n * (n-1) / ((n-2) * (n+1) * (n+3)));
+}
+
+static double skew_kurtosis_Zcrit(int n) {
+  if (n > 100) return Zcrit(0.001);
+  if (n > 50) return Zcrit(0.01);
+  return Zcrit(0.05);
+}
+
+static bool nonnormal_skew(double skew, int n) {
+  static double skew_large_sample = 2.0;
+  if (n > 300) return (fabs(skew) > skew_large_sample);
+  double sdskew = skew_stddev(n);
+  double Zabs = fabs(skew / sdskew);
+  return (Zabs > skew_kurtosis_Zcrit(n));
+}
+
+static bool nonnormal_kurtosis(double kurtosis, int n) {
+  if (n > 300) return (fabs(kurtosis) > 4.0); // 7.0 - 3.0
+  double sdskew = skew_stddev(n);
+  double sdkurtosis = sqrt(4.0 * (n*n - 1) * sdskew * sdskew / ((n-3)*(n+5)));
+  double Zabs = fabs(kurtosis / sdkurtosis);
+  return (Zabs > skew_kurtosis_Zcrit(n));
+}
 
 // TODO: How close to zero is too small a stddev (or variance) for
 // ADscore to be meaningful?
@@ -375,12 +555,16 @@ static void measure(Usage *usage,
   assert(m->skew == 0.0);
   if (m->code != 0) goto noscore;
 
-  m->skew = (m->est_mean - m->median) / m->est_stddev;
+  m->skew = skew(X, runs, m->est_mean, m->est_stddev);
+  if (nonnormal_skew(m->skew, runs))
+    SET(m->code, CODE_HIGH_SKEW);
+  
+  m->kurtosis = kurtosis(X, runs, m->est_mean, m->est_stddev);
+  if (nonnormal_kurtosis(m->kurtosis, runs))
+    SET(m->code, CODE_HIGH_KURTOSIS);
 
-  m->ADscore = AD_normality(X, runs, m->est_mean, m->est_stddev);
-  // Off-the-charts z-scores are only detected when we calculate the
-  // AD score.
-  if (m->ADscore == -1) {
+  // Off-the-charts z-scores are detected when calculating the AD score.
+  if (!AD_normality(X, runs, m->est_mean, m->est_stddev, &(m->ADscore))) {
     SET(m->code, CODE_HIGHZ);
     goto noscore;
   }
@@ -389,7 +573,6 @@ static void measure(Usage *usage,
   return;
 
  noscore:
-  m->ADscore = -1;
   m->p_normal = -1;
   free(X);
   return;
@@ -406,186 +589,6 @@ void free_summary(Summary *s) {
   free(s->cmd);
   free(s->shell);
   free(s);
-}
-
-// -----------------------------------------------------------------------------
-// Z score calculation via table
-// -----------------------------------------------------------------------------
-
-// Cumulative (less than Z) Z-score calculation.  The table here gives
-// the probability that a statistic is between negative infinity and Z.
-//
-// See e.g. https://en.wikipedia.org/wiki/Standard_normal_table
-//
-// Values -4.09..4.09 map to table indexes 0..817.
-//
-// Divide Ztable[index] by 10^4 to get the actual value.
-//
-// E.g. the Z-score for -4.05 is at index -405+409=4. Ztable[4] = 3.
-// This value is the first 3 in the first row below.  The Z-score for
-// -4.05 is 3/10^4 = 0.00003.
-//
-static const int
-Ztable[] = {2, 2, 2, 2, 3, 3, 3, 3, 3, 3,
-	    3, 3, 4, 4, 4, 4, 4, 4, 5, 5,
-	    5, 5, 5, 6, 6, 6, 6, 7, 7, 7,
-	    8, 8, 8, 8, 9, 9, 10, 10, 10, 11,
-	    11, 12, 12, 13, 13, 14, 14, 15, 15, 16,
-	    17, 17, 18, 19, 19, 20, 21, 22, 22, 23,
-	    24, 25, 26, 27, 28, 29, 30, 31, 32, 34,
-	    35, 36, 38, 39, 40, 42, 43, 45, 47, 48,
-	    50, 52, 54, 56, 58, 60, 62, 64, 66, 69,
-	    71, 74, 76, 79, 82, 84, 87, 90, 94, 97,
-	    100, 104, 107, 111, 114, 118, 122, 126, 131, 135,
-	    139, 144, 149, 154, 159, 164, 169, 175, 181, 187,
-	    193, 199, 205, 212, 219, 226, 233, 240, 248, 256,
-	    264, 272, 280, 289, 298, 307, 317, 326, 336, 347,
-	    357, 368, 379, 391, 402, 415, 427, 440, 453, 466,
-	    480, 494, 508, 523, 539, 554, 570, 587, 604, 621,
-	    639, 657, 676, 695, 714, 734, 755, 776, 798, 820,
-	    842, 866, 889, 914, 939, 964, 990, 1017, 1044, 1072,
-	    1101, 1130, 1160, 1191, 1222, 1255, 1287, 1321, 1355, 1390,
-	    1426, 1463, 1500, 1539, 1578, 1618, 1659, 1700, 1743, 1786,
-	    1831, 1876, 1923, 1970, 2018, 2068, 2118, 2169, 2222, 2275,
-	    2330, 2385, 2442, 2500, 2559, 2619, 2680, 2743, 2807, 2872,
-	    2938, 3005, 3074, 3144, 3216, 3288, 3362, 3438, 3515, 3593,
-	    3673, 3754, 3836, 3920, 4006, 4093, 4182, 4272, 4363, 4457,
-	    4551, 4648, 4746, 4846, 4947, 5050, 5155, 5262, 5370, 5480,
-	    5592, 5705, 5821, 5938, 6057, 6178, 6301, 6426, 6552, 6681,
-	    6811, 6944, 7078, 7215, 7353, 7493, 7636, 7780, 7927, 8076,
-	    8226, 8379, 8534, 8692, 8851, 9012, 9176, 9342, 9510, 9680,
-	    9853, 10027, 10204, 10383, 10565, 10749, 10935, 11123, 11314, 11507,
-	    11702, 11900, 12100, 12302, 12507, 12714, 12924, 13136, 13350, 13567,
-	    13786, 14007, 14231, 14457, 14686, 14917, 15151, 15386, 15625, 15866,
-	    16109, 16354, 16602, 16853, 17106, 17361, 17619, 17879, 18141, 18406,
-	    18673, 18943, 19215, 19489, 19766, 20045, 20327, 20611, 20897, 21186,
-	    21476, 21770, 22065, 22363, 22663, 22965, 23270, 23576, 23885, 24196,
-	    24510, 24825, 25143, 25463, 25785, 26109, 26435, 26763, 27093, 27425,
-	    27760, 28096, 28434, 28774, 29116, 29460, 29806, 30153, 30503, 30854,
-	    31207, 31561, 31918, 32276, 32636, 32997, 33360, 33724, 34090, 34458,
-	    34827, 35197, 35569, 35942, 36317, 36693, 37070, 37448, 37828, 38209,
-	    38591, 38974, 39358, 39743, 40129, 40517, 40905, 41294, 41683, 42074,
-	    42465, 42858, 43251, 43644, 44038, 44433, 44828, 45224, 45620, 46017,
-	    46414, 46812, 47210, 47608, 48006, 48405, 48803, 49202, 49601,
-	    50000,
-	    50399, 50798, 51197, 51595, 51994, 52392, 52790, 53188, 53586, 
-	    53983, 54380, 54776, 55172, 55567, 55962, 56360, 56749, 57142, 57535, 
-	    57926, 58317, 58706, 59095, 59483, 59871, 60257, 60642, 61026, 61409, 
-	    61791, 62172, 62552, 62930, 63307, 63683, 64058, 64431, 64803, 65173, 
-	    65542, 65910, 66276, 66640, 67003, 67364, 67724, 68082, 68439, 68793, 
-	    69146, 69497, 69847, 70194, 70540, 70884, 71226, 71566, 71904, 72240, 
-	    72575, 72907, 73237, 73565, 73891, 74215, 74537, 74857, 75175, 75490, 
-	    75804, 76115, 76424, 76730, 77035, 77337, 77637, 77935, 78230, 78524, 
-	    78814, 79103, 79389, 79673, 79955, 80234, 80511, 80785, 81057, 81327, 
-	    81594, 81859, 82121, 82381, 82639, 82894, 83147, 83398, 83646, 83891, 
-	    84134, 84375, 84614, 84849, 85083, 85314, 85543, 85769, 85993, 86214, 
-	    86433, 86650, 86864, 87076, 87286, 87493, 87698, 87900, 88100, 88298, 
-	    88493, 88686, 88877, 89065, 89251, 89435, 89617, 89796, 89973, 90147, 
-	    90320, 90490, 90658, 90824, 90988, 91149, 91308, 91466, 91621, 91774, 
-	    91924, 92073, 92220, 92364, 92507, 92647, 92785, 92922, 93056, 93189, 
-	    93319, 93448, 93574, 93699, 93822, 93943, 94062, 94179, 94295, 94408, 
-	    94520, 94630, 94738, 94845, 94950, 95053, 95154, 95254, 95352, 95449, 
-	    95543, 95637, 95728, 95818, 95907, 95994, 96080, 96164, 96246, 96327, 
-	    96407, 96485, 96562, 96638, 96712, 96784, 96856, 96926, 96995, 97062, 
-	    97128, 97193, 97257, 97320, 97381, 97441, 97500, 97558, 97615, 97670, 
-	    97725, 97778, 97831, 97882, 97932, 97982, 98030, 98077, 98124, 98169, 
-	    98214, 98257, 98300, 98341, 98382, 98422, 98461, 98500, 98537, 98574, 
-	    98610, 98645, 98679, 98713, 98745, 98778, 98809, 98840, 98870, 98899, 
-	    98928, 98956, 98983, 99010, 99036, 99061, 99086, 99111, 99134, 99158, 
-	    99180, 99202, 99224, 99245, 99266, 99286, 99305, 99324, 99343, 99361, 
-	    99379, 99396, 99413, 99430, 99446, 99461, 99477, 99492, 99506, 99520, 
-	    99534, 99547, 99560, 99573, 99585, 99598, 99609, 99621, 99632, 99643, 
-	    99653, 99664, 99674, 99683, 99693, 99702, 99711, 99720, 99728, 99736, 
-	    99744, 99752, 99760, 99767, 99774, 99781, 99788, 99795, 99801, 99807, 
-	    99813, 99819, 99825, 99831, 99836, 99841, 99846, 99851, 99856, 99861, 
-	    99865, 99869, 99874, 99878, 99882, 99886, 99889, 99893, 99896, 99900, 
-	    99903, 99906, 99910, 99913, 99916, 99918, 99921, 99924, 99926, 99929, 
-	    99931, 99934, 99936, 99938, 99940, 99942, 99944, 99946, 99948, 99950, 
-	    99952, 99953, 99955, 99957, 99958, 99960, 99961, 99962, 99964, 99965, 
-	    99966, 99968, 99969, 99970, 99971, 99972, 99973, 99974, 99975, 99976, 
-	    99977, 99978, 99978, 99979, 99980, 99981, 99981, 99982, 99983, 99983, 
-	    99984, 99985, 99985, 99986, 99986, 99987, 99987, 99988, 99988, 99989, 
-	    99989, 99990, 99990, 99990, 99991, 99991, 99992, 99992, 99992, 99992, 
-	    99993, 99993, 99993, 99994, 99994, 99994, 99994, 99995, 99995, 99995, 
-	    99995, 99995, 99996, 99996, 99996, 99996, 99996, 99996, 99997, 99997, 
-	    99997, 99997, 99997, 99997, 99997, 99997, 99998, 99998, 99998, 99998};
-
-// https://owlcalculator.com/statistics/normal-distribution-calculator/by-z-score
-// 4.09, 0.99997842
-// 4.10, 0.99997933
-// 4.11, 0.99998021
-// 4.12, 0.99998105
-// 4.13, 0.99998185
-// 4.14, 0.99998262
-// 4.15, 0.99998337
-//
-// 4.50, 0.9999966
-//
-
-
-static int integer_normalCDF(int scaled_z) {
-  if (scaled_z < -409) return 0;
-  if (scaled_z > 409) return 100000;
-  return Ztable[scaled_z + 409];
-}
-
-double normalCDF(double z) {
-  int scaled_z = round(z * 1000.0);
-  int units = scaled_z % 10;
-  int lower = scaled_z - ((units < 0) ? (units + 10) : units);
-  int upper = lower + 10;
-  double diff = integer_normalCDF(upper/10) - integer_normalCDF(lower/10);
-  if (units < 0) units = 10 + units;
-  double value = integer_normalCDF(lower/10) + ((double) units/10.0 * diff);
-  assert(integer_normalCDF(upper/10) >= value);
-  assert(integer_normalCDF(lower/10) <= value);
-  return value / 10e4;
-}
-
-// Current impl searches the table.  It's slow, but it isn't used
-// often.  FUTURE: Maybe do something better here.
-double inverseCDF(double alpha) {
-  // E.g. when alpha is 0.9750, target index is 97500
-  int target = round(alpha * 100000.0);
-  if (target < 2) return -4.10;	   // precision limit of our table
-  if (target > 99998) return 4.10; // precision limit of our table
-  int d, distance = 100000;
-  int answer = -12345;
-  //printf("Alpha is %f, Target is %d\n", alpha, target);
-  for (int x = -409; x <= 409; x++) {
-    d = abs(integer_normalCDF(x) - target);
-    if (d < distance) {
-      answer = x;
-      distance = d;
-    }
-  }
-  if (answer == -12345)
-    PANIC("Inverse CDF search failed for alpha = %f", alpha);
-  return (double) answer / 100.0;
-}
-
-__attribute__((unused))
-void print_zscore_table(void) {
-  int rows;
-  printf("             %7.2f", 0.0);
-  for (int b = 1; b <= 9; b++)
-    printf("  %7.2f", b * 0.01);
-  printf("\n");
-  for (int a = -41; a <= 41; a++) {
-    rows = (a == 0) ? 2 : 1;
-    // The zero row prints twice, once for the values -0.00..-0.09 and
-    // once for 0.00..0.09.
-    for (int j = 0; j < rows; j++) {
-      printf("z = %4.1f  :  ", (double) a / 10.0);
-      for (int b = 0; b <= 9; b++) {
-	int zz = a * 10 + ((a <= 0) ? -b : b);
-	if (j == 1) zz = a * 10 + b;
-	printf("%7.5f  ", normalCDF(zz / 100.0));
-      }
-      printf("\n");
-    }
-  }
-  printf("\n");
 }
 
 // -----------------------------------------------------------------------------
@@ -701,10 +704,10 @@ static int XO_lt(const void *a, const void *b, void *data) {
 //  
 // Requires start/end ranges for sample 1 and sample 2 are non-empty
 // and do not overlap.  N.B. end index is not included in range.
-RankedCombinedSample rank_combined_samples(Usage *usage,
-					   int start1, int end1,
-					   int start2, int end2,
-					   FieldCode fc) {
+static RankedCombinedSample rank_combined_samples(Usage *usage,
+						  int start1, int end1,
+						  int start2, int end2,
+						  FieldCode fc) {
 //   printf("Ranking combined samples:\n");
 //   printf("sample 1 [%d, %d)\nsample 2 [%d, %d)\n",
 // 	 start1, end1, start2, end2);
@@ -754,10 +757,10 @@ RankedCombinedSample rank_combined_samples(Usage *usage,
   return (RankedCombinedSample) {n1, n2, X, origin, ranks};
 }
 
-RankedCombinedSample rank_difference_magnitude(Usage *usage,
-					       int start1, int end1,
-					       int start2, int end2,
-					       FieldCode fc) {
+static RankedCombinedSample rank_difference_magnitude(Usage *usage,
+						      int start1, int end1,
+						      int start2, int end2,
+						      FieldCode fc) {
   int n1 = end1 - start1;
   int n2 = end2 - start2;
   int N = n1 * n2;
@@ -816,10 +819,10 @@ RankedCombinedSample rank_difference_magnitude(Usage *usage,
   return (RankedCombinedSample) {n1, n2, Y, NULL, ranks};
 }
 
-RankedCombinedSample rank_difference_signed(Usage *usage,
-					    int start1, int end1,
-					    int start2, int end2,
-					    FieldCode fc) {
+static RankedCombinedSample rank_difference_signed(Usage *usage,
+						   int start1, int end1,
+						   int start2, int end2,
+						   FieldCode fc) {
   int n1 = end1 - start1;
   int n2 = end2 - start2;
   int N = n1 * n2;
@@ -855,7 +858,7 @@ RankedCombinedSample rank_difference_signed(Usage *usage,
 
 // RCS must rank the set of n1 * n2 sample DIFFERENCES by their
 // MAGNITUDE.  
-double mann_whitney_w(RankedCombinedSample RCS) {
+static double mann_whitney_w(RankedCombinedSample RCS) {
   int N = RCS.n1 * RCS.n2;
   int count_zero = 0;
   int count_pos = 0;
@@ -875,7 +878,7 @@ double mann_whitney_w(RankedCombinedSample RCS) {
 //
 // Also called the Wilcoxon rank sum.  And sometimes labeled W.
 //
-double mann_whitney_u(RankedCombinedSample RCS, double *U1, double *U2) {
+static double mann_whitney_u(RankedCombinedSample RCS, double *U1, double *U2) {
   double R1 = 0.0;
   double R2 = 0.0;
   int N = RCS.n1 + RCS.n2;
@@ -910,7 +913,7 @@ double mann_whitney_p(RankedCombinedSample RCS, double U) {
   stddev = stddev * correction;
   double Z = mean_dist / stddev;
   // p-value for hypothesis that median 1 < median 2
-  return normalCDF(Z);
+  return Phi(Z);
 }
 #endif
 
@@ -964,7 +967,7 @@ static double tie_correction(RankedCombinedSample RCS) {
 // https://statisticsbyjim.com/hypothesis-testing/mann-whitney-u-test/
 // https://support.minitab.com/en-us/minitab/help-and-how-to/statistics/nonparametrics/how-to/mann-whitney-test/methods-and-formulas/methods-and-formulas/
 //
-double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp) {
+static double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp) {
   int n1 = RCS.n1;
   int n2 = RCS.n2;
   double K = fmin(W, n1 * (n1 + n2 + 1) - W);
@@ -980,10 +983,10 @@ double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp) {
   double stddev = sqrt((double) (n1 * n2 * (n1 + n2 + 1)) / 12.0);
    // p-value for hypothesis that η₁ ≠ η₂
   double Zne = (mean_distanceK - cc) / stddev;
-  double p = 2 * (1 - normalCDF(Zne));
+  double p = 2 * cPhi(Zne);
   //printf("Unadjusted p value η₁ ≠ η₂ is %.4f\n", p);
   //double Zne = (k + cc) / stddev;
-  //printf("Unadjusted p value η₁ ≠ η₂ is %.4f\n", 2 * (1 - normalCDF(Zne)));
+  //printf("Unadjusted p value η₁ ≠ η₂ is %.4f\n", 2 * (1 - Phi(Zne)));
 
   // At high Z scores, the calculation of p may produce a value
   // outside of [0.0, 1.0].  Here we clamp p to that range:
@@ -998,7 +1001,7 @@ double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp) {
     //printf("STDDEV = %.4f, ADJUSTED = %.4f\n", stddev, stddev_adjusted);
     double adjustedZ = (mean_distanceK - cc) / stddev_adjusted;
     //printf("Zne = %.4f, ADJUSTED Zne = %.4f\n", Zne, adjustedZ);
-    *adjustedp = 2 * (1 - normalCDF(adjustedZ));
+    *adjustedp = 2 * cPhi(adjustedZ);
     if (*adjustedp < 0.0) *adjustedp = 0.0;
     if (*adjustedp > 1.0) *adjustedp = 1.0;
     //printf("Adjusted for ties, p value is %.4f\n", *adjustedp);
@@ -1013,11 +1016,11 @@ double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp) {
 //
 // Returns low end of confidence interval, sets '*highptr' to high end.
 // 
-int64_t mann_whitney_U_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr) {
+static int64_t mann_whitney_U_ci(RankedCombinedSample RCS, double alpha, int64_t *highptr) {
   int n1 = RCS.n1;
   int n2 = RCS.n2;
   int N = n1 * n2;
-  double Zcrit = inverseCDF(1 - alpha/2.0);
+  double Zcrit = invPhi(1 - alpha/2.0);
   double meanU = (double) N / 2.0;
   double U1, U2;
   double U = mann_whitney_u(RCS, &U1, &U2);
@@ -1047,7 +1050,7 @@ int64_t mann_whitney_U_ci(RankedCombinedSample RCS, double alpha, int64_t *highp
   printf("                   low = %.3f, high = %.3f\n", low/(double)N, high/(double)N);
   double Zu = (U - meanU - 0.5) / stddev_adjusted;
   printf("  Z_u = %.3f\n", Zu);
-  printf("  corresponding p =  %.4f\n", normalCDF(Zu));
+  printf("  corresponding p =  %.4f\n", Phi(Zu));
   printf("\n");
 // Calculate ranks for each end of confidence interval
 //   int lowidx = -1, highidx = -1;
@@ -1086,14 +1089,14 @@ int64_t mann_whitney_U_ci(RankedCombinedSample RCS, double alpha, int64_t *highp
 // Jim" as he reports a narrower range by 1 rank on the low side and 1
 // rank on the high side.  Which approach is best?
 //
-double median_diff_ci(RankedCombinedSample RCS,
-		      double alpha,
-		      int64_t *lowptr,
-		      int64_t *highptr) {
+static double median_diff_ci(RankedCombinedSample RCS,
+			     double alpha,
+			     int64_t *lowptr,
+			     int64_t *highptr) {
   double n1 = RCS.n1;
   double n2 = RCS.n2;
   double N = n1 * n2;
-  double Zcrit = inverseCDF(1.0 - alpha/2.0);
+  double Zcrit = invPhi(1.0 - alpha/2.0);
   // Calculate ranks for each end of confidence interval
   double low = (N / 2.0) - Zcrit * sqrt(N * (n1 + n2 + 1) / 12.0);
   low = floor(low);
@@ -1111,11 +1114,11 @@ double median_diff_ci(RankedCombinedSample RCS,
 
   double ci_width = highidx - lowidx;
   double actual_Z = ci_width / 2.0 / sqrt(N * (n1 + n2 + 1) / 12.0);
-  double confidence =  2.0 * normalCDF(actual_Z) - 1.0;
+  double confidence =  2.0 * Phi(actual_Z) - 1.0;
   return confidence;
 }
 
-double ranked_diff_Ahat(RankedCombinedSample RCS) {
+static double ranked_diff_Ahat(RankedCombinedSample RCS) {
   double n1 = RCS.n1;
   double n2 = RCS.n2;
   int N = RCS.n1 * RCS.n2;
@@ -1140,7 +1143,7 @@ double ranked_diff_Ahat(RankedCombinedSample RCS) {
 // Hodges–Lehmann statistic is the median of the m × n differences"
 // between two samples.
 //
-double median_diff_estimate(RankedCombinedSample RCS) {
+static double median_diff_estimate(RankedCombinedSample RCS) {
   int N = RCS.n1 * RCS.n2;
   if (N < 1) PANIC("Invalid ranked combined sample");
   int h = N / 2;

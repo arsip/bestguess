@@ -473,17 +473,35 @@ static void print_boxplot(int index,
   printf("\n");
 }
 
+// These are judgement calls: thresholds that are used only to produce
+// an informative (not authoritative) statement in a report.
+//
+// https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3591587/
+// 
+// Above article cites the paper below for considering skew values of
+// magnitude 2.0 or larger and kurtosis magnitude larger than 4.0 to
+// indicate substantial departure from normal:
+//
+// West SG, Finch JF, Curran PJ. Structural equation models with
+// nonnormal variables: problems and remedies. In: Hoyle RH,
+// editor. Structural equation modeling: Concepts, issues and
+// applications. Newbery Park, CA: Sage; 1995. pp. 56–75.
+
 #define MS(nanoseconds) (ROUND1(nanoseconds, 1000.0))
 #define MSFMT "%8.1fms"
 #define COLSEP "  "
-#define SKEWSIGNIFICANCE 0.20
 #define INDENT "  "
 #define LBLFMT "%-14s"
 
+static bool have_valid_ADscore(Measures *m) {
+  return (!HAS(m->code, CODE_HIGHZ)
+	  && !HAS(m->code, CODE_SMALLN)
+	  && !HAS(m->code, CODE_LOWVARIANCE));
+}
+
 static const char *ADscore_repr(Measures *m) {
   char *tmp;
-  if (HAS_NONE(m->code)) {
-    assert(m->ADscore > 0);
+  if (have_valid_ADscore(m)) {
     asprintf(&tmp, "%6.2f", m->ADscore);
     return tmp;
   }
@@ -492,12 +510,18 @@ static const char *ADscore_repr(Measures *m) {
 
 static const char *ADscore_description(Measures *m) {
   char *tmp;
-  if (HAS_NONE(m->code)) {
-    if (m->p_normal <= 0.05) {
-      asprintf(&tmp, "p = %0.3f (NOT normal)", m->p_normal);
+  if (have_valid_ADscore(m)) {
+    if (m->p_normal <= config.alpha) {
+      if (m->p_normal < 0.001)
+	asprintf(&tmp, "p < 0.001 (signif., α = %4.2f) Not normal",
+		 config.alpha);
+      else
+	asprintf(&tmp, "p = %5.3f (signif., α = %4.2f) Not normal",
+		 m->p_normal, config.alpha);
       return tmp;
     } else {
-      asprintf(&tmp, "p = %0.3f (cannot rule out normal)", m->p_normal);
+      asprintf(&tmp, "p = %5.3f (non-signif., α = %4.2f) Cannot rule out normal",
+	       m->p_normal, config.alpha);
       return tmp;
     }
   }
@@ -505,11 +529,13 @@ static const char *ADscore_description(Measures *m) {
     return "Very low variance suggests NOT normal";
   if (HAS(m->code, CODE_SMALLN))
     return "Too few data points to measure";
-  if (HAS(m->code, CODE_HIGHZ))
-    // Approx. 1 observation in a sample of 15,787 will
-    // trigger this inability to calculate the ADscore.
+  if (HAS(m->code, CODE_HIGHZ)) {
+    // Approx. 1 observation in a sample of 390 BILLION will trigger
+    // this situation if the sample really is normally distributed.
     // https://en.wikipedia.org/wiki/68–95–99.7_rule
-    return "Extreme values suggest NOT normal";
+    asprintf(&tmp, "Extreme values (Z ≈ %0.1f): not normal", m->ADscore);
+    return tmp;
+  }
   return "(not calculated)";
 }
 
@@ -526,10 +552,10 @@ static const char *skew_repr(Measures *m) {
 static const char *skew_description(Measures *m) {
   char *tmp;
   if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN)) {
-    asprintf(&tmp, "%s (magnitude %s %0.2f)",
-	     (fabs(m->skew) > SKEWSIGNIFICANCE) ? "SIGNIFICANT" : "Insignificant",
-	     (fabs(m->skew) > SKEWSIGNIFICANCE) ? ">" : "≤",
-	     SKEWSIGNIFICANCE);
+    asprintf(&tmp, "%s",
+	     HAS(m->code, CODE_HIGH_SKEW)
+	     ? "Substantial deviation from normal"
+	     : "Non-significant");
     return tmp;
   }
   if (HAS(m->code, CODE_LOWVARIANCE)) {
@@ -541,6 +567,29 @@ static const char *skew_description(Measures *m) {
   } else {
     return "(not calculated)";
   }
+}
+
+static const char *kurtosis_repr(Measures *m) {
+  char *tmp;
+  if (!HAS(m->code, CODE_SMALLN)) {
+    asprintf(&tmp, "%6.2f", m->kurtosis);
+  } else {
+    return ". ";
+  }
+  return tmp;
+}
+
+static const char *kurtosis_description(Measures *m) {
+  char *tmp;
+  if (!HAS(m->code, CODE_SMALLN)) {
+    asprintf(&tmp, "%s",
+	     HAS(m->code, CODE_HIGH_SKEW)
+	     ? "Substantial deviation from normal"
+	     : "Non-significant");
+    return tmp;
+  } else {
+    return("Too few data points to measure");
+  } 
 }
 
 void print_descriptive_stats(Summary *s) {
@@ -615,14 +664,19 @@ void print_descriptive_stats(Summary *s) {
   display_table_set(t, row, 0, "");
   row++;
   
+  display_table_set(t, row, 0, "AD normality");
+  display_table_set(t, row, 1, ADscore_repr(m));
+  display_table_set(t, row, 2, ADscore_description(m));
+  row++;
+
   display_table_set(t, row, 0, "Skew");
   display_table_set(t, row, 1, skew_repr(m));
   display_table_set(t, row, 2, skew_description(m));
   row++;
 
-  display_table_set(t, row, 0, "AD normality");
-  display_table_set(t, row, 1, ADscore_repr(m));
-  display_table_set(t, row, 2, ADscore_description(m));
+  display_table_set(t, row, 0, "Excess kurtosis");
+  display_table_set(t, row, 1, kurtosis_repr(m));
+  display_table_set(t, row, 2, kurtosis_description(m));
   row++;
 
   display_table(t, 2);
@@ -906,14 +960,12 @@ void report(Usage *usage) {
   tmp = apply_units(summary1->total.median, units, UNITS);
   printf(" %4d " NUMFMT "\n", summary1->runs, tmp);
 
-  double alpha = 0.05;
-
   for (int i = 0; i < count; i++) {
     if (index[i] == bestidx) continue;
 
     stat = compare_samples(usage,
 			   index[i],
-			   alpha,
+			   config.alpha,
 			   usageidx[bestidx], usageidx[bestidx+1],
 			   usageidx[index[i]], usageidx[index[i]+1]);
 
