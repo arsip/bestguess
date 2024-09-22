@@ -862,7 +862,7 @@ void print_boxplots(Summary *summaries[], int start, int end) {
 // TODO: How many summaries do we want to support? MAXCMDS isn't the
 // right quantity.
 
-static void print_sample(Summary *s, int num) {
+static void print_sample(Summary *s, int num, double best_median) {
   Units *units;
   char *tmp, *tmp2, *tmp3;
 
@@ -897,6 +897,13 @@ static void print_sample(Summary *s, int num) {
   printf(NUMFMT, tmp);
   free(tmp);
 
+  if (best_median != -1.0) {
+    double pct_shift = 100.0 * stat->shift / best_median;
+    printf(" (%3.f%%)", pct_shift);
+  } else {
+    printf("       ");
+  }
+  
   printf("  %4.2f%% ", stat->confidence * 100.0);
   tmp = apply_units(stat->ci_low, units, NOUNITS);
   tmp2 = apply_units(stat->ci_high, units, NOUNITS);
@@ -1017,19 +1024,19 @@ void report(Usage *usage) {
       same[i] = -1;
     }
 
-  printf("Command                 N     Median      W      p    p_adj      Shift     Confidence Interval         Â \n");
+  printf("Command                 N     Median      W      p    p_adj      Shift           Confidence Interval         Â \n");
 
   // Print the 'same' array of samples
   for (int i = 0; i < N; i++)
     if (same[i] != -1) 
-      print_sample(s[same[i]], same[i]);
+      print_sample(s[same[i]], same[i], -1);
 
   printf("------\n");
 
   // Print the rest
   for (int i = 0; i < N; i++)
-    if (index[i] != -1) 
-      print_sample(s[index[i]], index[i]);
+    if ((index[i] != -1) && (index[i] != bestidx))
+      print_sample(s[index[i]], index[i], s[bestidx]->total.median);
   
 
   free(same);
