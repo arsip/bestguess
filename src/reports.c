@@ -1016,10 +1016,12 @@ void report(Usage *usage) {
   int *same = malloc(N * sizeof(int));
   if (!same) PANIC_NULL();
   same[0] = bestidx;
+  int same_count = 1;
   for (int i = 1; i < N; i++) 
     if (s[index[i]]->infer->indistinct) {
       same[i] = index[i];
       index[i] = -1;
+      same_count++;
     } else {
       same[i] = -1;
     }
@@ -1038,6 +1040,45 @@ void report(Usage *usage) {
     if ((index[i] != -1) && (index[i] != bestidx))
       print_sample(s[index[i]], index[i], s[bestidx]->total.median);
   
+  char *tmp;
+  printf("\n");
+  const int cmd_len = 40;
+  const char *cmd_fmt = "  %3d  %s";
+  const char *cmd_header = "    #  Command";
+  // TODO: Check same_count here
+  printf("Best guess is that these commands performed identically:\n");
+  printf("%-*.*s", cmd_len, cmd_len, cmd_header);
+  printf("  Total time    HL Δ\n"); 
+  for (int i = 0; i < N; i++)
+    if (same[i] != -1) {
+      Summary *ss = s[same[i]];
+      Units *units = select_units(ss->total.max, time_units);
+      announce_command(ss->cmd, same[i], cmd_fmt, cmd_len);
+      units = select_units(ss->total.max, time_units);
+      tmp = apply_units(ss->total.median, units, UNITS);
+      printf("  %s\n", tmp);
+      free(tmp);
+    }
+
+  printf("------\n");
+
+  // Print the rest
+  for (int i = 0; i < N; i++)
+    if ((index[i] != -1) && (index[i] != bestidx)) {
+      Summary *ss = s[index[i]];
+      Units *units = select_units(ss->total.max, time_units);
+      announce_command(ss->cmd, index[i], cmd_fmt, cmd_len);
+      units = select_units(ss->total.max, time_units);
+      tmp = apply_units(ss->total.median, units, UNITS);
+      printf("  %s", tmp);
+      free(tmp);
+      tmp = apply_units(ss->infer->shift, units, UNITS);
+      printf(NUMFMT, tmp);
+      free(tmp);
+      double pct_shift = 100.0 * ss->infer->shift / s[bestidx]->total.median;
+      printf(" %+4.f%%", pct_shift);
+      printf("\n");
+    }
 
   free(same);
  done2:
