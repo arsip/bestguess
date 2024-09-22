@@ -188,9 +188,9 @@ typedef struct Units {
   const char    *fmt_nounits;
 } Units;
 
-Units time_units[3];
-Units space_units[4];
-Units count_units[4];
+extern Units time_units[];
+extern Units space_units[];
+extern Units count_units[];
 
 #define UNITS 1			// show units (e.g. ms, GB)
 #define NOUNITS 0		// do not show units

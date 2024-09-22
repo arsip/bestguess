@@ -946,6 +946,7 @@ void report(Usage *usage) {
   units = select_units(summary1->total.max, time_units);
   tmp = apply_units(summary1->total.median, units, UNITS);
   printf(" %4d " NUMFMT "\n", summary1->runs, tmp);
+  free(tmp);
 
   for (int i = 0; i < count; i++) {
     if (index[i] == bestidx) continue;

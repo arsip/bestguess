@@ -121,6 +121,7 @@ void free_CSVrow(CSVrow *row) {
   if (!row) return;
   for (int i = 0; i < row->next; i++)
     free(row->fields[i]);
+  free(row->fields);
   free(row);
 }
 

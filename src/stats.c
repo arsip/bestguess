@@ -714,20 +714,13 @@ static RankedCombinedSample rank_difference_magnitude(Usage *usage,
       int idx = i*n2+j;
       signs[idx] = (diff < 0) ? -1 : ((diff > 0) ? 1 : 0);
       diff *= signs[idx];
-      //printf("i=%d, j=%d, idx=%d, diff = %lld\n", i, j, idx, diff);
       X[idx] = diff;
     }
-
-//   for (int k = 0; k < N; k++)
-//     printf("[%3d] data = %" PRId64 "\n", k, X[k]);
 
   int *index = malloc(N * sizeof(int));
   if (!index) PANIC_OOM();
   for (int i = 0; i < N; i++) index[i] = i;
   sort(index, N, sizeof(int), i64_lt, X);
-
-//   for (int k = 0; k < N; k++)
-//     printf("[%3d] sorted data = %" PRId64 "\n", k, X[index[k]]);
 
   double *ranks = assign_ranks(X, index, N);
 
@@ -740,12 +733,9 @@ static RankedCombinedSample rank_difference_magnitude(Usage *usage,
   if (!Y) PANIC_OOM();
   for (int k = 0; k < N; k++)
     Y[k] = X[index[k]];
-  
-//   for (int k = 0; k < N; k++)
-//     printf("[k = %3d] rank %3.1f, data = %" PRId64 "\n",
-// 	   k, ranks[k], Y[k]);
 
   free(X);
+  free(signs);
   free(index);
   return (RankedCombinedSample) {n1, n2, Y, NULL, ranks};
 }
