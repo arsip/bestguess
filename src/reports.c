@@ -862,6 +862,63 @@ void print_boxplots(Summary *summaries[], int start, int end) {
 // TODO: How many summaries do we want to support? MAXCMDS isn't the
 // right quantity.
 
+static void print_sample(Summary *s, int num) {
+  Units *units;
+  char *tmp, *tmp2, *tmp3;
+
+  announce_command(s->cmd, num, "#%d: %s", 20);
+  units = select_units(s->total.max, time_units);
+  tmp = apply_units(s->total.median, units, UNITS);
+  printf(" %4d " NUMFMT, s->runs, tmp);
+  free(tmp);
+
+  Inference *stat = s->infer;
+  if (!stat) {
+    // We are printing the best performer (no inferential stats)
+    printf("\n");
+    return;
+  }
+
+  printf("  ");
+  printf("%8.0f", stat->W);
+
+  printf("  ");
+  if (stat->p < 0.001) printf("<.001");
+  else printf("%5.3f", stat->p);
+
+  printf("  ");
+  // Adjusted for ties
+  if (stat->p_adj < 0.001) printf("<.001");
+  else printf("%5.3f", stat->p_adj);
+
+  printf("  ");
+
+  tmp = apply_units(stat->shift, units, UNITS);
+  printf(NUMFMT, tmp);
+  free(tmp);
+
+  printf("  %4.2f%% ", stat->confidence * 100.0);
+  tmp = apply_units(stat->ci_low, units, NOUNITS);
+  tmp2 = apply_units(stat->ci_high, units, NOUNITS);
+  asprintf(&tmp3, "(%s, %s) %2s", lefttrim(tmp), lefttrim(tmp2), units->unitname);
+  printf("%-20s", tmp3);
+  free(tmp);
+  free(tmp2);
+  free(tmp3);
+    
+  printf("  ");
+  printf("%.3f", stat->p_super);
+    
+  printf("  ");
+
+  if (HAS(stat->indistinct, INF_NONSIG)) printf("p");
+  if (HAS(stat->indistinct, INF_CIZERO)) printf("0");
+  if (HAS(stat->indistinct, INF_NOEFFECT)) printf("Δ");
+  if (HAS(stat->indistinct, INF_HIGHSUPER)) printf("↑");
+
+  printf("\n");
+}
+
 void report(Usage *usage) {
 
   FILE *csv_output = NULL, *hf_output = NULL;
@@ -918,98 +975,67 @@ void report(Usage *usage) {
   // TEMP: Experimental new features below
   printf("==================================================================\n");
 
-  if (count < 2) {
+  // Number of samples
+  int N = count;
+
+  if (N < 2) {
     printf("Only one command.  Not printing experimental new info.\n");
     goto done1;
   }
 
-  int *index = sort_by_totaltime(s, 0, count);
+  // Rank the samples and identify the best performer
+  int *index = sort_by_totaltime(s, 0, N);
   int bestidx = index[0];
 
-  int min_observations = INT_MAX;
-  for (int k = 0; k < count; k++)
-    min_observations = (min_observations < s[k]->runs) ? min_observations : s[k]->runs;
-
-  if (min_observations < 20) {
-    printf("Minimum observations must be at least 20 for this analysis.\n");
+  if (s[bestidx]->runs < INFERENCE_N_THRESHOLD) {
+    printf("Minimum observations must be at least %d for this analysis.\n",
+	   INFERENCE_N_THRESHOLD);
     goto done2;
   }
 
-  Summary *summary1 = s[bestidx];
-  Summary *summary2;
-  Units *units;
-  char *tmp, *tmp2, *tmp3;
-  Inference *stat;
-  
-  printf("Command                 N     Median      W      p    p_adj      Shift     Confidence Interval         Â \n");
-  announce_command(summary1->cmd, bestidx, "#%d: %s", 20);
-  units = select_units(summary1->total.max, time_units);
-  tmp = apply_units(summary1->total.median, units, UNITS);
-  printf(" %4d " NUMFMT "\n", summary1->runs, tmp);
-  free(tmp);
-
-  for (int i = 0; i < count; i++) {
+  // Compare each sample to the best performer
+  for (int i = 0; i < N; i++) {
     if (index[i] == bestidx) continue;
-
-    stat = compare_samples(usage,
-			   index[i],
-			   config.alpha,
-			   usageidx[bestidx], usageidx[bestidx+1],
-			   usageidx[index[i]], usageidx[index[i]+1]);
-
-    summary2 = s[index[i]];
-
-    announce_command(summary2->cmd, index[i], "#%d: %s", 20);
-    units = select_units(summary2->total.max, time_units);
-    tmp = apply_units(summary2->total.median, units, UNITS);
-    printf(" %4d " NUMFMT, summary2->runs, tmp);
-    free(tmp);
-
-    printf("  ");
-    printf("%8.0f", stat->W);
-
-    printf("  ");
-    if (stat->p < 0.001) printf("<.001");
-    else printf("%5.3f", stat->p);
-
-    printf("  ");
-    // Adjusted for ties
-    if (stat->p_adj < 0.001) printf("<.001");
-    else printf("%5.3f", stat->p_adj);
-
-    printf("  ");
-
-    tmp = apply_units(stat->shift, units, UNITS);
-    printf(NUMFMT, tmp);
-    free(tmp);
-
-    printf("  %4.2f%% ", stat->confidence * 100.0);
-    tmp = apply_units(stat->ci_low, units, NOUNITS);
-    tmp2 = apply_units(stat->ci_high, units, NOUNITS);
-    asprintf(&tmp3, "(%s, %s) %2s", lefttrim(tmp), lefttrim(tmp2), units->unitname);
-    printf("%-20s", tmp3);
-    free(tmp);
-    free(tmp2);
-    free(tmp3);
-    
-    printf("  ");
-    printf("%.3f", stat->p_super);
-    
-    printf("  ");
-
-    if (HAS(stat->results, INF_NONSIG)) printf("p");
-    if (HAS(stat->results, INF_CIZERO)) printf("0");
-    if (HAS(stat->results, INF_NOEFFECT)) printf("Δ");
-    if (HAS(stat->results, INF_HIGHSUPER)) printf("↑");
-
-    printf("\n");
-
-    free(stat);
+    s[index[i]]->infer =
+      compare_samples(usage,
+		      config.alpha,
+		      usageidx[bestidx], usageidx[bestidx+1],
+		      usageidx[index[i]], usageidx[index[i]+1]);
   }
 
+  // Take all the samples indistinguishable from the best performer
+  // and group them (in rank order) in 'same' so they can be printed
+  // together.
+  int *same = malloc(N * sizeof(int));
+  if (!same) PANIC_NULL();
+  same[0] = bestidx;
+  for (int i = 1; i < N; i++) 
+    if (s[index[i]]->infer->indistinct) {
+      same[i] = index[i];
+      index[i] = -1;
+    } else {
+      same[i] = -1;
+    }
+
+  printf("Command                 N     Median      W      p    p_adj      Shift     Confidence Interval         Â \n");
+
+  // Print the 'same' array of samples
+  for (int i = 0; i < N; i++)
+    if (same[i] != -1) 
+      print_sample(s[same[i]], same[i]);
+
+  printf("------\n");
+
+  // Print the rest
+  for (int i = 0; i < N; i++)
+    if (index[i] != -1) 
+      print_sample(s[index[i]], index[i]);
+  
+
+  free(same);
  done2:
   free(index);
  done1:
-  for (int i = 0; i < count; i++) free_summary(s[i]);
+  for (int i = 0; i < N; i++) free_summary(s[i]);
   return;
 }

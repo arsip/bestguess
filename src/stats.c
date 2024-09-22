@@ -501,7 +501,7 @@ static bool nonnormal_kurtosis(double kurtosis, int n) {
 
 #define LOWMEAN_THRESHOLD 0.1	   // Good for integer number of microsecs
 #define LOWSTDDEV_THRESHOLD 0.1    // Somewhat arbitrary
-#define N_THRESHOLD 8		   // Per guidance on using AD test
+#define ADTEST_N_THRESHOLD 8	   // Per guidance on using AD test
 
 static bool lowvariance(double mean, double stddev) {
   assert(stddev >= -1e-6);
@@ -547,7 +547,7 @@ static void measure(Usage *usage,
   //
   // Skew also depends on having a variance that is not "too low".
   m->code = 0;
-  if (runs < N_THRESHOLD)
+  if (runs < ADTEST_N_THRESHOLD)
     SET(m->code, CODE_SMALLN);
   if (lowvariance(m->est_mean, m->est_stddev))
     SET(m->code, CODE_LOWVARIANCE);
@@ -579,6 +579,9 @@ static void measure(Usage *usage,
 }
 
 static Summary *new_summary(void) {
+  // C99 says that zero, when cast to a pointer, is NULL, so fields
+  // like 'cmd', 'shell', and 'infer' start out NULL.  And of course,
+  // all the numeric fields are initialized to zero.
   Summary *s = calloc(1, sizeof(Summary));
   if (!s) PANIC_OOM();
   return s;
@@ -588,6 +591,7 @@ void free_summary(Summary *s) {
   if (!s) return;
   free(s->cmd);
   free(s->shell);
+  if (s->infer) free(s->infer);
   free(s);
 }
 
@@ -737,7 +741,7 @@ static RankedCombinedSample rank_difference_magnitude(Usage *usage,
   free(X);
   free(signs);
   free(index);
-  return (RankedCombinedSample) {n1, n2, Y, NULL, ranks};
+  return (RankedCombinedSample) {n1, n2, Y, ranks};
 }
 
 static RankedCombinedSample rank_difference_signed(Usage *usage,
@@ -766,7 +770,7 @@ static RankedCombinedSample rank_difference_signed(Usage *usage,
 
   sort(X, N, sizeof(int64_t), i64_lt, NULL);
   double *ranks = assign_ranks(X, NULL, N);
-  return (RankedCombinedSample) {n1, n2, X, NULL, ranks};
+  return (RankedCombinedSample) {n1, n2, X, ranks};
 }
 
 // RCS must rank the set of n1 * n2 sample DIFFERENCES by their
@@ -921,17 +925,22 @@ static double ranked_diff_Ahat(RankedCombinedSample RCS) {
 // 
 // https://en.wikipedia.org/wiki/Hodges–Lehmann_estimator "The
 // Hodges–Lehmann statistic is the median of the m × n differences"
-// between two samples.
+// between two samples.  Per Wikipedia, citing for evidence Myles
+// Hollander. Douglas A. Wolfe. Nonparametric statistical methods. 2nd
+// ed. John Wiley:
+//
+// "It is a robust statistic that has a breakdown point of 0.29, which
+// means that the statistic remains bounded even if nearly 30 percent
+// of the data have been contaminated. This robustness is an important
+// advantage over the sample mean, which has a zero breakdown point,
+// being proportional to any single observation and so liable to being
+// misled by even one outlier. The sample median is even more robust,
+// having a breakdown point of 0.50."
 //
 static double median_diff_estimate(RankedCombinedSample RCS) {
   int N = RCS.n1 * RCS.n2;
   if (N < 1) PANIC("Invalid ranked combined sample");
   int h = N / 2;
-  int hminus1 = h - 1;
-  if (RCS.index) {
-    h = RCS.index[h];
-    hminus1 = RCS.index[hminus1];
-  }
   if (2 * h == N) 
     return (RCS.X[h-1] + RCS.X[h]) / 2.0;
   return RCS.X[h];
@@ -966,16 +975,19 @@ int *sort_by_totaltime(Summary *summaries[], int start, int end) {
   return index;
 }
 
-
-// 'idx' 0-based index into Summary array
+// Returns NULL if there are insufficient observations in either
+// sample to calculate inferences.
 Inference *compare_samples(Usage *usage,
-			   int idx,
 			   double alpha,
 			   int ref_start, int ref_end,
 			   int idx_start, int idx_end) {
+  int n1 = ref_end - ref_start;
+  int n2 = idx_end - idx_start;
+  if ((n1 < INFERENCE_N_THRESHOLD)
+      || (n2 < INFERENCE_N_THRESHOLD)) return NULL;
+  
   Inference *stat = malloc(sizeof(Inference));
   if (!stat) PANIC_OOM();
-  stat->index = idx;
 
   RankedCombinedSample RCSmag =
     rank_difference_magnitude(usage,
@@ -998,11 +1010,11 @@ Inference *compare_samples(Usage *usage,
 				    &(stat->ci_low),
 				    &(stat->ci_high));
 
-  stat->results = 0;
+  stat->indistinct = 0;
 
-  // Is the p value (or adjusted one) not low enough?
+  // Is the p value (or the adjusted one) not low enough?
   if (!(stat->p < alpha) || !(stat->p_adj < alpha))
-    SET(stat->results, INF_NONSIG);
+    SET(stat->indistinct, INF_NONSIG);
 
   // Check for end of CI interval being too close to zero
   bool ci_touches_0 = ((llabs(stat->ci_low) < config.ci_epsilon) ||
@@ -1011,14 +1023,14 @@ Inference *compare_samples(Usage *usage,
   bool ci_includes_0 = (stat->ci_low < 0) && (stat->ci_high > 0);
 
   if (ci_touches_0 || ci_includes_0)
-    SET(stat->results, INF_CIZERO);
+    SET(stat->indistinct, INF_CIZERO);
 
   // Check for median difference (effect size) too small
   if (fabs(stat->shift) < (double) config.min_effect) 
-    SET(stat->results, INF_NOEFFECT);
+    SET(stat->indistinct, INF_NOEFFECT);
 
   if (stat->p_super > config.high_superiority)
-    SET(stat->results, INF_HIGHSUPER);
+    SET(stat->indistinct, INF_HIGHSUPER);
     
   free(RCSmag.X);
   free(RCSmag.rank);
