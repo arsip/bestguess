@@ -1042,35 +1042,80 @@ void report(Usage *usage) {
   
   char *tmp;
   printf("\n");
-  const int cmd_len = 40;
-  const char *cmd_fmt = "  %3d  %s";
-  const char *cmd_header = "    #  Command";
-  // TODO: Check same_count here
-  printf("Best guess is that these commands performed identically:\n");
-  printf("%-*.*s", cmd_len, cmd_len, cmd_header);
-  printf("  Total time    HL Δ\n"); 
+
+  /* Maybe we should draw a table like this?
+
+    Best guess ranking:
+    ╔═════ Command ══════════════════════════ Total time ══ Slower by Δ ═══╗
+    ║✓  4. rosie match -o line 'find:{[0-9]{    32.03 ms                   ║
+    ║                                                                      ║
+    ║   1. rosie match -o line 'find:{[0-9]{    32.55 ms    0.50 ms   +2%  ║
+    ║   3. rosie match -o line 'find:{[0-9]{    32.73 ms    0.72 ms   +2%  ║
+    ║   2. rosie match -o line 'find:[0-9]{5    35.66 ms    3.61 ms  +11%  ║
+    ╚══════════════════════════════════════════════════════════════════════╝
+
+  */     
+
+  const char *fill = "═";
+  const int b = strlen(fill);
+
+  const int cmd_nonfillchars = 9;
+  const int cmd_width = 38;
+  const int cmd_len = cmd_nonfillchars + (cmd_width - cmd_nonfillchars) * b;
+  const char *cmd_header = "═════ Command ═════════════════════════════════════════════";
+
+  const int time_width = 16;
+  const int time_nonfillchars = 12;
+  const int time_len = time_nonfillchars + (time_width - time_nonfillchars) * b;
+  const char *time_header = "══ Total time ══";
+  const int delta_width = 15;
+  const int delta_nonfillchars = 12;
+  const int delta_len = (delta_nonfillchars
+			 + (delta_width - 1 - delta_nonfillchars) * b
+			 + strlen("Δ"));
+  const char *delta_header = " Slower by Δ ═════════════════";
+			
+  const char *winner = "✓";
+  const char *cmd_fmt = "%3d. %s";
+
+  if (same_count > 1) 
+    printf("Best guess ranking: (the top %d commands performed identically)\n",
+	   same_count);
+  else
+    printf("Best guess ranking:\n");
+
+  printf("\n");
+  printf("%*.*s%*.*s", cmd_len, cmd_len, cmd_header, time_len, time_len, time_header);
+  if (same_count < N)
+    printf("%*.*s\n", delta_len, delta_len, delta_header);
+  else
+    printf("\n");
+  
   for (int i = 0; i < N; i++)
     if (same[i] != -1) {
+      printf("%s", winner);
       Summary *ss = s[same[i]];
       Units *units = select_units(ss->total.max, time_units);
-      announce_command(ss->cmd, same[i], cmd_fmt, cmd_len);
+      announce_command(ss->cmd, same[i], cmd_fmt, cmd_width);
       units = select_units(ss->total.max, time_units);
       tmp = apply_units(ss->total.median, units, UNITS);
       printf("  %s\n", tmp);
       free(tmp);
     }
 
-  printf("------\n");
+//   if (same_count > 1) 
+//     printf("\nFollowed by these commands:\n");
 
   // Print the rest
   for (int i = 0; i < N; i++)
     if ((index[i] != -1) && (index[i] != bestidx)) {
+      printf(" ");
       Summary *ss = s[index[i]];
       Units *units = select_units(ss->total.max, time_units);
-      announce_command(ss->cmd, index[i], cmd_fmt, cmd_len);
+      announce_command(ss->cmd, index[i], cmd_fmt, cmd_width);
       units = select_units(ss->total.max, time_units);
       tmp = apply_units(ss->total.median, units, UNITS);
-      printf("  %s", tmp);
+      printf("  %s ", tmp);
       free(tmp);
       tmp = apply_units(ss->infer->shift, units, UNITS);
       printf(NUMFMT, tmp);

@@ -43,8 +43,8 @@ Config config = {
   .width = 80,			 // terminal width
   // Inferential stats report
   .alpha = 0.05,		 // p-value threshold
-  .ci_epsilon = 125,		 // μs
-  .min_effect = 250,		 // μs
+  .ci_epsilon = 250,		 // μs
+  .min_effect = 499,		 // μs
   .high_superiority = 1.0 / 3.0, // probability
 };
 
@@ -103,7 +103,7 @@ int main(int argc, char *argv[]) {
   // executable names, the user MUST supply an ACTION argument.  We
   // look for that argument, ignoring other CLI args temporarily.
   //
-  optable_setusage("-A <action> [options] ...");
+  optable_setusage("[-A <action>] [options] ...");
   process_action_options(argc, argv);
 
   // If no ACTION argument was given, deduce it from executable name

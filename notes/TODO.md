@@ -1,5 +1,11 @@
 ## Open questions about experimentation
 
+- [ ] We should systematically compare results between:
+	  - `cmdbench` (https://github.com/manzik/cmdbench pip3 install cmdbench)
+	  - Hyperfine (https://github.com/sharkdp/hyperfine)
+	  - bash built-in time command
+	  - /usr/bin/time
+
 - [ ] Is there a correlation between the number of data points collected and the
       long tail (as typified, perhaps, by the 95th or 99th percentile value)?
 	  - Hypothesis: The longest run times are produced when the program being
@@ -89,6 +95,52 @@
          like hyper-threading should be disabled to maintain predictable good
          performance.)
 
+- [ ] The OS scheduling quantum would seem to be relevant.  
+	  - As of Linux kernel v6.11, the "minimal preemption granularity for
+        CPU-bound tasks" defaults to 0.75 msec * (1 + ilog(ncpus)).  The integer
+        log base 2 of 4 cores is 2, so on a 4-core CPU, a process that does not
+        get preempted will run for 0.75ms * (1 + 2) = 2.25ms.  That number seems
+        quite low, but it appears this is an initial value that grows.
+		The algorithm described as the Completely Fair Scheduler in
+        https://docs.kernel.org/scheduler/sched-design-CFS.html uses a priority
+        queue sorted by lowest quantum.  The shortest task is dequeued, run for
+        its quantum, then the quantum is enlarged and it is re-queued.
+	  - Another description of the Completely Fair Scheduler says "Instead of an
+        absolute time, the CFS algorithm assigns a proportion of the processor,
+        so the amount of processor time depends on the current load."
+        https://notes.eddyerburgh.me/operating-systems/linux/process-scheduling#timeslice
+        cites _Linux Kernel Development (Developer’s Library), 3rd
+        ed. Addison-Wesley Professional, 2010_ for this.
+	  - Another reference, in addition to numerous blog posts:
+        https://elixir.bootlin.com/linux/v6.11/source/kernel/sched/fair.c#L71-L75 
+      - Linux also has a real-time scheduler, as does macOS and Windows.
+        Benchmarking real-time systems is out of scope, so the only apparent
+        relevance of the real-time capability is that on a system where such
+        processes are executing, the interference they generate with our
+        benchmark may well have a different character.  However, we are not
+        addressing (yet) how to interpret benchmarks made on a heavily loaded
+        system. 
+	  - Importantly, processes preempted are often given a priority boost so
+        that they run sooner (once they are ready).  If we are measuring
+        CPU-bound processes, this may be less of a factor, as presumably
+        preemption does not occur.  Benchmarking on a heavily loaded system
+        would, of course, increase the likelihood of such preemption.
+	  - On macOS, the preemption rate is reportedly the `hz` value of
+	    `kern.clockrate`, which is (often? always?) 100HZ.  The quantum is then
+	    10ms. (See https://flylib.com/books/en/3.126.1.80/1/ for more.)
+	      ```shell
+		  $ sysctl kern.clockrate
+		  kern.clockrate: { hz = 100, tick = 10000, tickadj = 0, profhz = 100, stathz = 100 }
+		  $ 
+		  ```
+	  - Reportedly, the Windows desktop quantum is 20ms unless the process "owns
+        the foreground window" in which case it's 60ms.  The source _Windows
+        Internals by Solomon, Russinovich, et al._ is cited by 
+		https://superuser.com/questions/1326252/changing-windows-thread-sheduler-timeslice
+	  - A post on Medium claims the Windows Server quantum is fixed at 120ms,
+        which is entirely believable, though I cannot readily find a source.
+
+
 REFERENCES
 
 [1] E. Barrett, C. F. Bolz-Tereick, R. Killick, S. Mount, L. Tratt, _Virtual
@@ -128,6 +180,24 @@ State_.
       that include the same command) and the reporting can use the batch numbers
       to tell them apart.
 
+- [ ] The Hyperfine ability to let the user name their commands is another good
+      one from that project.  It should make reports much easier to read.
+
+- [ ] We need a way to set parameters like terminal width, minimum effect size,
+      and others from the command line.  Currently, we have `--width` but this
+      should be unified with other settings so we don't have to have a unique
+      flag for each.  Java uses `-XX:` for non-standard options, but that seems
+      like the wrong vibe.
+	  - [ ] Maybe `-c` / `--config`?
+	  - [ ] Value would have the form _name=value_, e.g. `-c width=60`
+	  - [ ] Could allow environment variables, e.g. `-c width=$COLUMNS` if we
+            can (1) find no security issues and (2) have a syntax that does not
+            prevent a literal string that starts with `$` to be the value of a
+            setting. 
+
+- [ ] Set defaults (e.g. warmups, runs, shell) and settings from a `.bestrc`
+      file. 
+
 - [ ] Our reporting is becoming so comprehensive that we may want to support
       reporting on a subset of samples found in raw data files.  Assuming each
       sample has a "batch number" unique to its data file, we might allow users
@@ -141,9 +211,6 @@ State_.
 	  table of critical U values instead of the normal-based approximation to
 	  p-value calculation we support today.  See,
 	  e.g. https://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/BS704_Nonparametric/BS704_Nonparametric4.html
-
-- [ ] The Hyperfine ability to let the user name their commands is another good
-      one from that project.  It should make reports much easier to read.
 
 - [ ] A log feature might be useful.  It would log actions such as warmup runs
       and timed runs, to make the overall behavior explicit.  This feature could
