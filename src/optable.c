@@ -1,6 +1,6 @@
 //  -*- Mode: C; -*-                                                       
 // 
-//  optable.c  A minimal (UTF-8 compatible) CLI arg parsing system
+//  optable.c  A minimal (but UTF-8 compatible) CLI arg parser
 // 
 //  COPYRIGHT (C) Jamie A. Jennings, 2024
 
@@ -16,7 +16,6 @@ typedef struct optable_option {
   const char *help;
   int numvals;
 } optable_option;
-
 
 // Option configuration:
 static optable_option      *Tbl = NULL;
@@ -69,9 +68,9 @@ int optable_numvals(int n) {
 
 // Convenience function.  Users can check the result of each call to
 // optable_add() for errors, or they can ignore them and call
-// optable_error() this after a series of optable_add() calls.
+// optable_error() after a series of optable_add() calls.
 //
-// Note that optable_add() prints messages to stderr as they occur.
+// NOTE: optable_add() prints messages to stderr as they occur.
 //
 int optable_error(void) {
   return Tbl_err;
@@ -153,7 +152,7 @@ static int ensure_space(int n) {
 }
 
 // Returns error indicator: 1 for error, 0 for no error.
-// Takes ownership of all of the string arguments.
+// Takes ownership of all of the string arguments except 'help'.
 int optable_add(int n,
 		const char *sname,
 		const char *lname,
@@ -217,8 +216,9 @@ static const char *compare(const char *str, const char *name) {
 }
 
 // On success, return value is the option index (>= 0), and '*value'
-// points to the value part e.g. "5" in "-r=5".  If there is no '=',
-// then '*value' will be NULL.
+// points to the value part if it attached to the option name using
+// '=', e.g. "--foo=5".  If the option name is not immediately
+// followed by '=', then '*value' will be NULL.
 static int match_long_option(const char *arg, const char **value) {
   for (int n = 0; n < Tbl_size; n++) {
     *value = compare(arg, optable_longname(n));
@@ -283,7 +283,9 @@ static int still_need_value(const char *value, int n) {
 // an option.
 //
 // On success, '*value' is set to the option value.  In the case of
-// the "equals syntax" (-r=5) this is the 
+// the "equals syntax" (e.g. "-r=5" or "--foo=bar") '*value' points to
+// the first character after the '='.  The ordinary syntax (e.g. "-r
+// 5" or "--foo bar") results in '*value' pointing to the next argv.
 int optable_next(int *n, const char **value, int i) {
   if (!Tbl || !n || !value) {
     fprintf(stderr, "%s: invalid args to iterator\n", __FILE__);
@@ -342,10 +344,11 @@ void optable_printhelp(const char *progname) {
   optable_printusage(progname);
   printf("\n");
   for (i = optable_iter_start(); i >= 0; i = optable_iter_next(i)) {
-    printf("  %1s%-1s  --%-14s  ",
+    printf("  %1s%-1s  %2s%-14s  ",
 	   optable_shortname(i) ? "-" : " ",
 	   optable_shortname(i) ?: "",
-	   optable_longname(i));
+	   optable_longname(i) ? "--": "  ",
+	   optable_longname(i) ?: "");
     const char *help = optable_helptext(i);
     const char *nl;
     while ((nl = strchr(help, '\n'))) {

@@ -44,7 +44,7 @@ Config config = {
   // Inferential stats report
   .alpha = 0.05,		 // p-value threshold
   .ci_epsilon = 250,		 // μs
-  .min_effect = 499,		 // μs
+  .min_effect = 500,		 // μs
   .high_superiority = 1.0 / 3.0, // probability
 };
 
@@ -94,10 +94,10 @@ int main(int argc, char *argv[]) {
   // Check for either of two unusual cases:
   // 
   // (1) The user supplied an ACTION argument, though this is not
-  // normally needed.  The action of running an experiment is assumed
-  // if the executable name is 'bestguess'; the action of processing
-  // raw data and reporting on it is assumed if the executable name is
-  // 'bestreport'.
+  // normally needed.  If the executable name is 'bestguess', the
+  // default action is to run an experiment.  If the executable name
+  // is 'bestreport', the default action is to process raw data and
+  // produce a report.
   //
   // (2) However, if BestGuess was NOT installed using the intended
   // executable names, the user MUST supply an ACTION argument.  We

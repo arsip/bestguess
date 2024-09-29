@@ -496,6 +496,8 @@ static void print_boxplot(int index,
 // editor. Structural equation modeling: Concepts, issues and
 // applications. Newbery Park, CA: Sage; 1995. pp. 56–75.
 
+#define ROUND1(intval, divisor) \
+  (round((double)((intval) * 10) / (divisor)) / 10.0)
 #define MS(nanoseconds) (ROUND1(nanoseconds, 1000.0))
 #define MSFMT "%8.1fms"
 #define COLSEP "  "
@@ -950,14 +952,15 @@ void report(Usage *usage) {
       write_hf_line(hf_output, s[count]);
 
     if (config.report != REPORT_NONE) {
-      announce_command(s[count]->cmd, count, "Command #%d: %s", NOLIMIT);
       printf("\n\n");
       print_summary(s[count], (config.report == REPORT_BRIEF));
       printf("\n");
     }
     if (config.graph) {
-      if (config.report == REPORT_NONE)
+      if (config.report == REPORT_NONE) {
 	announce_command(s[count]->cmd, count, "Command #%d: %s", NOLIMIT);
+	printf("\n");
+      }
       print_graph(s[count], usage, *(next - 1), *next);
       printf("\n");
     }
@@ -1068,7 +1071,7 @@ void report(Usage *usage) {
   const int time_nonfillchars = 12;
   const int time_len = time_nonfillchars + (time_width - time_nonfillchars) * b;
   const char *time_header = "══ Total time ══";
-  const int delta_width = 15;
+  const int delta_width = 18;
   const int delta_nonfillchars = 12;
   const int delta_len = (delta_nonfillchars
 			 + (delta_width - 1 - delta_nonfillchars) * b
@@ -1103,9 +1106,6 @@ void report(Usage *usage) {
       free(tmp);
     }
 
-//   if (same_count > 1) 
-//     printf("\nFollowed by these commands:\n");
-
   // Print the rest
   for (int i = 0; i < N; i++)
     if ((index[i] != -1) && (index[i] != bestidx)) {
@@ -1120,10 +1120,15 @@ void report(Usage *usage) {
       tmp = apply_units(ss->infer->shift, units, UNITS);
       printf(NUMFMT, tmp);
       free(tmp);
-      double pct_shift = 100.0 * ss->infer->shift / s[bestidx]->total.median;
-      printf(" %+4.f%%", pct_shift);
+      double factor = (double) ss->infer->shift / s[bestidx]->total.median;
+      printf(" %7.2fx", factor);
       printf("\n");
     }
+
+  printf("%.*s\n", (cmd_width + time_width + delta_width) * b,
+	 "═══════════════════════════════════════════════════════════" 
+	 "═══════════════════════════════════════════════════════════");
+
 
   free(same);
  done2:

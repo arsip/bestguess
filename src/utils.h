@@ -173,13 +173,6 @@ char *lefttrim(char *str);
 size_t utf8_length(const char *str);
 size_t utf8_width(const char *str, int count);
 
-// TODO: DROP THESE!
-// Scale and round to one or two decimal places
-#define ROUND1(intval, divisor) \
-  (round((double)((intval) * 10) / (divisor)) / 10.0)
-#define ROUND2(intval, divisor) \
-  (round((double)((intval) * 100) / (divisor)) / 100.0)
-
 typedef struct Units {
   const char    *unitname;  // Optionally display this after the value
   const int64_t  divisor;   // Scale down from native units

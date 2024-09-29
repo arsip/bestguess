@@ -19,6 +19,37 @@ static void check_option_value(const char *val, int n) {
     USAGE("Error: option '%s' requires a value\n", optable_longname(n));
 }
 
+static char *configuration_help_string = NULL;
+
+// For printing program help.  Caller must free the returned string.
+static char *config_help(void) {
+  if (configuration_help_string) return configuration_help_string;
+  size_t bufsize = 1000;
+  char *buf = malloc(bufsize);
+  if (!buf) PANIC_OOM();
+  int len = snprintf(buf, bufsize,
+		     "Configure <SETTING>=<VALUE>, e.g. width=80.\n"
+		     "Settings are:");
+  for (ConfigCode i = 0; i < CONFIG_LAST; i++) {
+    bufsize -= len;
+    len += snprintf(buf + len, bufsize, "\n  %-8s %s",
+		    ConfigSettingName[i], ConfigSettingDesc[i]);
+  }
+  configuration_help_string = buf;
+  return configuration_help_string;
+}
+
+void free_config_help(void) {
+  free(configuration_help_string);
+}
+
+#define SECOND(a, b, c) b,
+const char *ConfigSettingName[] = {XConfig_Settings(SECOND)};
+#undef SECOND
+#define THIRD(a, b, c) c,
+const char *ConfigSettingDesc[] = {XConfig_Settings(THIRD)};
+#undef THIRD
+
 #define HELP_GRAPH "Show graph of total time for each iteration"
 #define HELP_BOXPLOT "Show box plots of timing data"
 #define HELP_WIDTH "Terminal width (default 80 chars)"
@@ -29,9 +60,8 @@ static void check_option_value(const char *val, int n) {
 
 static void init_action_options(void) {
   optable_add(OPT_REPORT,     "R",  "report",         1, report_options());
-  optable_add(OPT_GRAPH,      "g",  "graph",          0, HELP_GRAPH);
+  optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
-  optable_add(OPT_WIDTH,      NULL, "width",          1, HELP_WIDTH);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
@@ -86,11 +116,12 @@ void process_action_options(int argc, char **argv) {
 	if (config.report == REPORT_ERROR)
 	  USAGE(report_options());
 	break;
-      case OPT_WIDTH:
+      case OPT_CONFIG:
 	check_option_value(val, n);
-	config.width = strtoint64(val);
-	if ((config.width < 40) || (config.runs > 1024))
-	  USAGE("Terminal width (%d) is out of range 40..1024", config.width);
+	printf("Received configuration option '%s'\n", val);
+// 	config.width = strtoint64(val);
+// 	if ((config.width < 40) || (config.runs > 1024))
+// 	  USAGE("Terminal width (%d) is out of range 40..1024", config.width);
 	break;
       case OPT_GRAPH:
 	check_option_value(val, n);
@@ -108,6 +139,7 @@ void process_action_options(int argc, char **argv) {
 
 #define HELP_WARMUP "Number of warmup runs"
 #define HELP_RUNS "Number of timed runs"
+#define HELP_NAME "Name to use in reports instead of full command"
 #define HELP_OUTPUT "Write timing data to CSV <FILE> (use - for stdout)"
 #define HELP_CMDFILE "Read commands from <FILE>"
 #define HELP_GROUPS "Blank lines in the input file delimit groups"
@@ -125,16 +157,17 @@ static void init_exec_options(void) {
   optable_add(OPT_OUTPUT,     "o",  "output",         1, HELP_OUTPUT);
   optable_add(OPT_FILE,       "f",  "file",           1, HELP_CMDFILE);
   optable_add(OPT_GROUPS,     NULL, "groups",         0, HELP_GROUPS);
-  optable_add(OPT_GRAPH,      "g",  "graph",          0, HELP_GRAPH);
+  optable_add(OPT_NAME,       "n",  "name",           1, HELP_NAME);
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, HELP_SHOWOUTPUT);
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, HELP_IGNORE);
   optable_add(OPT_SHELL,      "S",  "shell",          1, HELP_SHELL);
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
+  optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
   optable_add(OPT_REPORT,     "R",  "report",         1, report_options());
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
-  optable_add(OPT_WIDTH,      NULL, "width",          1, HELP_WIDTH);
+  optable_add(OPT_CONFIG,     "x",   NULL,            1, config_help());
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
@@ -218,9 +251,9 @@ void process_exec_options(int argc, char **argv) {
 	config.prep_command = strdup(val);
 	break;
       case OPT_GRAPH:
-      case OPT_WIDTH:
       case OPT_BOXPLOT:
       case OPT_REPORT:
+      case OPT_CONFIG:
       case OPT_VERSION:
       case OPT_HELP:
       case OPT_ACTION:
@@ -236,14 +269,14 @@ void process_exec_options(int argc, char **argv) {
 // -----------------------------------------------------------------------------
 
 static void init_report_options(void) {
-  optable_add(OPT_GRAPH,      "g",  "graph",          0, HELP_GRAPH);
+  optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
   optable_add(OPT_REPORT,     "R",  "report",         1, report_options());
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
+  optable_add(OPT_CONFIG,     "x",   NULL,            1, config_help());
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
-  optable_add(OPT_WIDTH,      NULL, "width",          1, HELP_WIDTH);
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
     PANIC("failed to configure command-line option parser");
@@ -284,9 +317,9 @@ void process_report_options(int argc, char **argv) {
 	config.csv_filename = strdup(val);
 	break;
       case OPT_GRAPH:
-      case OPT_WIDTH:
       case OPT_BOXPLOT:
       case OPT_REPORT:
+      case OPT_CONFIG:
       case OPT_VERSION:
       case OPT_HELP:
       case OPT_ACTION:
