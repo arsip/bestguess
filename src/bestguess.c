@@ -7,7 +7,7 @@
 
 #include "bestguess.h"
 
-const char *progversion = "0.6.1";
+const char *progversion = "0.6.3";
 const char *progname = "bestguess";
 
 #include "csv.h"
