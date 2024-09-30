@@ -35,7 +35,7 @@ typedef enum Options {
   OPT_UNUSED7,			// for testing
   OPT_SNOWMAN,
   OPT_ERR_TEST			// for testing
-};
+} Options;
 
 static void init_options(void) {
   optable_add(OPT_WARMUP,     "w", "warmup",       1, "Number of warmup runs");

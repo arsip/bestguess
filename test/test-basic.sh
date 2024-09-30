@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 #  -*- Mode: Shell-script; -*-                                            
 
 prog="../bestguess"
@@ -78,9 +78,11 @@ runtime "$prog" /thisprogramshouldnotexist
 runtime "$prog" ./thisprogramshouldnotexist
 runtime "$prog" ./nosuchdirectory/thisprogramshouldnotexist
 
+#
+# -----------------------------------------------------------------------------
+#
 
-
-if [[ $allpassed -eq 1 ]]; then 
+if [[ "$allpassed" == "1" ]]; then 
     printf "All tests passed.\n\n"
     exit 0
 else

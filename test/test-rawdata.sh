@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 #  -*- Mode: Shell-script; -*-                                            
 
 SHOWOUTPUT=
@@ -45,9 +45,11 @@ if [[ $lines -ne 2 ]]; then
     allpassed=0
 fi
 
+#
+# -----------------------------------------------------------------------------
+#
 
-
-if [[ $allpassed -eq 1 ]]; then 
+if [[ "$allpassed" == "1" ]]; then 
     printf "All tests passed.\n\n"
     exit 0
 else

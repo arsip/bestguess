@@ -228,11 +228,13 @@ static Summary *run_command(int num,
   Usage *usage = new_usage_array(config.runs);
   assert((config.runs <= 0) || usage);
 
-  Usage *dummy = new_usage_array(1);
-  int idx = usage_next(dummy);
+  Usage *dummy = new_usage_array(config.warmups);
+  int idx;
   for (int i = 0; i < config.warmups; i++) {
+    idx = usage_next(dummy);
     run(cmd, dummy, idx);
   }
+  free_usage_array(dummy);
 
   for (int i = 0; i < config.runs; i++) {
     idx = usage_next(usage);

@@ -54,7 +54,7 @@ ReportCode interpret_report_option(const char *op) {
   return REPORT_ERROR;
 }
 
-// 'len' is the desired length of the returned string.
+// Note: 'len' is the maximum length of the printed string.
 void announce_command(const char *cmd, int index, const char *fmt, int len) {
   char *tmp;
   asprintf(&tmp, fmt, index + 1, *cmd ? cmd : "(empty)");
@@ -946,16 +946,19 @@ void report(Usage *usage) {
   int count = 0;
   int *next = &(usageidx[1]);
   while ((s[count] = summarize(usage, next))) {
+
     if (csv_output) 
       write_summary_line(csv_output, s[count]);
     if (hf_output)
       write_hf_line(hf_output, s[count]);
 
     if (config.report != REPORT_NONE) {
-      printf("\n\n");
+      announce_command(s[count]->cmd, count, "Command #%d: %s", NOLIMIT);
+      printf("\n");
       print_summary(s[count], (config.report == REPORT_BRIEF));
       printf("\n");
     }
+
     if (config.graph) {
       if (config.report == REPORT_NONE) {
 	announce_command(s[count]->cmd, count, "Command #%d: %s", NOLIMIT);
@@ -964,15 +967,20 @@ void report(Usage *usage) {
       print_graph(s[count], usage, *(next - 1), *next);
       printf("\n");
     }
+
     if (config.report == REPORT_FULL) {
       print_descriptive_stats(s[count]);
       printf("\n");
     }
+
+    fflush(stdout);
+
     // TODO: Handle "too many commands" better
     next++;
     *next = *(next - 1);
     if (++count == MAXCMDS) USAGE("too many commands");
   }
+
   if (csv_output) fclose(csv_output);
   if (hf_output) fclose(hf_output);
 

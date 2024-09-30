@@ -47,7 +47,7 @@ Usage *new_usage_array(int cap) {
   if (cap < 1) return NULL;
   Usage *usage = malloc(sizeof(Usage));
   if (!usage) PANIC_OOM();
-  UsageData *data = malloc(cap * sizeof(UsageData));
+  UsageData *data = calloc(cap, sizeof(UsageData));
   if (!data) PANIC_OOM();
   usage->next = 0;
   usage->capacity = cap;

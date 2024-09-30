@@ -93,7 +93,7 @@ LIBS= -lm
 # -----------------------------------------------------------------------------
 
 $(PROGRAM): TAGS $(OBJECTS)
-	$(CC) $(CFLAGS) $(LIBS) -o $(PROGRAM) $(PROGRAM).c $(OBJECTS) 
+	$(CC) $(CFLAGS) -o $(PROGRAM) $(PROGRAM).c $(OBJECTS) $(LIBS)
 
 # ------------------------------------------------------------------
 

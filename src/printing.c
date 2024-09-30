@@ -97,7 +97,7 @@ void display_table_set(DisplayTable *dt, int row, int col, const char *fmt, ...)
   va_list things;
   char *buf;
   va_start(things, fmt);
-  vasprintf(&buf, fmt, things);
+  if (vasprintf(&buf, fmt, things) == -1) PANIC_OOM();
   va_end(things);
   insert(dt, row, col, buf);
 }

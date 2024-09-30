@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 SHOWOUTPUT=
 
@@ -63,7 +63,7 @@ ok "$prog" -R none "$infile"
 contains "8.87 times faster than #2: ps Aux"
 
 # Graph with default report
-ok "$prog" -g "$infile"
+ok "$prog" -G "$infile"
 contains "Min      Q₁    Median      Q₃       Max"
 contains "Command #1: ls -l" "Total CPU time    4.63 ms"
 contains "Command #2: ps Aux" "8.87 times faster than #2: ps Aux"
@@ -72,7 +72,7 @@ contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭�
 contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
 
 # Graph with no report
-ok "$prog" -R none -g "$infile"
+ok "$prog" -R none -G "$infile"
 contains "8.87 times faster than #2: ps Aux"
 contains "0     " "     max"
 contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
@@ -91,7 +91,11 @@ ok "$prog" -R none -B "$infile"
 contains "8.87 times faster than #2: ps Aux"
 contains "├────" "─┼─"
 
-if [[ $allpassed -eq 1 ]]; then 
+#
+# -----------------------------------------------------------------------------
+#
+
+if [[ "$allpassed" == "1" ]]; then 
     printf "All tests passed.\n\n"
     exit 0
 else

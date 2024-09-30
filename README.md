@@ -106,7 +106,7 @@ Key changes from Hyperfine:
     are a few:
     * `-o`, `--output <FILE>` (save data for individual executions)
     * `-f`, `--file <FILE>` (read commands, or _more_ commands, from a file)
-    * `-g`, `--graph` (show graph of one command's total CPU time)
+    * `-G`, `--graph` (show graph of one command's total CPU time)
     * `-R`, `--report <STYLE>` (report style `none`, `brief`, `summary`, or `full`)
     * `-B`, `--boxplot` (show rough boxplots of total CPU time on terminal)
     * `--groups` (summarize commands from file in groups separated by blank lines)
@@ -498,7 +498,7 @@ $
 
 ## Bar graph
 
-There's a "cheap" but useful bar graph feature in BestGuess (`-g` or `--graph`)
+There's a "cheap" but useful bar graph feature in BestGuess (`-G` or `--graph`)
 that shows the total time taken for each iteration as a horizontal bar.
 
 The bar is scaled to the maximum time needed for any iteration of command.  The
@@ -517,7 +517,7 @@ longer than subsequent ones, and that `ls` may benefit from more than one warmup
 run.
 
 ```shell 
-$ ./bestguess -R none -g -r 5 /bin/bash ls
+$ ./bestguess -R none -G -r 5 /bin/bash ls
 Use -o <FILE> or --output <FILE> to write raw data to a file.
 A single dash '-' instead of a file name prints to stdout.
 
@@ -553,7 +553,7 @@ The variation in execution times of `find` is quite small.  And the first
 iteration is no slower than the others.
 
 ```shell
-$ bestguess -g -i -r=10 -S "/bin/bash -c" "ls -lh" "find /usr/local \"*.dylib\""
+$ bestguess -G -i -r=10 -S "/bin/bash -c" "ls -lh" "find /usr/local \"*.dylib\""
 Use -o <FILE> or --output <FILE> to write raw data to a file.
 A single dash '-' instead of a file name prints to stdout.
 

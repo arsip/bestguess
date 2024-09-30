@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 SHOWOUTPUT=
 
@@ -56,11 +56,11 @@ ok "$prog" -R none /bin/bash ls
 contains "times faster than"
 
 # Graph with default report
-ok "$prog" -g /bin/bash
+ok "$prog" -G /bin/bash
 contains "Command #1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" "0     " "     max"
 
 # Graph with no report
-ok "$prog" -R none -g /bin/bash
+ok "$prog" -R none -G /bin/bash
 contains "Command #1" "/bin/bash"
 contains "│▭▭▭▭▭▭▭▭" "0" "max"
 
@@ -92,7 +92,7 @@ for warmups in $(seq 0 5); do
 	fi
 
 	# Graph
-	ok "$prog" -w $warmups -r $runs -R=brief -g /bin/bash
+	ok "$prog" -w $warmups -r $runs -R=brief -G /bin/bash
 	if [[ $runs -eq 0 ]]; then
 	    contains "No data"
 	else
@@ -111,9 +111,11 @@ for warmups in $(seq 0 5); do
 done
 
 
+#
+# -----------------------------------------------------------------------------
+#
 
-
-if [[ $allpassed -eq 1 ]]; then 
+if [[ "$allpassed" == "1" ]]; then 
     printf "All tests passed.\n\n"
     exit 0
 else

@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 SHOWOUTPUT=
 
@@ -88,7 +88,11 @@ ok "$prog" -R none --hyperfine-csv "$outfile" "$infile"
 contains "8.87 times faster than #2: ps Aux"
 ok diff "$outfile" "$expectfile"
 
-if [[ $allpassed -eq 1 ]]; then 
+#
+# -----------------------------------------------------------------------------
+#
+
+if [[ "$allpassed" == "1" ]]; then 
     printf "All tests passed.\n\n"
     exit 0
 else
