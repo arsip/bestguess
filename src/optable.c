@@ -63,7 +63,7 @@ const char *optable_helptext(int n) {
 int optable_numvals(int n) {
   if (Tbl && (n >= 0) && (n < Tbl_size))
     return Tbl[n].numvals;
-  return -1;
+  return OPTABLE_ERR;
 }
 
 // Convenience function.  Users can check the result of each call to
@@ -88,15 +88,15 @@ int optable_error(void) {
 int optable_iter_start(void) {
   for (int i = 0; i < Tbl_size; i++)
     if (Tbl[i].shortname || Tbl[i].longname) return i;
-  return -1;
+  return OPTABLE_NONE;
 }
 
 int optable_iter_next(int i) {
   i++;
-  if (i < 0) return -1;
+  if (i < 0) return OPTABLE_NONE;
   for (; i < Tbl_size; i++)
     if (Tbl[i].shortname || Tbl[i].longname) return i;
-  return -1;
+  return OPTABLE_NONE;
 }
 
 // Count the number of defined options
@@ -191,7 +191,7 @@ int optable_add(int n,
 int optable_init(int argc, char **argv) {
   if ((argc < 1) || !argv) {
     fprintf(stderr, "%s: invalid args to init()\n", __FILE__);
-    return -1;
+    return OPTABLE_ERR;
   }
   Argc = argc;
   Argv = argv;
@@ -231,10 +231,10 @@ static int match_long_option(const char *arg, const char **value) {
 	(*value)++;
 	return n;
       }
-      return -1;
+      return OPTABLE_ERR;
     }
   } // for each possible option name
-  return -1;
+  return OPTABLE_ERR;
 }
 
 static int match_short_option(const char *arg, const char **value) {
@@ -258,7 +258,7 @@ static int match_short_option(const char *arg, const char **value) {
       return n;
     }
   } // for each possible option name
-  return -1;
+  return OPTABLE_ERR;
 }
 
 // Ensure 'arg' is non-null before calling
@@ -279,25 +279,31 @@ static int still_need_value(const char *value, int n) {
 }
 
 // On success (non-zero return value), '*n' is set to the option
-// number encountered (> 0) or -1 to signal that we are not looking at
-// an option.
+// number encountered (> 0) or OPTABLE_NONE (< 0) to signal that the
+// current arg is not an option.
+//
+// If the current arg starts with - or --, but is not a valid option
+// name, OPTABLE_ERR is returned.
+//
+// Returns OPTABLE_DONE (zero) when finished.
 //
 // On success, '*value' is set to the option value.  In the case of
 // the "equals syntax" (e.g. "-r=5" or "--foo=bar") '*value' points to
 // the first character after the '='.  The ordinary syntax (e.g. "-r
 // 5" or "--foo bar") results in '*value' pointing to the next argv.
+//
 int optable_next(int *n, const char **value, int i) {
   if (!Tbl || !n || !value) {
     fprintf(stderr, "%s: invalid args to iterator\n", __FILE__);
-    return 0;
+    return OPTABLE_ERR;
   }
   if ((i < 1) && ShortnamePtr) {
     fprintf(stderr, "%s: inconsistent state in iterator\n", __FILE__);
-    return 0;
+    return OPTABLE_ERR;
   }
   if (ShortnamePtr) {
     // Already parsing multiple shortname options like "-plt" or "-plr=5"
-    if ((i < 1) || (i >= Argc)) return 0;
+    if ((i < 1) || (i >= Argc)) return OPTABLE_DONE;
     *n = match_short_option(ShortnamePtr, value);
     if (*n < 0) {
       // Error.  Return '*value' that points to the bad part of Argv[i]
@@ -311,7 +317,7 @@ int optable_next(int *n, const char **value, int i) {
   } 
   // Not already parsing multiple shortname options
   i++;
-  if ((i < 1) || (i >= Argc)) return 0;
+  if ((i < 1) || (i >= Argc)) return OPTABLE_DONE;
   if (optable_is_option(Argv[i])) {
     *n = match_short_option(Argv[i]+1, value);
     if (*n < 0) {
@@ -325,7 +331,7 @@ int optable_next(int *n, const char **value, int i) {
     return i;
   }
   // Else this arg is not an option/switch, so return it
-  *n = -1;
+  *n = OPTABLE_NONE;
   *value = Argv[i];
   return i;
 }
@@ -407,7 +413,7 @@ static const char *read_value(const char *p, int stop(const char c)) {
 
 // On success, return value is the config index (>= 0), 'start' points
 // to the value part of the arg string, and 'end' points one byte past
-// the last character of the value.  Note that 'end' may point to 
+// the last character of the value.  Note that 'end' may point to
 // whitespace or NUL.
 //
 // If the configuration parameter name is followed by '=' but no
@@ -434,40 +440,34 @@ static const char *read_value(const char *p, int stop(const char c)) {
 // If 'end' points at NUL, there are no more configuration parameters
 // in 'arg'.  Caller can check that condition or simply call
 // 'optable_parse_config' again using 'end' as the new 'arg'.  To get
-// all parameters, keep calling until -1 is returned.
+// all parameters, keep calling until OPTABLE_NONE is returned.
 //  
 // SYNTAX ERROR: If the configuration parameter name is NOT followed
-// by '=', the syntax is illegal and the config index is returned but
-// 'start' will be NULL.
+// by '=', the syntax is illegal and OPTABLE_ERR is returned.
 //
 // SYNTAX ERROR: If the configuration parameter does not match any of
-// the 'parms' (a NULL-terminated list of config names), then -1 is
-// returned and neither 'start' nor 'end' are valid.
+// the 'parms' (a NULL-terminated list of config names), then
+// OPTABLE_ERR is returned.
 //
 int optable_parse_config(const char *arg,
 			 const char **parms,
 			 const char **start,
 			 const char **end) {
-  if (!arg || !*arg) return -1;
-  if (!parms || !start || !end) return -1;
+  if (!arg || !parms || !start || !end) return OPTABLE_ERR;
   int idx = 0;
   if (commap(*arg)) arg++;
+  if (!*arg) return OPTABLE_NONE;
   while (*parms) {
     *start = compare(arg, *parms);
     if (*start) {
       if (**start == '=') {
 	// Read the value, which may be quoted.
 	*end = read_value(++(*start), commap);
-	return idx;
       }
-      *start = NULL;
-      *end = NULL;
       return idx;
     }
     parms++;
     idx++;
   } // for each possible option name
-  *start = NULL;
-  *end = NULL;
-  return -1;
+  return OPTABLE_ERR;
 }

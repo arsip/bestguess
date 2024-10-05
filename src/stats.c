@@ -344,7 +344,7 @@ static int64_t percentile(int pct, int64_t *X, int n) {
     case 100:
       return X[n - 1];
     default:
-      PANIC("Error: percentile %d unimplemented", pct);
+      PANIC("Percentile %d unimplemented", pct);
   }
 }
 
@@ -370,7 +370,7 @@ static double estimate_stddev(int64_t *X, int n, double est_mean) {
 static int *make_index(Usage *usage, int start, int end, Comparator compare) {
   assert(usage);
   int runs = end - start;
-  if (runs <= 0) PANIC("invalid start/end");
+  if (runs <= 0) PANIC("Invalid start/end");
   int *index = malloc(runs * sizeof(int));
   if (!index) PANIC_OOM();
   for (int i = 0; i < runs; i++) index[i] = start + i;
@@ -520,7 +520,7 @@ static void measure(Usage *usage,
 		    Comparator compare,
 		    Measures *m) {
   int runs = end - start;
-  if (runs < 1) PANIC("no data to analyze");
+  if (runs < 1) PANIC("No data to analyze");
   int64_t *X = ranked_sample(usage, start, end, fc, compare);
 
   // Descriptive statistics of the data distribution
@@ -1017,8 +1017,8 @@ Inference *compare_samples(Usage *usage,
     SET(stat->indistinct, INF_NONSIG);
 
   // Check for end of CI interval being too close to zero
-  bool ci_touches_0 = ((llabs(stat->ci_low) < config.ci_epsilon) ||
-		       (llabs(stat->ci_high) < config.ci_epsilon));
+  bool ci_touches_0 = ((llabs(stat->ci_low) < config.epsilon) ||
+		       (llabs(stat->ci_high) < config.epsilon));
   // Or CI outright includes zero
   bool ci_includes_0 = (stat->ci_low < 0) && (stat->ci_high > 0);
 
@@ -1026,10 +1026,10 @@ Inference *compare_samples(Usage *usage,
     SET(stat->indistinct, INF_CIZERO);
 
   // Check for median difference (effect size) too small
-  if (fabs(stat->shift) < (double) config.min_effect) 
+  if (fabs(stat->shift) < (double) config.effect) 
     SET(stat->indistinct, INF_NOEFFECT);
 
-  if (stat->p_super > config.high_superiority)
+  if (stat->p_super > config.super)
     SET(stat->indistinct, INF_HIGHSUPER);
     
   free(RCSmag.X);

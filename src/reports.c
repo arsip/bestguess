@@ -241,7 +241,7 @@ void print_graph(Summary *s, Usage *usage, int start, int end) {
   if (!s || !usage) return;
   // Error if start or end is out of range
   if ((start < 0) || (start >= usage->next) || (end < 0) || (end > usage->next))
-    PANIC("usage data indices out of bounds");
+    PANIC("Usage data indices out of bounds");
   int bars;
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int maxbars = strlen(BAR) / bytesperbar;
@@ -288,7 +288,7 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
   if ((end - start) < 2) {
     // Groups are a feature of commands read from a file (not from
     // the command line)
-    if (config.input_filename && (config.action == actionExecute)) {
+    if (option.input_filename && (option.action == actionExecute)) {
       printf("Group contains only one command\n");
     }
     return;
@@ -402,7 +402,7 @@ static void print_boxplot(int index,
     printf("Measurement min/max outside of axis min/max values\n");
     return;
   }
-  if (axismin >= axismax) PANIC("axis min/max equal or out of order");
+  if (axismin >= axismax) PANIC("Axis min/max equal or out of order");
   int indent = LABELWIDTH - 1;
   width = width - indent - 1;
   double scale = (double) width / (double) (axismax - axismin);
@@ -748,9 +748,9 @@ void print_descriptive_stats(Summary *s) {
 
 Usage *read_input_files(int argc, char **argv) {
 
-  if ((config.first == 0) || (config.first == argc))
+  if ((option.first == 0) || (option.first == argc))
     USAGE("No data files to read");
-  if (config.first >= MAXDATAFILES)
+  if (option.first >= MAXDATAFILES)
     USAGE("Too many data files");
 
   FILE *input[MAXDATAFILES] = {NULL};
@@ -764,7 +764,7 @@ Usage *read_input_files(int argc, char **argv) {
   int errfield;
   int lineno = 1;
   
-  for (int i = config.first; i < argc; i++) {
+  for (int i = option.first; i < argc; i++) {
     input[i] = (strcmp(argv[i], "-") == 0) ? stdin : maybe_open(argv[i], "r");
     if (!input[i]) PANIC_NULL();
     // Skip CSV header
@@ -809,7 +809,7 @@ Usage *read_input_files(int argc, char **argv) {
       csv_error(argv[i], lineno + 1, "data", errfield, buf, buflen);
   }
   free(buf);
-  for (int i = config.first; i < argc; i++) fclose(input[i]);
+  for (int i = option.first; i < argc; i++) fclose(input[i]);
   // Check for no data actually read from any of the files
   if (usage->next == 0) ERROR("No data read.  Exiting...");
   return usage;
@@ -856,7 +856,7 @@ void print_boxplots(Summary *summaries[], int start, int end) {
   puts("");
 }
 
-// TODO: We index into input[] starting at config.first, not 0
+// TODO: We index into input[] starting at option.first, not 0
 
 // TODO: The CSV reader was not coded for speed.  Could reuse input
 // string by replacing commas with NULs.
@@ -931,10 +931,10 @@ static void print_sample(Summary *s, int num, double best_median) {
 void report(Usage *usage) {
 
   FILE *csv_output = NULL, *hf_output = NULL;
-  if (config.csv_filename) 
-    csv_output = maybe_open(config.csv_filename, "w");
-  if (config.hf_filename)
-    hf_output = maybe_open(config.hf_filename, "w");
+  if (option.csv_filename) 
+    csv_output = maybe_open(option.csv_filename, "w");
+  if (option.hf_filename)
+    hf_output = maybe_open(option.hf_filename, "w");
 
   if (csv_output)
     write_summary_header(csv_output);
@@ -952,15 +952,15 @@ void report(Usage *usage) {
     if (hf_output)
       write_hf_line(hf_output, s[count]);
 
-    if (config.report != REPORT_NONE) {
+    if (option.report != REPORT_NONE) {
       announce_command(s[count]->cmd, count, "Command #%d: %s", NOLIMIT);
       printf("\n");
-      print_summary(s[count], (config.report == REPORT_BRIEF));
+      print_summary(s[count], (option.report == REPORT_BRIEF));
       printf("\n");
     }
 
-    if (config.graph) {
-      if (config.report == REPORT_NONE) {
+    if (option.graph) {
+      if (option.report == REPORT_NONE) {
 	announce_command(s[count]->cmd, count, "Command #%d: %s", NOLIMIT);
 	printf("\n");
       }
@@ -968,7 +968,7 @@ void report(Usage *usage) {
       printf("\n");
     }
 
-    if (config.report == REPORT_FULL) {
+    if (option.report == REPORT_FULL) {
       print_descriptive_stats(s[count]);
       printf("\n");
     }
@@ -984,7 +984,7 @@ void report(Usage *usage) {
   if (csv_output) fclose(csv_output);
   if (hf_output) fclose(hf_output);
 
-  if (config.boxplot)
+  if (option.boxplot)
     print_boxplots(s, 0, count);
 
   print_overall_summary(s, 0, count);

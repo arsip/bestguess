@@ -300,7 +300,7 @@ void write_summary_header(FILE *f) {
 
 void write_summary_line(FILE *f, Summary *s) {
   char *escaped_cmd = escape_csv(s->cmd);
-  char *shell_cmd = escape_csv(config.shell);
+  char *shell_cmd = escape_csv(option.shell);
   WRITEFIELD(S_CMD, "%s", escaped_cmd, S_LAST);
   WRITEFIELD(S_SHELL, "%s", shell_cmd, S_LAST);
   WRITEFIELD(S_RUNS, "%d", s->runs, S_LAST);
@@ -399,7 +399,7 @@ void write_hf_line(FILE *f, Summary *s) {
   const double million = MICROSECS;
   int i = 0;
   // Command
-  WRITEFIELD(i++, "%s", *(s->cmd) ? s->cmd : config.shell, N);
+  WRITEFIELD(i++, "%s", *(s->cmd) ? s->cmd : option.shell, N);
   // Median total time (more useful than mean, not as good as mode)
   WRITEFIELD(i++, "%f", (double) s->total.mode / million, N);
   // Stddev replaced with IQR

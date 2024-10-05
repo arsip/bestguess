@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
   ASSERT((*start == '8') && (*end == '\0'));
   PRINTCFG;
   n = optable_parse_config(end, configs, &start, &end);
-  ASSERT(n == -1);
+  ASSERT(n == OPTABLE_NONE);
   
   SETBUF("colors='foo,bar,baz'");
   ANNOUNCE_CONFIG_TEST;
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
   ASSERT((*start == '\'') && (*end == '\0'));
   PRINTCFG;
   n = optable_parse_config(end, configs, &start, &end);
-  ASSERT(n == -1);
+  ASSERT(n == OPTABLE_NONE);
 
   SETBUF("colors='\"foo,bar\",baz'");
   ANNOUNCE_CONFIG_TEST;
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
   ASSERT((*start == '\'') && (*end == '\0'));
   PRINTCFG;
   n = optable_parse_config(end, configs, &start, &end);
-  ASSERT(n == -1);
+  ASSERT(n == OPTABLE_NONE);
 
   SETBUF("colors='\"foo,bar\",\\'baz',colors=123,height=\"foobar\"");
   ANNOUNCE_CONFIG_TEST;
@@ -179,8 +179,13 @@ int main(int argc, char *argv[]) {
   ASSERT((*start == '\"') && (*end == '\0'));
   PRINTCFG;
   n = optable_parse_config(end, configs, &start, &end);
-  ASSERT(n == -1);
+  ASSERT(n == OPTABLE_NONE);
   
+  SETBUF("quz='\"foo,bar\"");
+  ANNOUNCE_CONFIG_TEST;
+  n = optable_parse_config(buf, configs, &start, &end);
+  ASSERT(n == OPTABLE_ERR);
+
   // -----------------------------------------------------------------------------
   // Reset everything after the tests above, and process our CLI args
   // -----------------------------------------------------------------------------
@@ -204,14 +209,16 @@ int main(int argc, char *argv[]) {
   printf("---  ------  -----\n");
   i = optable_init(argc, argv);
   while ((i = optable_next(&n, &val, i))) {
-    if (n < 0) {
+    if (n == OPTABLE_NONE) {
       if (val)
 	printf("[%2d]         %-20s\n", i, argv[i]); 
       else
 	printf("[%2d] ERR     %-20s\n", i, argv[i]);
     }
-    else
-      printf("[%2d] %3d     %-20s\n", i, n, val); 
+    else {
+      ASSERT(n > 0);
+      printf("[%2d] %3d     %-20s\n", i, n, val);
+    }
   }
 
   // -------------------------------------------------------
@@ -222,8 +229,12 @@ int main(int argc, char *argv[]) {
   printf("---------------  -------------\n");
   optable_init(argc, argv);
   while ((i = optable_next(&n, &val, i))) {
-    if (n < 0) {
-      if (val) continue;	// ordinary argument
+    if (n == OPTABLE_NONE) {
+      if (val)
+	continue;	// ordinary argument
+      ASSERT(val);
+    }
+    if (n == OPTABLE_ERR) {
       printf("Error: invalid option/switch %s\n", argv[i]);
       continue;
     }
@@ -261,10 +272,10 @@ int main(int argc, char *argv[]) {
     if (val) {
       if (!*val)
 	printf("Warning: option value is empty\n");
-      if (!optable_numvals(n))
+      if (optable_numvals(n) == 0)
 	printf("Error: option does not take a value\n");
     } else {
-      if (optable_numvals(n))
+      if (optable_numvals(n) > 0)
 	printf("Error: option requires a value\n");
     }
   }

@@ -21,7 +21,7 @@ const char *progname = "bestguess";
 #include <stdio.h>
 #include <string.h>
 
-Config config = {
+OptionValues option = {
   .action = actionNone,
   .helpversion = -1,
   .graph = false,
@@ -40,12 +40,18 @@ Config config = {
   .groups = false,
   .report = REPORT_SUMMARY,
   .boxplot = false,
-  .width = 80,			 // terminal width
-  // Inferential stats report
-  .alpha = 0.05,		 // p-value threshold
-  .ci_epsilon = 250,		 // μs
-  .min_effect = 500,		 // μs
-  .high_superiority = 1.0 / 3.0, // probability
+};
+
+// Sentinel value of -1 means "uninitialized"
+Config config = {
+  .width = -1,			// terminal width
+
+  // Settings for inferential stats report:
+
+  .alpha = -1,			// p-value threshold
+  .epsilon = -1,		// μs
+  .effect = -1,			// μs
+  .super = -1,			// probability
 };
 
 // -----------------------------------------------------------------------------
@@ -104,18 +110,19 @@ int main(int argc, char *argv[]) {
   // look for that argument, ignoring other CLI args temporarily.
   //
   optable_setusage("[-A <action>] [options] ...");
-  process_action_options(argc, argv);
+  process_common_options(argc, argv);
+  set_config_defaults();
 
   // If no ACTION argument was given, deduce it from executable name
-  if (config.action == actionNone)
-    config.action = action_from_progname(progname);
+  if (option.action == actionNone)
+    option.action = action_from_progname(progname);
 
-  if (config.helpversion == OPT_HELP) {
+  if (option.helpversion == OPT_HELP) {
     print_help();
-  } else if (config.helpversion == OPT_VERSION) {
+  } else if (option.helpversion == OPT_VERSION) {
     printf("%s %s\n", progname, progversion);
   } else {
-    switch (config.action) {
+    switch (option.action) {
       case actionNone: 
 	optable_printusage(progname);
 	USAGE("For more information, try %s --help\n", progname);

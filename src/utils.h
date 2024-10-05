@@ -163,6 +163,11 @@ int ends_in(const char *str, const char *suffix);
 
 int64_t     strtoint64(const char *str);
 bool    try_strtoint64(const char *str, int64_t *result);
+int64_t     buftoint64(const char *start, const char *end);
+
+bool try_strtodouble(const char *str, double *result);
+double   strtodouble(const char *str);
+double   buftodouble(const char *start, const char *end);
 
 // Misc:
 

@@ -32,23 +32,29 @@ enum Options {
   OPT_HELP,
 };
 
-#define XConfig_Settings(X)						\
-  X(CONFIG_WIDTH, "width", "Maximum terminal width for graphs, plots")	\
-  X(CONFIG_LAST,   NULL,   "SENTINEL")
-#define FIRST(a, b, c) a,
+#define XConfig_Settings(X)						         \
+ X(CONFIG_WIDTH,   "width",   "Maximum terminal width for graphs, plots", "80")  \
+ X(CONFIG_ALPHA,   "alpha",   "Alpha value for statistics", ".05")	         \
+ X(CONFIG_EPSILON, "epsilon", "Epsilon for confidence intervals (μsec)", "250")  \
+ X(CONFIG_EFFECT,  "effect",  "Minimum effect size (μsec)", "500")	         \
+ X(CONFIG_SUPER,   "super",   "Superiority threshold (probability)", ".333")     \
+ X(CONFIG_LAST,     NULL,     "SENTINEL", "SENTINEL")
+
+#define FIRST(a, b, c, d) a,
 typedef enum { XConfig_Settings(FIRST) } ConfigCode;
 #undef FIRST
 extern const char *ConfigSettingName[];
 extern const char *ConfigSettingDesc[];
+extern const char *ConfigSettingDefault[];
 
 void print_help(void);
 
-void process_action_options(int argc, char **argv);
+void process_common_options(int argc, char **argv);
 void process_exec_options(int argc, char **argv);
 void process_report_options(int argc, char **argv);
 
-void        free_config_help(void);
-ConfigCode  interpret_configuration_option(const char *option_string);
+void set_config_defaults(void);
+void free_config_help(void);
 
 #endif
 

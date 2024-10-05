@@ -49,6 +49,10 @@
 
 */
 
+#define OPTABLE_DONE 0
+#define OPTABLE_ERR -3
+#define OPTABLE_NONE -5
+
 int         optable_count(void);
 const char *optable_shortname(int n);
 const char *optable_longname(int n);

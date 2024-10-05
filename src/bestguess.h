@@ -58,7 +58,7 @@ typedef enum Action {
   actionReport,		   // Report on already-collected raw data
 } Action;
 
-typedef struct Config {
+typedef struct OptionValues {
   int action;
   int helpversion;
   bool graph;
@@ -77,12 +77,17 @@ typedef struct Config {
   bool groups;
   int  report;
   bool boxplot;
+} OptionValues;
+
+extern OptionValues option;
+
+typedef struct Config {
   int  width;
   // Inferential statistics interpretation
-  double  alpha;		// p-value threshold for significance
-  int64_t ci_epsilon;		// μs
-  double  min_effect;		// μs
-  double  high_superiority;	// probability
+  double  alpha;	 // p-value threshold for significance
+  int64_t epsilon;	 // for confidence intervals (μs)
+  double  effect;	 // minimum effect size (μs)
+  double  super;	 // probability threshold for high superiority
 } Config;
 
 extern Config config;

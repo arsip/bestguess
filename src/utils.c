@@ -88,7 +88,7 @@ void free_usage_array(Usage *usage) {
 char *get_string(Usage *usage, int idx, FieldCode fc) {
   if (!usage) PANIC_NULL();
   if ((idx < 0) || (idx >= usage->next))
-    PANIC("index %d out of range 0..%d", usage->next - 1);
+    PANIC("Index %d out of range 0..%d", usage->next - 1);
   if (fc == F_CMD) return usage->data[idx].cmd;
   if (fc == F_SHELL) return usage->data[idx].shell;
   PANIC("Non-string field code (%d)", fc);
@@ -97,7 +97,7 @@ char *get_string(Usage *usage, int idx, FieldCode fc) {
 int64_t get_int64(Usage *usage, int idx, FieldCode fc) {
   if (!usage) PANIC_NULL();
   if ((idx < 0) || (idx >= usage->next))
-    PANIC("index %d out of range 0..%d", usage->next - 1);
+    PANIC("Index %d out of range 0..%d", usage->next - 1);
   if (!FNUMERIC(fc)) PANIC("Invalid int64 field code (%d)", fc);
   return usage->data[idx].metrics[FTONUMERICIDX(fc)];
 }
@@ -106,7 +106,7 @@ int64_t get_int64(Usage *usage, int idx, FieldCode fc) {
 void set_string(Usage *usage, int idx, FieldCode fc, const char *str) {
   if (!usage) PANIC_NULL();
   if ((idx < 0) || (idx >= usage->next))
-    PANIC("index %d out of range 0..%d", usage->next - 1);
+    PANIC("Index %d out of range 0..%d", usage->next - 1);
   char *dup = strndup(str, MAXCMDLEN);
   if (!dup) PANIC_OOM();
   switch (fc) {
@@ -125,7 +125,7 @@ void set_string(Usage *usage, int idx, FieldCode fc, const char *str) {
 void set_int64(Usage *usage, int idx, FieldCode fc, int64_t val) {
   if (!usage) PANIC_NULL();
   if ((idx < 0) || (idx >= usage->next))
-    PANIC("index %d out of range 0..%d", idx, usage->next - 1);
+    PANIC("Index %d out of range 0..%d", idx, usage->next - 1);
   if (!FNUMERIC(fc)) PANIC("Invalid int64 field code (%d)", fc);
   usage->data[idx].metrics[FTONUMERICIDX(fc)] = val;
 }
@@ -294,6 +294,60 @@ int64_t strtoint64(const char *str) {
   if (!try_strtoint64(str, &value))
     USAGE("Failed to get integer from '%s'\n", str);
   return value;
+}
+
+// For convenience, behaves like strtoint64 when 'end' is NULL.  In
+// that usage, caller must ensure 'start' is a NUL-terminated string.
+int64_t buftoint64(const char *start, const char *end) {
+  int64_t value;
+  char buf[24];
+  size_t len;
+  if (end == NULL)
+    len = strlen(start);
+  else
+    len = end - start;
+  if (len < 24) {
+    memcpy(buf, start, len);
+    buf[len] = '\0';
+    if (!try_strtoint64(buf, &value))
+      USAGE("Failed to get integer from '%s'\n", buf);
+    return value;
+  }
+  USAGE("Failed to get integer from too-long string (%zu bytes)", len);
+}
+
+bool try_strtodouble(const char *str, double *result) {
+  if (!str || !result) PANIC_NULL();
+  int count;
+  int scancount = sscanf(str, "%lf%n", result, &count);
+  return ((scancount == 1) && (count == (int) strlen(str)));
+}
+
+double strtodouble(const char *str) {
+  double value;
+  if (!try_strtodouble(str, &value))
+    USAGE("Failed to get float from '%s'\n", str);
+  return value;
+}
+
+// For convenience, behaves like strtodouble when 'end' is NULL.  In
+// that usage, caller must ensure 'start' is a NUL-terminated string.
+double buftodouble(const char *start, const char *end) {
+  double value;
+  char buf[100];
+  size_t len;
+  if (end == NULL)
+    len = strlen(start);
+  else
+    len = end - start;
+  if (len < 100) {
+    memcpy(buf, start, len);
+    buf[len] = '\0';
+    if (!try_strtodouble(buf, &value))
+      USAGE("Failed to get float from '%s'\n", buf);
+    return value;
+  }
+  USAGE("Failed to get float from too-long string (%zu bytes)", len);
 }
 
 // -----------------------------------------------------------------------------

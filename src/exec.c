@@ -20,20 +20,20 @@
 #include "utils.h"
 
 static void run_prep_command(void) {
-  if (!config.prep_command) return;
+  if (!option.prep_command) return;
   
   // TODO: Factor out commonality with run()
 
   FILE *f;
   pid_t pid;
-  int use_shell = *config.shell;
+  int use_shell = *option.shell;
   arglist *args = new_arglist(MAXARGS);
 
   if (use_shell) {
-    split_unescape(config.shell, args);
-    add_arg(args, strdup(config.prep_command));
+    split_unescape(option.shell, args);
+    add_arg(args, strdup(option.prep_command));
   } else {
-    split_unescape(config.prep_command, args);
+    split_unescape(option.prep_command, args);
   }
 
   if (DEBUG) {
@@ -64,12 +64,12 @@ static void run_prep_command(void) {
 
   // Check to see if cmd/shell aborted or was killed
   if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
-    PANIC("Error: Could not execute %s '%s'.\n",
+    PANIC("Error trying to execute %s '%s'.\n",
 	  use_shell ? "shell" : "command",
-	  use_shell ? config.shell : config.prep_command);
+	  use_shell ? option.shell : option.prep_command);
   }
 
-  if (!config.ignore_failure && WEXITSTATUS(status)) {
+  if (!option.ignore_failure && WEXITSTATUS(status)) {
     if (use_shell) 
       PANIC("Prepare command under %s produced non-zero exit code %d\n",
 	    args->args[0], WEXITSTATUS(status));
@@ -85,8 +85,8 @@ static int run(const char *cmd, Usage *usage, int idx) {
   int status;
   int64_t start, stop;
 
-  int show_output = config.show_output;
-  int use_shell = *config.shell;
+  int show_output = option.show_output;
+  int use_shell = *option.shell;
 
   struct timeval wall_clock_start, wall_clock_stop;
 
@@ -95,7 +95,7 @@ static int run(const char *cmd, Usage *usage, int idx) {
   arglist *args = new_arglist(MAXARGS);
 
   if (use_shell) {
-    split_unescape(config.shell, args);
+    split_unescape(option.shell, args);
     add_arg(args, strdup(cmd));
   } else {
     split_unescape(cmd, args);
@@ -143,23 +143,23 @@ static int run(const char *cmd, Usage *usage, int idx) {
   set_int64(usage, idx, F_WALL, stop - start);
 
   set_string(usage, idx, F_CMD, cmd);
-  set_string(usage, idx, F_SHELL, config.shell);;
+  set_string(usage, idx, F_SHELL, option.shell);;
 
   // Check to see if cmd/shell aborted or was killed
   if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
     fprintf(stderr, "Error: Could not execute %s '%s'.\n",
 	    use_shell ? "shell" : "command",
-	    use_shell ? config.shell : cmd);
+	    use_shell ? option.shell : cmd);
 
-    if (!*config.shell) {
+    if (!*option.shell) {
       fprintf(stderr, "\nHint: No shell option specified.  Use -%s or --%s to specify a shell.\n",
 	      optable_shortname(OPT_SHELL), optable_longname(OPT_SHELL));
       fprintf(stderr, "      An empty command run in a shell will measure shell startup.\n");
     }
 
-    if (config.input_filename) {
+    if (option.input_filename) {
       fprintf(stderr, "\nHint: Commands are being read from file '%s'.  Blank lines\n",
-	      config.input_filename);
+	      option.input_filename);
       fprintf(stderr, "      are read as empty commands unless option --%s is given.\n",
 	      optable_longname(OPT_GROUPS));
     }
@@ -181,7 +181,7 @@ static int run(const char *cmd, Usage *usage, int idx) {
 
   // If we get here, the child process exited normally, though the
   // exit code might not be zero (and zero indicates success)
-  if (!config.ignore_failure && WEXITSTATUS(status)) {
+  if (!option.ignore_failure && WEXITSTATUS(status)) {
 
     if (use_shell) 
       fprintf(stderr,
@@ -194,7 +194,7 @@ static int run(const char *cmd, Usage *usage, int idx) {
 	      " exit code %d.\n",
 	      WEXITSTATUS(status));
 
-    if (use_shell && !ends_in(config.shell, " -c"))
+    if (use_shell && !ends_in(option.shell, " -c"))
       fprintf(stderr,
 	      "Note that shells commonly require the"
 	      " '-c' option to run a command.\n");
@@ -217,26 +217,26 @@ static Summary *run_command(int num,
 			    FILE *csv_output,
 			    FILE *hf_output) {
 
-  if (!config.output_to_stdout) {
-    if ((config.report != REPORT_NONE) || config.graph) {
+  if (!option.output_to_stdout) {
+    if ((option.report != REPORT_NONE) || option.graph) {
       announce_command(cmd, num, "Command #%d: %s", NOLIMIT);
       printf("\n");
       fflush(stdout);
     }
   }
 
-  Usage *usage = new_usage_array(config.runs);
-  assert((config.runs <= 0) || usage);
+  Usage *usage = new_usage_array(option.runs);
+  assert((option.runs <= 0) || usage);
 
-  Usage *dummy = new_usage_array(config.warmups);
+  Usage *dummy = new_usage_array(option.warmups);
   int idx;
-  for (int i = 0; i < config.warmups; i++) {
+  for (int i = 0; i < option.warmups; i++) {
     idx = usage_next(dummy);
     run(cmd, dummy, idx);
   }
   free_usage_array(dummy);
 
-  for (int i = 0; i < config.runs; i++) {
+  for (int i = 0; i < option.runs; i++) {
     idx = usage_next(usage);
     run(cmd, usage, idx);
     if (output) write_line(output, usage, idx);
@@ -244,27 +244,27 @@ static Summary *run_command(int num,
 
   int ignore = 0;
   Summary *s = summarize(usage, &ignore);
-  assert((config.runs <= 0) || s);
+  assert((option.runs <= 0) || s);
 
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
-  if (!config.output_to_stdout) {
-    if (config.report != REPORT_NONE)
-      print_summary(s, (config.report == REPORT_BRIEF));
-    if (config.report == REPORT_FULL) 
+  if (!option.output_to_stdout) {
+    if (option.report != REPORT_NONE)
+      print_summary(s, (option.report == REPORT_BRIEF));
+    if (option.report == REPORT_FULL) 
       print_descriptive_stats(s);
-    if (config.graph && usage) {
+    if (option.graph && usage) {
       print_graph(s, usage, 0, usage->next);
     }
-    if ((config.report != REPORT_NONE) || config.graph)
+    if ((option.report != REPORT_NONE) || option.graph)
       printf("\n");
   }
 
   // If exporting CSV file of summary stats, write that line of data
-  if (config.csv_filename) write_summary_line(csv_output, s);
+  if (option.csv_filename) write_summary_line(csv_output, s);
   // If exporting in Hyperfine CSV format, write that line of data
-  if (config.hf_filename) write_hf_line(hf_output, s);
+  if (option.hf_filename) write_hf_line(hf_output, s);
 
   free_usage_array(usage);
   fflush(stdout);
@@ -281,7 +281,7 @@ void run_all_commands(int argc, char **argv) {
 
   // Best practice is to save the raw data (all the timing runs).
   // Provide a reminder if that data is not being saved.
-  if (!config.output_to_stdout && !config.output_filename) {
+  if (!option.output_to_stdout && !option.output_filename) {
     printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n"
 	   "A single dash '-' instead of a file name prints to stdout.\n\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
@@ -290,26 +290,26 @@ void run_all_commands(int argc, char **argv) {
 
   // Give a warning in case the user provided a command line flag
   // after the "output file" option, instead of a file name.
-  if (config.output_filename && (*config.output_filename == '-')) {
+  if (option.output_filename && (*option.output_filename == '-')) {
     printf("Warning: Output filename '%s' begins with a dash\n\n",
-	   config.output_filename);
+	   option.output_filename);
     fflush(stdout);
   }
 
-  input = maybe_open(config.input_filename, "r");
-  csv_output = maybe_open(config.csv_filename, "w");
-  hf_output = maybe_open(config.hf_filename, "w");
+  input = maybe_open(option.input_filename, "r");
+  csv_output = maybe_open(option.csv_filename, "w");
+  hf_output = maybe_open(option.hf_filename, "w");
 
-  output = (config.output_to_stdout)
+  output = (option.output_to_stdout)
     ? stdout
-    : maybe_open(config.output_filename, "w");
+    : maybe_open(option.output_filename, "w");
 
   if (output) write_header(output);
   if (csv_output) write_summary_header(csv_output);
   if (hf_output) write_hf_header(hf_output);
 
-  if (config.first > 0) {
-    for (int k = config.first; k < argc; k++) {
+  if (option.first > 0) {
+    for (int k = option.first; k < argc; k++) {
       summaries[n] = run_command(n, argv[k], output, csv_output, hf_output);
       if (++n == MAXCMDS) goto toomany;
     }
@@ -326,13 +326,13 @@ void run_all_commands(int argc, char **argv) {
       } else {
 	ERROR("Read error on input file (max command length is %d bytes)", MAXCMDLEN);
       }
-      if ((!*cmd) && config.groups) {
+      if ((!*cmd) && option.groups) {
 	// Blank line in input file AND groups option is set
-	if (!config.output_to_stdout) {
+	if (!option.output_to_stdout) {
 	  if (group_start == n) continue; // multiple blank lines
 	  print_overall_summary(summaries, group_start, n);
 	  printf("\n");
-	  if (config.boxplot)
+	  if (option.boxplot)
 	    print_boxplots(summaries, group_start, n);
 	  group_start = n;
 	  puts("");
@@ -345,9 +345,9 @@ void run_all_commands(int argc, char **argv) {
     } // while
   }
 
-  if (!config.output_to_stdout) {
+  if (!option.output_to_stdout) {
     print_overall_summary(summaries, group_start, n);
-    if (config.boxplot)
+    if (option.boxplot)
       print_boxplots(summaries, group_start, n);
   }
 
