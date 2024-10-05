@@ -63,6 +63,7 @@ static void init_action_options(void) {
   optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
+  optable_add(OPT_CONFIG,     "x",   NULL,            1, config_help());
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())

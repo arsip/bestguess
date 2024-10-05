@@ -45,7 +45,7 @@
   Rationale: To support a CLI that uses UTF-8, the short option name
   can be many bytes long.  We don't want to validate UTF-8 (and most
   OSes do not) so we choose to rely on the unambiguous presence of '='
-  or ASCII whitespace to separate the option name from its value.
+  or (ASCII) whitespace to separate the option name from its value.
 
 */
 
@@ -57,6 +57,11 @@ const char *optable_helptext(int n);
 
 int  optable_iter_start(void);
 int  optable_iter_next(int i);
+
+int optable_parse_config(const char *arg,
+			 const char **parms,
+			 const char **start,
+			 const char **end);
 
 void optable_reset(void);
 int  optable_add(int n,

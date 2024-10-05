@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "optable.h"
 
 #define ASSERT(val) do {					\
@@ -103,7 +104,87 @@ int main(int argc, char *argv[]) {
 
   ASSERT(optable_error());
 
-  // Reset everything after the tests above
+  // -----------------------------------------------------------------------------
+  // Test the parsing of config options
+  // -----------------------------------------------------------------------------
+
+#define PRINTCFG do {							\
+    printf("  %s = %.*s\n", configs[n], (int) (end - start), start);	\
+  } while (0)
+  
+#define SETBUF(str) do {			\
+    memcpy(buf, (str), strlen(str)+1);		\
+  } while (0)
+
+#define ANNOUNCE_CONFIG_TEST do {			\
+    printf("Input to config parser: %s\n", buf);	\
+  } while (0)
+
+  printf("\nConfiguration tests\n");
+
+  const char *configs[4] = {"width", "height", "colors", NULL};
+  const char *start, *end;
+  char buf[100];
+
+  SETBUF("width=80");
+  ANNOUNCE_CONFIG_TEST;
+  int n = optable_parse_config(buf, configs, &start, &end);
+  ASSERT(n == 0);
+  ASSERT((*start == '8') && (*end == '\0'));
+  PRINTCFG;
+
+  SETBUF("colors=,width=80");
+  ANNOUNCE_CONFIG_TEST;
+  n = optable_parse_config(buf, configs, &start, &end);
+  ASSERT(n == 2);
+  ASSERT((*start == ',') && (*end == ','));
+  PRINTCFG;
+  n = optable_parse_config(end, configs, &start, &end);
+  ASSERT(n == 0);
+  ASSERT((*start == '8') && (*end == '\0'));
+  PRINTCFG;
+  n = optable_parse_config(end, configs, &start, &end);
+  ASSERT(n == -1);
+  
+  SETBUF("colors='foo,bar,baz'");
+  ANNOUNCE_CONFIG_TEST;
+  n = optable_parse_config(buf, configs, &start, &end);
+  ASSERT(n == 2);
+  ASSERT((*start == '\'') && (*end == '\0'));
+  PRINTCFG;
+  n = optable_parse_config(end, configs, &start, &end);
+  ASSERT(n == -1);
+
+  SETBUF("colors='\"foo,bar\",baz'");
+  ANNOUNCE_CONFIG_TEST;
+  n = optable_parse_config(buf, configs, &start, &end);
+  ASSERT(n == 2);
+  ASSERT((*start == '\'') && (*end == '\0'));
+  PRINTCFG;
+  n = optable_parse_config(end, configs, &start, &end);
+  ASSERT(n == -1);
+
+  SETBUF("colors='\"foo,bar\",\\'baz',colors=123,height=\"foobar\"");
+  ANNOUNCE_CONFIG_TEST;
+  n = optable_parse_config(buf, configs, &start, &end);
+  ASSERT(n == 2);
+  ASSERT((*start == '\'') && (*end == ','));
+  PRINTCFG;
+  n = optable_parse_config(end, configs, &start, &end);
+  ASSERT(n == 2);
+  ASSERT((*start == '1') && (*end == ','));
+  PRINTCFG;
+  n = optable_parse_config(end, configs, &start, &end);
+  ASSERT(n == 1);
+  ASSERT((*start == '\"') && (*end == '\0'));
+  PRINTCFG;
+  n = optable_parse_config(end, configs, &start, &end);
+  ASSERT(n == -1);
+  
+  // -----------------------------------------------------------------------------
+  // Reset everything after the tests above, and process our CLI args
+  // -----------------------------------------------------------------------------
+
   optable_free();
 
   printf("\nPrinting option configuration\n");
@@ -118,7 +199,7 @@ int main(int argc, char *argv[]) {
   
   printf("\nParsing command-line arguments\n\n");
   const char *val;
-  int n, i;
+  int i;
   printf("Arg  Option  Value\n");
   printf("---  ------  -----\n");
   i = optable_init(argc, argv);

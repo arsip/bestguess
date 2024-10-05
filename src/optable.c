@@ -360,3 +360,114 @@ void optable_printhelp(const char *progname) {
   } // for each program option
   fflush(stdout);
 }
+
+// -----------------------------------------------------------------------------
+// Parsing utilities
+// -----------------------------------------------------------------------------
+
+static int commap(const char c) {
+  return (c == ',');
+}
+
+static const char *until(const char *str, int stop(const char c)) {
+  if (!str) return NULL;
+  while ((*str != '\0') && !stop(*str)) str++;
+  return str;
+}
+
+// Find a char that matches 'c', returning a pointer to one byte
+// beyond it.  Ignore 'c' if it appears escaped with backslash.
+// Returns NULL if 'c' never appears un-escaped.
+static const char *match(const char *str, char c) {
+  if (!str) return NULL;
+  while (*str != '\0') {
+    if (*str == c) return str + 1;
+    if ((*str == '\\') && (*(str+1) == c)) str++;
+    str++;
+  }
+  return NULL;
+}
+
+// Return ptr to one byte beyond the last byte of a value.  The value
+// starts at 'p' and may be bare or quoted (single or double).
+static const char *read_value(const char *p, int stop(const char c)) {
+  if (*p == '\"') {
+    return match(++p, '\"');
+  } else if (*p == '\'') {
+    return match(++p, '\'');
+  } else {
+    p = until(p, stop);
+    return p;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Parse configuration-style options, e.g. -D width=120,height=32
+// -----------------------------------------------------------------------------
+
+// On success, return value is the config index (>= 0), 'start' points
+// to the value part of the arg string, and 'end' points one byte past
+// the last character of the value.  Note that 'end' may point to 
+// whitespace or NUL.
+//
+// If the configuration parameter name is followed by '=' but no
+// value, then 'start' and 'end' will both point to the byte after the
+// '='.  This is a zero-length value string.
+//
+// Usage: Suppose -D is a 'define' option that takes a value.  Valid
+// uses include these:
+//
+//    -D width=80
+//    -D=width=80
+//    -D="width=80"
+//    -D width=
+//    -D width=80,height=32,colors='red:0xFF0000;blue:0x0000FF'
+//    -D width=,height=32,depth=4
+//
+// Call 'optable_parse_config' with 'arg' pointing at the value
+// argument, e.g. width=80.  'parms' should be a NULL-terminated list
+// of config parameter names, in this example it should include
+// "width".  If "width" is first, 'optable_parse_config' will return
+// index 0 (into 'parms'), 'start' will point to 80, and 'end' will
+// point one byte past 80.
+//
+// If 'end' points at NUL, there are no more configuration parameters
+// in 'arg'.  Caller can check that condition or simply call
+// 'optable_parse_config' again using 'end' as the new 'arg'.  To get
+// all parameters, keep calling until -1 is returned.
+//  
+// SYNTAX ERROR: If the configuration parameter name is NOT followed
+// by '=', the syntax is illegal and the config index is returned but
+// 'start' will be NULL.
+//
+// SYNTAX ERROR: If the configuration parameter does not match any of
+// the 'parms' (a NULL-terminated list of config names), then -1 is
+// returned and neither 'start' nor 'end' are valid.
+//
+int optable_parse_config(const char *arg,
+			 const char **parms,
+			 const char **start,
+			 const char **end) {
+  if (!arg || !*arg) return -1;
+  if (!parms || !start || !end) return -1;
+  int idx = 0;
+  if (commap(*arg)) arg++;
+  while (*parms) {
+    *start = compare(arg, *parms);
+    if (*start) {
+      if (**start == '=') {
+	// Read the value, which may be quoted.
+	*end = read_value(++(*start), commap);
+	return idx;
+      }
+      *start = NULL;
+      *end = NULL;
+      return idx;
+    }
+    parms++;
+    idx++;
+  } // for each possible option name
+  *start = NULL;
+  *end = NULL;
+  return -1;
+}

@@ -1080,11 +1080,11 @@ void report(Usage *usage) {
   const int time_len = time_nonfillchars + (time_width - time_nonfillchars) * b;
   const char *time_header = "══ Total time ══";
   const int delta_width = 18;
-  const int delta_nonfillchars = 12;
+  const int delta_nonfillchars = 11;
   const int delta_len = (delta_nonfillchars
-			 + (delta_width - 1 - delta_nonfillchars) * b
-			 + strlen("Δ"));
-  const char *delta_header = " Slower by Δ ═════════════════";
+			 + (delta_width - delta_nonfillchars) * b);
+  const char *delta_header = "══ Slower by ═════════════════";
+  const char *delta_no_header = "══════════════════════════════════";
 			
   const char *winner = "✓";
   const char *cmd_fmt = "%3d. %s";
@@ -1100,7 +1100,7 @@ void report(Usage *usage) {
   if (same_count < N)
     printf("%*.*s\n", delta_len, delta_len, delta_header);
   else
-    printf("\n");
+    printf("%.*s\n", delta_width * b, delta_no_header);
   
   for (int i = 0; i < N; i++)
     if (same[i] != -1) {
@@ -1128,8 +1128,8 @@ void report(Usage *usage) {
       tmp = apply_units(ss->infer->shift, units, UNITS);
       printf(NUMFMT, tmp);
       free(tmp);
-      double factor = (double) ss->infer->shift / s[bestidx]->total.median;
-      printf(" %7.2fx", factor);
+      double pct = (double) ss->infer->shift / s[bestidx]->total.median;
+      printf(" %7.1f%%", pct * 100.0);
       printf("\n");
     }
 
