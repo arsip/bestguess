@@ -928,6 +928,66 @@ static void print_sample(Summary *s, int num, double best_median) {
   printf("\n");
 }
 
+// Explain the inferential statistics
+static void explain(Summary *s, int num) {
+  char *tmp, *tmp2, *tmp3;
+  DisplayTable *t = new_display_table(NULL,
+				      82,
+				      7,
+				      (int []){6,13,15,5,5,20,4},
+				      (int []){0,2,1,2,2,2,2},
+				      "rllrrlr");
+  int row = 0;
+  display_table_set(t, row, 0, "N");
+  display_table_set(t, row, 1, "Mann-Whitney");
+  display_table_set(t, row, 2, "Hodges-Lehmann");
+  display_table_set(t, row, 3, "p  ");
+  display_table_set(t, row, 4, "(adj)");
+  display_table_set(t, row, 5, "Confidence Interval");
+  display_table_set(t, row, 6, "Â ");
+  row++;
+
+  Units *units = select_units(s->total.max, time_units);
+
+  display_table_set(t, row, 0, "%6d", s->runs);
+
+  display_table_set(t, row, 1, " W = %-8.0f", s->infer->W);
+
+  tmp = apply_units(s->infer->shift, units, UNITS);
+  display_table_set(t, row, 2, " Δ = " NUMFMT_LEFT, tmp);
+  free(tmp);
+
+//     double pct_shift = 100.0 * stat->shift / best_median;
+//     printf(" (%3.f%%)", pct_shift);
+
+  // p-value, unadjusted (more conservative than adjusted value)
+  if (s->infer->p < 0.001)
+    display_table_set(t, row, 3, "%s", "<.001");
+  else
+    display_table_set(t, row, 3, "%5.3f", s->infer->p);
+
+  // Adjusted for ties
+  if (s->infer->p_adj < 0.001) 
+    display_table_set(t, row, 4, "%s", "<.001");
+  else
+    display_table_set(t, row, 4, "%5.3f", s->infer->p_adj);
+
+  asprintf(&tmp, "%4.2f%%", s->infer->confidence * 100.0);
+  tmp2 = apply_units(s->infer->ci_low, units, NOUNITS);
+  tmp3 = apply_units(s->infer->ci_high, units, NOUNITS);
+  display_table_set(t, row, 5, "%s (%s, %s) %2s",
+		    tmp, lefttrim(tmp2), lefttrim(tmp3), units->unitname);
+  free(tmp);
+  free(tmp2);
+  free(tmp3);
+
+  display_table_set(t, row, 6, "%4.2f", s->infer->p_super);
+
+
+  display_table(t, 0);
+  free_display_table(t);
+}
+
 void report(Usage *usage) {
 
   FILE *csv_output = NULL, *hf_output = NULL;
@@ -990,9 +1050,6 @@ void report(Usage *usage) {
   print_overall_summary(s, 0, count);
   printf("\n");
 
-  // TEMP: Experimental new features below
-  printf("==================================================================\n");
-
   // Number of samples
   int N = count;
 
@@ -1022,8 +1079,8 @@ void report(Usage *usage) {
   }
 
   // Take all the samples indistinguishable from the best performer
-  // and group them (in rank order) in 'same' so they can be printed
-  // together.
+  // and group them (in rank order) in the 'same' array so they can be
+  // printed together.
   int *same = malloc(N * sizeof(int));
   if (!same) PANIC_NULL();
   same[0] = bestidx;
@@ -1037,6 +1094,12 @@ void report(Usage *usage) {
       same[i] = -1;
     }
 
+
+  // -----------------------------------------------------------------------------
+  //
+  // TEMP: Experimental new features below
+
+  printf("==================================================================\n");
   printf("Command                 N     Median      W      p    p_adj      Shift           Confidence Interval         Â \n");
 
   // Print the 'same' array of samples
@@ -1051,10 +1114,13 @@ void report(Usage *usage) {
     if ((index[i] != -1) && (index[i] != bestidx))
       print_sample(s[index[i]], index[i], s[bestidx]->total.median);
   
-  char *tmp;
+  printf("==================================================================\n");
   printf("\n");
 
-  /* Maybe we should draw a table like this?
+  // -----------------------------------------------------------------------------
+
+
+  /* Maybe we should draw a table like this one?
 
     Best guess ranking:
     ╔═════ Command ══════════════════════════ Total time ══ Slower by Δ ═══╗
@@ -1066,6 +1132,9 @@ void report(Usage *usage) {
     ╚══════════════════════════════════════════════════════════════════════╝
 
   */     
+
+  // TODO: Move the double-line printing stuff somewhere.  Maybe it
+  // should be a table format, since it's a table without the sides.
 
   const char *fill = "═";
   const int b = strlen(fill);
@@ -1102,6 +1171,7 @@ void report(Usage *usage) {
   else
     printf("%.*s\n", delta_width * b, delta_no_header);
   
+  char *tmp;
   for (int i = 0; i < N; i++)
     if (same[i] != -1) {
       printf("%s", winner);
@@ -1112,6 +1182,12 @@ void report(Usage *usage) {
       tmp = apply_units(ss->total.median, units, UNITS);
       printf("  %s\n", tmp);
       free(tmp);
+      if (option.explain) {
+	if (ss->infer)
+	  explain(ss, same[i]);
+	else
+	  printf("\n");
+      }
     }
 
   // Print the rest
@@ -1131,12 +1207,13 @@ void report(Usage *usage) {
       double pct = (double) ss->infer->shift / s[bestidx]->total.median;
       printf(" %7.1f%%", pct * 100.0);
       printf("\n");
+      if (option.explain)
+	explain(ss, same[i]);
     }
 
   printf("%.*s\n", (cmd_width + time_width + delta_width) * b,
 	 "═══════════════════════════════════════════════════════════" 
 	 "═══════════════════════════════════════════════════════════");
-
 
   free(same);
  done2:

@@ -164,6 +164,7 @@ void show_config_settings(void) {
   show_setting(CONFIG_SUPER);
 }
 
+#define HELP_EXPLAIN "Show an explanation of the inferential statistics"
 #define HELP_GRAPH "Show graph of total time for each iteration"
 #define HELP_BOXPLOT "Show box plots of timing data"
 #define HELP_ACTION							\
@@ -175,6 +176,7 @@ static void init_action_options(void) {
   optable_add(OPT_REPORT,     "R",  "report",  1, report_options());
   optable_add(OPT_GRAPH,      "G",  "graph",   0, HELP_GRAPH);
   optable_add(OPT_BOXPLOT,    "B",  "boxplot", 0, HELP_BOXPLOT);
+  optable_add(OPT_EXPLAIN,    "E",  "explain", 0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",  1, HELP_ACTION);
   optable_add(OPT_CONFIG,     "x",   NULL,     1, config_help());
   optable_add(OPT_SHOWCONFIG, NULL, "config",  0, "Show configuration settings");
@@ -210,6 +212,9 @@ void process_common_options(int argc, char **argv) {
 	break;
       case OPT_SHOWCONFIG:
 	option.helpversion = OPT_SHOWCONFIG;
+	break;
+      case OPT_EXPLAIN:
+	option.explain = true;
 	break;
       case OPT_ACTION:
 	if (val && (strcmp(val, CLI_OPTION_EXPERIMENT) == 0)) {
@@ -284,6 +289,7 @@ static void init_exec_options(void) {
   optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
   optable_add(OPT_REPORT,     "R",  "report",         1, report_options());
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
+  optable_add(OPT_EXPLAIN,    "E",  "explain",        0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
   optable_add(OPT_CONFIG,     "x",   NULL,            1, config_help());
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
@@ -369,16 +375,8 @@ void process_exec_options(int argc, char **argv) {
 	check_option_value(val, n);
 	option.prep_command = strdup(val);
 	break;
-      case OPT_GRAPH:
-      case OPT_BOXPLOT:
-      case OPT_REPORT:
-      case OPT_CONFIG:
-      case OPT_VERSION:
-      case OPT_HELP:
-      case OPT_ACTION:
-	break;
       default:
-	PANIC("Invalid option index %d\n", n);
+	break;
     }
   }
 }
@@ -393,6 +391,7 @@ static void init_report_options(void) {
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
   optable_add(OPT_REPORT,     "R",  "report",         1, report_options());
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
+  optable_add(OPT_EXPLAIN,    "E",  "explain",        0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
   optable_add(OPT_CONFIG,     "x",   NULL,            1, config_help());
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
@@ -436,16 +435,8 @@ void process_report_options(int argc, char **argv) {
 	check_option_value(val, n);
 	option.csv_filename = strdup(val);
 	break;
-      case OPT_GRAPH:
-      case OPT_BOXPLOT:
-      case OPT_REPORT:
-      case OPT_CONFIG:
-      case OPT_VERSION:
-      case OPT_HELP:
-      case OPT_ACTION:
-	break;
       default:
-	PANIC("Invalid option index %d\n", n);
+	break;
     }
   }
 }

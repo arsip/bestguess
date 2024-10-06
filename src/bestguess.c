@@ -40,6 +40,7 @@ OptionValues option = {
   .groups = false,
   .report = REPORT_SUMMARY,
   .boxplot = false,
+  .explain = false,
 };
 
 // Sentinel value of -1 means "uninitialized"

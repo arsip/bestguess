@@ -26,6 +26,7 @@ enum Options {
   OPT_GRAPH,
   OPT_REPORT,
   OPT_BOXPLOT,
+  OPT_EXPLAIN,			// Explain the inferential statistics
   OPT_ACTION,			// E.g. run, report
   OPT_CONFIG,			// Settings: -x key=value
   OPT_SHOWCONFIG,	        // Show config parameter settings

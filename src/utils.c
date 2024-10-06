@@ -248,6 +248,9 @@ static int is_quote(const char *p) {
   return p && ((*p == '\'') || (*p == '\"'));
 }
 
+// FUTURE: There's a version of this in optable that we may want to
+// copy, called read_value().  It handles escaped quotes within a
+// quoted string.
 static const char *read_arg(const char *p) {
   if (*p == '\"') {
     p = until_doublequote(++p);

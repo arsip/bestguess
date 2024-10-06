@@ -59,24 +59,25 @@ typedef enum Action {
 } Action;
 
 typedef struct OptionValues {
-  int action;
-  int helpversion;
-  bool graph;
-  int runs;
-  int warmups;
-  int first;
-  bool show_output;
-  bool ignore_failure;
-  bool output_to_stdout;
+  int   action;
+  int   helpversion;
+  bool  graph;
+  int   runs;
+  int   warmups;
+  int   first;
+  bool  show_output;
+  bool  ignore_failure;
+  bool  output_to_stdout;
   char *input_filename;
   char *output_filename;
   char *csv_filename;
   char *hf_filename;
   char *prep_command;
   const char *shell;
-  bool groups;
-  int  report;
-  bool boxplot;
+  bool  groups;
+  int   report;
+  bool  boxplot;
+  bool  explain;
 } OptionValues;
 
 extern OptionValues option;

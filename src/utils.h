@@ -193,8 +193,10 @@ extern Units count_units[];
 #define UNITS 1			// show units (e.g. ms, GB)
 #define NOUNITS 0		// do not show units
 #define NOLIMIT -1		// no limit to length of displayed string
-#define NUMFMT "%10s"		// should match fmt_units above
-#define NUMFMT_NOUNITS "%7s"	// should match fmt_nounits above
+#define NUMFMT "%10s" 
+#define NUMFMT_LEFT "%-10s" 
+#define NUMFMT_NOUNITS "%7s" 
+#define NUMFMT_NOUNITS_LEFT "%-7s" 
 
 Units *select_units(int64_t maxvalue, Units *options);
 char  *apply_units(int64_t value, Units *units, bool show_unit_names);
