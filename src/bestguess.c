@@ -45,9 +45,6 @@ OptionValues option = {
 // Sentinel value of -1 means "uninitialized"
 Config config = {
   .width = -1,			// terminal width
-
-  // Settings for inferential stats report:
-
   .alpha = -1,			// p-value threshold
   .epsilon = -1,		// μs
   .effect = -1,			// μs
@@ -121,6 +118,8 @@ int main(int argc, char *argv[]) {
     print_help();
   } else if (option.helpversion == OPT_VERSION) {
     printf("%s %s\n", progname, progversion);
+  } else if (option.helpversion == OPT_SHOWCONFIG) {
+    show_config_settings();
   } else {
     switch (option.action) {
       case actionNone: 

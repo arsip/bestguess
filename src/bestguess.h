@@ -82,11 +82,12 @@ typedef struct OptionValues {
 extern OptionValues option;
 
 typedef struct Config {
-  int  width;
+  // Reporting configuration
+  int     width;
   // Inferential statistics interpretation
   double  alpha;	 // p-value threshold for significance
   int64_t epsilon;	 // for confidence intervals (μs)
-  double  effect;	 // minimum effect size (μs)
+  int64_t effect;	 // minimum effect size (μs)
   double  super;	 // probability threshold for high superiority
 } Config;
 

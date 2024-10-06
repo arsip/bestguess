@@ -37,10 +37,10 @@ typedef struct Inference {
   double  W;		// Mann-Whitney-Wilcoxon rank sum
   double  p;		// p value that η₁ ≠ η₂ (conservative)
   double  p_adj;	// p value adjusted for ties
-  double  shift;	// Hodges-Lehmann estimation of median shift
+  double  shift;	// Hodges-Lehmann estimation of median shift (μs)
   double  confidence;	// Confidence for shift, e.g. 0.955 for 95.5%
-  int64_t ci_low;	// Confidence interval for shift
-  int64_t ci_high;
+  int64_t ci_low;	// Confidence interval for shift (μs)
+  int64_t ci_high;	// (μs)
   double  p_super;	// Probability of superiority
 } Inference;
 

@@ -28,6 +28,7 @@ enum Options {
   OPT_BOXPLOT,
   OPT_ACTION,			// E.g. run, report
   OPT_CONFIG,			// Settings: -x key=value
+  OPT_SHOWCONFIG,	        // Show config parameter settings
   OPT_VERSION,
   OPT_HELP,
 };
@@ -54,6 +55,7 @@ void process_exec_options(int argc, char **argv);
 void process_report_options(int argc, char **argv);
 
 void set_config_defaults(void);
+void show_config_settings(void);
 void free_config_help(void);
 
 #endif

@@ -112,35 +112,56 @@ static void process_config_setting(const char *val) {
 	set_super(start, end);
 	continue;
       default:
-	printf("Configuration setting %s = %.*s\n",
-	       ConfigSettingName[i], (int) (end - start), start);
+	PANIC("Unhandled configuration setting to process (%d)", i);
     }
   }
 }
 
+// Any value < 0 means "uninitialized"
 void set_config_defaults(void) {
-  int i = 0;
-  do {
-    switch (i) {
-      case CONFIG_WIDTH:
-	set_width(ConfigSettingDefault[CONFIG_WIDTH], NULL);
-	break;
-      case CONFIG_ALPHA:
-	set_alpha(ConfigSettingDefault[CONFIG_ALPHA], NULL);
-	break;
-      case CONFIG_EFFECT:
-	set_effect(ConfigSettingDefault[CONFIG_EFFECT], NULL);
-	break;
-      case CONFIG_EPSILON:
-	set_epsilon(ConfigSettingDefault[CONFIG_EPSILON], NULL);
-	break;
-      case CONFIG_SUPER:
-	set_super(ConfigSettingDefault[CONFIG_SUPER], NULL);
-	break;
-      default:
-	PANIC("Unhandled config default %d", i);
-    }
-  } while (++i < CONFIG_LAST);
+  if (config.width < 0)
+    set_width(ConfigSettingDefault[CONFIG_WIDTH], NULL);
+  if (config.alpha < 0)
+    set_alpha(ConfigSettingDefault[CONFIG_ALPHA], NULL);
+  if (config.alpha < 0)
+    set_effect(ConfigSettingDefault[CONFIG_EFFECT], NULL);
+  if (config.epsilon < 0)
+    set_epsilon(ConfigSettingDefault[CONFIG_EPSILON], NULL);
+  if (config.super < 0)
+    set_super(ConfigSettingDefault[CONFIG_SUPER], NULL);
+}
+
+static void show_setting(int n) {
+  if ((n < 0) || (n >= CONFIG_LAST))
+    PANIC("Config setting index (%d) out of range", n);
+  printf("%7s = ", ConfigSettingName[n]);
+  switch (n) {
+    case CONFIG_WIDTH:
+      printf("%d\n", config.width);
+      break;
+    case CONFIG_EFFECT:
+      printf("%" PRId64 "\n", config.effect);
+      break;
+    case CONFIG_EPSILON:
+      printf("%" PRId64 "\n", config.epsilon);
+      break;
+    case CONFIG_ALPHA:
+      printf("%4.2f\n", config.alpha);
+      break;
+    case CONFIG_SUPER:
+      printf("%4.2f\n", config.super);
+      break;
+    default:
+      PANIC("Config setting index (%d) out of range", n);
+  }
+}
+
+void show_config_settings(void) {
+  show_setting(CONFIG_WIDTH);
+  show_setting(CONFIG_ALPHA);
+  show_setting(CONFIG_EFFECT);
+  show_setting(CONFIG_EPSILON);
+  show_setting(CONFIG_SUPER);
 }
 
 #define HELP_GRAPH "Show graph of total time for each iteration"
@@ -151,13 +172,14 @@ void set_config_defaults(void) {
   "<ACTION> option is required.  See the manual for more." 
 
 static void init_action_options(void) {
-  optable_add(OPT_REPORT,     "R",  "report",         1, report_options());
-  optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
-  optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
-  optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
-  optable_add(OPT_CONFIG,     "x",   NULL,            1, config_help());
-  optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
-  optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
+  optable_add(OPT_REPORT,     "R",  "report",  1, report_options());
+  optable_add(OPT_GRAPH,      "G",  "graph",   0, HELP_GRAPH);
+  optable_add(OPT_BOXPLOT,    "B",  "boxplot", 0, HELP_BOXPLOT);
+  optable_add(OPT_ACTION,     "A",  "action",  1, HELP_ACTION);
+  optable_add(OPT_CONFIG,     "x",   NULL,     1, config_help());
+  optable_add(OPT_SHOWCONFIG, NULL, "config",  0, "Show configuration settings");
+  optable_add(OPT_VERSION,    "v",  "version", 0, "Show version");
+  optable_add(OPT_HELP,       "h",  "help",    0, "Show help");
   if (optable_error())
     PANIC("Failed to configure command-line option parser");
 }
@@ -185,6 +207,9 @@ void process_common_options(int argc, char **argv) {
 	break;
       case OPT_HELP:
 	option.helpversion = OPT_HELP;
+	break;
+      case OPT_SHOWCONFIG:
+	option.helpversion = OPT_SHOWCONFIG;
 	break;
       case OPT_ACTION:
 	if (val && (strcmp(val, CLI_OPTION_EXPERIMENT) == 0)) {
