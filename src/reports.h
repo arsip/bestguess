@@ -32,7 +32,8 @@ char       *report_options(void);
 void        free_report_options(void);
 ReportCode  interpret_report_option(const char *op);
 
-void   report(Usage *usage);
+void report(Ranking *ranking);
+
 Usage *read_input_files(int argc, char **argv);
 
 char *command_announcement(const char *cmd, int index, const char *fmt, int len);

@@ -242,8 +242,7 @@ static Summary *run_command(int num,
     if (output) write_line(output, usage, idx);
   }
 
-  int ignore = 0;
-  Summary *s = summarize(usage, &ignore);
+  Summary *s = summarize(usage, 0, option.runs);
   assert((option.runs <= 0) || s);
 
   // If raw data is going to an output file, we print a summary on the
@@ -349,6 +348,8 @@ void run_all_commands(int argc, char **argv) {
     print_overall_summary(summaries, group_start, n);
     if (option.boxplot)
       print_boxplots(summaries, group_start, n);
+//     if (option.explain)
+//       explain_each(summaries, group_start, n);
   }
 
   if (output) fclose(output);

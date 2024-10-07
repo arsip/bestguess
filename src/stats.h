@@ -95,6 +95,14 @@ enum MeasureCodes {
   CODE_HIGH_KURTOSIS,	  // High kurtosis can explain non-normality
 };
 
+typedef struct Ranking {
+  Usage *usage;	       // All the usage data, collected together
+  Summary **summaries; // Array of pointers to summaries
+  int *index;	       // summary[index[0]] is fastest
+  int *usageidx;       // usage[usageidx[i],usageidx[i+1]] ==> summary[i]
+  int count;	       // Number of summaries, index, usageidx
+} Ranking;
+
 // IMPORTANT: A RankedCombinedSample may contain n1+n2 elements (size
 // of 'X' and 'ranks') or n1*n2 elements.
 typedef struct RankedCombinedSample {
@@ -124,8 +132,12 @@ Inference *compare_samples(Usage *usage,
 
 int *sort_by_totaltime(Summary *summaries[], int start, int end);
 
-Summary *summarize(Usage *usage, int *next);
-void     free_summary(Summary *s);
+Summary *summarize(Usage *usage, int start, int end);
 
+Ranking *rank(Usage *usage);
+void     free_ranking(Ranking *rank);
+
+void     free_summary(Summary *s);
+void     free_summaries(Summary **ss, int n);
 
 #endif

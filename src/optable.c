@@ -301,8 +301,11 @@ int optable_next(int *n, const char **value, int i) {
     fprintf(stderr, "%s: inconsistent state in iterator\n", __FILE__);
     return OPTABLE_ERR;
   }
+  //
+  // Are we in the middle of parsing multiple shortname options like
+  // "-plt" or "-plr=5"?
+  //
   if (ShortnamePtr) {
-    // Already parsing multiple shortname options like "-plt" or "-plr=5"
     if ((i < 1) || (i >= Argc)) return OPTABLE_DONE;
     *n = match_short_option(ShortnamePtr, value);
     if (*n < 0) {
@@ -315,7 +318,9 @@ int optable_next(int *n, const char **value, int i) {
       *value = Argv[++i];
     return i;
   } 
+  //
   // Not already parsing multiple shortname options
+  //
   i++;
   if ((i < 1) || (i >= Argc)) return OPTABLE_DONE;
   if (optable_is_option(Argv[i])) {
@@ -325,7 +330,7 @@ int optable_next(int *n, const char **value, int i) {
 	*n = match_long_option(Argv[i]+2, value);
     } 
     if (*n < 0) return i;
-    // Since argv ends in a NULL, we can index ahead
+    // Since argv always has a NULL at the end, we can index ahead
     if (still_need_value(*value, *n))
       *value = Argv[++i];
     return i;

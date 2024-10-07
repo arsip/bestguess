@@ -89,6 +89,8 @@ static Action action_from_progname(const char *executable) {
 int main(int argc, char *argv[]) {
 
   Usage *usage;
+  Ranking *ranking;
+  
   if (argc) progname = argv[0];
   if (argc < 2) {
     optable_printusage(progname);
@@ -136,8 +138,9 @@ int main(int argc, char *argv[]) {
 	optable_setusage("[options] <datafile1> ...");
 	process_report_options(argc, argv);
 	usage = read_input_files(argc, argv);
-	report(usage);
-	free_usage_array(usage);
+	ranking = rank(usage);
+	report(ranking);
+	free_ranking(ranking);
 	break;
       default:
 	PANIC("Action not set");

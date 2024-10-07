@@ -94,7 +94,7 @@ static void process_config_setting(const char *val) {
       case OPTABLE_NONE:
 	return;
       case OPTABLE_ERR: 
-	printf("Unrecognized setting name.  Input was: %s\n", start);
+	printf("Unrecognized setting name.  Input was: %s\n", val);
 	continue;
       case CONFIG_WIDTH:
 	set_width(start, end);

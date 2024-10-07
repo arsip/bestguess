@@ -595,44 +595,139 @@ void free_summary(Summary *s) {
   free(s);
 }
 
+static Summary **new_summaries(int n) {
+  Summary **ss = malloc(n * sizeof(Summary *));
+  for (int i = 0; i < n; i++)
+    ss[i] = new_summary();
+  return ss;
+}
+
+void free_summaries(Summary **ss, int n) {
+  if (!ss) return;
+  for (int i = 0; i < n; i++) {
+    Summary *s = ss[i];
+    free(s->cmd);
+    free(s->shell);
+    if (s->infer) free(s->infer);
+    free(s);
+  }
+  free(ss);
+}
+
 // -----------------------------------------------------------------------------
 // Compute statistical summary of a sample (collection of observations)
 // -----------------------------------------------------------------------------
 
 //
-// (1) Summarizing starts at index '*next'
-// (2) And continues until 'cmd' changes
-// (3) '*next' is set to the index where 'cmd' changed
-// (4) We assume that 'shell' is the same for each execution of 'cmd'
+// Summarize from usage[start] to usage[end-1]
 //
-Summary *summarize(Usage *usage, int *next) {
-  if (!next) PANIC_NULL();
-  // No data to summarize if 'usage' is NULL or 'next' is out of range
-  if (!usage) return NULL;
-  if ((*next < 0) || (*next >= usage->next)) return NULL;
-  int i;
-  char *cmd;
-  int first = *next;
+Summary *summarize(Usage *usage, int start, int end) {
+  if (!usage) PANIC_NULL();
+  if ((start < 0) || (end > usage->next)) return NULL;
+
   Summary *s = new_summary();
-  cmd = get_string(usage, first, F_CMD);
-  s->cmd = strndup(cmd, MAXCMDLEN);
-  s->shell = strndup(get_string(usage, first, F_SHELL), MAXCMDLEN);
-  for (i = first; i < usage->next; i++) {
-    if (strncmp(cmd, get_string(usage, i, F_CMD), MAXCMDLEN) != 0) break;
-    s->runs++;
+  s->cmd = strndup(get_string(usage, start, F_CMD), MAXCMDLEN);
+  s->shell = strndup(get_string(usage, start, F_SHELL), MAXCMDLEN);
+
+  s->runs = end - start;
+  for (int i = start; i < end; i++) 
     s->fail_count += (get_int64(usage, i, F_CODE) != 0);
-  }
-  *next = i;
-  measure(usage, first, i, F_TOTAL, compare_totaltime, &s->total);
-  measure(usage, first, i, F_USER, compare_usertime, &s->user);
-  measure(usage, first, i, F_SYSTEM, compare_systemtime, &s->system);
-  measure(usage, first, i, F_MAXRSS, compare_maxrss, &s->maxrss);
-  measure(usage, first, i, F_VCSW, compare_vcsw, &s->vcsw);
-  measure(usage, first, i, F_ICSW, compare_icsw, &s->icsw);
-  measure(usage, first, i, F_TCSW, compare_tcsw, &s->tcsw);
-  measure(usage, first, i, F_WALL, compare_wall, &s->wall);
+
+  measure(usage, start, end, F_TOTAL, compare_totaltime, &s->total);
+  measure(usage, start, end, F_USER, compare_usertime, &s->user);
+  measure(usage, start, end, F_SYSTEM, compare_systemtime, &s->system);
+  measure(usage, start, end, F_MAXRSS, compare_maxrss, &s->maxrss);
+  measure(usage, start, end, F_VCSW, compare_vcsw, &s->vcsw);
+  measure(usage, start, end, F_ICSW, compare_icsw, &s->icsw);
+  measure(usage, start, end, F_TCSW, compare_tcsw, &s->tcsw);
+  measure(usage, start, end, F_WALL, compare_wall, &s->wall);
 
   return s;
+}
+
+static Ranking *make_ranking(Usage *usage, int start, int end) {
+  if (!usage) PANIC_NULL();
+  if ((start < 0) || (end < 0))
+    PANIC("Start or end index is invalid (%d, %d)", start, end);
+
+  int maxsummaries = end - start;
+
+  Ranking *rank = malloc(sizeof(Ranking));
+  if (!rank) PANIC_OOM();
+
+  rank->usage = usage;
+  rank->usageidx = malloc((maxsummaries + 1) * sizeof(int));
+  if (!rank->usageidx) PANIC_OOM();
+
+  // Fill in the usageidx array:
+  // summary[i] is based on usage[j,k] where
+  //   j = usageidx[i] and k = usageidx[i+1]
+  //
+  int count = 0;
+  rank->usageidx[0] = 0;
+  int i = 0;
+  while (i < end) {
+    // Find usage index with a different command than the one at 'start'
+    const char *cmd = get_string(usage, i, F_CMD);
+    for (i++; i < end; i++) 
+      if (strncmp(cmd, get_string(usage, i, F_CMD), MAXCMDLEN) != 0) break;
+    rank->usageidx[count+1] = i;
+//     printf("Group %d usage from %d to %d (%d observations)\n",
+// 	   count, rank->usageidx[count], rank->usageidx[count+1],
+// 	   rank->usageidx[count+1] - rank->usageidx[count]);
+    count++;
+  }
+
+  // Summarize each section of the usage array.  
+  rank->summaries = new_summaries(count);
+  for (i = 0; i < count; i++)
+    rank->summaries[i] = summarize(usage,
+				   rank->usageidx[i],
+				   rank->usageidx[i+1]);
+
+  rank->index = sort_by_totaltime(rank->summaries, 0, count);
+  rank->count = count;
+  return rank;
+}
+
+void free_ranking(Ranking *rank) {
+  if (!rank) return;
+  if (rank->usage)
+    free_usage_array(rank->usage);
+  if (rank->summaries)
+    free_summaries(rank->summaries, rank->count);
+  free(rank->index);
+  free(rank->usageidx);
+  free(rank);
+}
+
+Ranking *rank(Usage *usage) {
+  Ranking *rank = make_ranking(usage, 0, usage->next);
+
+  int start = 0;
+  int end = rank->count;
+
+  // Compute the comparative statistics between each sample and the
+  // fastest one.
+  int bestidx = rank->index[0];
+
+  Summary **s = rank->summaries;
+
+  // Need INFERENCE_N_THRESHOLD observations at minimum
+  if (s[bestidx]->runs >= INFERENCE_N_THRESHOLD) {
+    // Compare each sample to the best performer
+    for (int k = start; k < end; k++) {
+      int i = rank->index[k];
+      if (i == bestidx) continue;
+      s[i]->infer =
+	compare_samples(usage,
+			config.alpha,
+			rank->usageidx[bestidx], rank->usageidx[bestidx+1],
+			rank->usageidx[i], rank->usageidx[i+1]);
+    }
+  }
+
+  return rank;
 }
 
 // -----------------------------------------------------------------------------
@@ -951,8 +1046,8 @@ static double median_diff_estimate(RankedCombinedSample RCS) {
 // -----------------------------------------------------------------------------
 
 static int compare_median_total_time(const void *idx_ptr1,
-			      const void *idx_ptr2,
-			      void *context) {
+				     const void *idx_ptr2,
+				     void *context) {
   Summary **s = context;
   const int idx1 = *((const int *)idx_ptr1);
   const int idx2 = *((const int *)idx_ptr2);

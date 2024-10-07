@@ -945,111 +945,39 @@ static void explain(Summary *s, char *title) {
   free_display_table(t);
 }
 
-void report(Usage *usage) {
+static void print_ranking(Ranking *rank) {
+  if (!rank) PANIC_NULL();
 
-  FILE *csv_output = NULL, *hf_output = NULL;
-  if (option.csv_filename) 
-    csv_output = maybe_open(option.csv_filename, "w");
-  if (option.hf_filename)
-    hf_output = maybe_open(option.hf_filename, "w");
-
-  if (csv_output)
-    write_summary_header(csv_output);
-  if (hf_output)
-    write_hf_header(hf_output);
-
-  Summary *s[MAXCMDS];
-  int usageidx[MAXCMDS] = {0};
-  int count = 0;
-  int *next = &(usageidx[1]);
-  while ((s[count] = summarize(usage, next))) {
-
-    if (csv_output) 
-      write_summary_line(csv_output, s[count]);
-    if (hf_output)
-      write_hf_line(hf_output, s[count]);
-
-    if (option.report != REPORT_NONE) {
-      announce_command(s[count]->cmd, count, "Command #%d: %s", NOLIMIT);
-      printf("\n");
-      print_summary(s[count], (option.report == REPORT_BRIEF));
-      printf("\n");
-    }
-
-    if (option.graph) {
-      if (option.report == REPORT_NONE) {
-	announce_command(s[count]->cmd, count, "Command #%d: %s", NOLIMIT);
-	printf("\n");
-      }
-      print_graph(s[count], usage, *(next - 1), *next);
-      printf("\n");
-    }
-
-    if (option.report == REPORT_FULL) {
-      print_descriptive_stats(s[count]);
-      printf("\n");
-    }
-
-    fflush(stdout);
-
-    // TODO: Handle "too many commands" better
-    next++;
-    *next = *(next - 1);
-    if (++count == MAXCMDS) USAGE("too many commands");
+  if (rank->count < 2) {
+    printf("Only one command.  No ranking to show.\n");
+    return;
   }
 
-  if (csv_output) fclose(csv_output);
-  if (hf_output) fclose(hf_output);
-
-  if (option.boxplot)
-    print_boxplots(s, 0, count);
-
-  print_overall_summary(s, 0, count);
-  printf("\n");
-
-  // Number of samples
-  int N = count;
-
-  if (N < 2) {
-    printf("Only one command.  Not printing experimental new info.\n");
-    goto done1;
-  }
-
-  // Rank the samples and identify the best performer
-  int *index = sort_by_totaltime(s, 0, N);
-  int bestidx = index[0];
-
-  if (s[bestidx]->runs < INFERENCE_N_THRESHOLD) {
+  Summary *s;
+  int bestidx = rank->index[0];
+  if (rank->summaries[bestidx]->runs < INFERENCE_N_THRESHOLD) {
     printf("Minimum observations must be at least %d for this analysis.\n",
 	   INFERENCE_N_THRESHOLD);
-    goto done2;
-  }
-
-  // Compare each sample to the best performer
-  for (int i = 0; i < N; i++) {
-    if (index[i] == bestidx) continue;
-    s[index[i]]->infer =
-      compare_samples(usage,
-		      config.alpha,
-		      usageidx[bestidx], usageidx[bestidx+1],
-		      usageidx[index[i]], usageidx[index[i]+1]);
+    return;
   }
 
   // Take all the samples indistinguishable from the best performer
   // and group them (in rank order) in the 'same' array so they can be
   // printed together.
-  int *same = malloc(N * sizeof(int));
+  int *same = malloc(rank->count * sizeof(int));
   if (!same) PANIC_NULL();
+
   same[0] = bestidx;
   int same_count = 1;
-  for (int i = 1; i < N; i++) 
-    if (s[index[i]]->infer->indistinct) {
-      same[i] = index[i];
-      index[i] = -1;
+  for (int i = 1; i < rank->count; i++) {
+    s = rank->summaries[rank->index[i]];
+    if (s->infer->indistinct) {
+      same[i] = rank->index[i];
       same_count++;
     } else {
       same[i] = -1;
     }
+  }
 
   // -----------------------------------------------------------------------------
 
@@ -1101,61 +1029,60 @@ void report(Usage *usage) {
 
   if (!option.explain) {
     printf("%*.*s%*.*s", cmd_len, cmd_len, cmd_header, time_len, time_len, time_header);
-    if (same_count < N)
+    if (same_count < rank->count)
       printf("%*.*s\n", delta_len, delta_len, delta_header);
     else
       printf("%.*s\n", delta_width * b, delta_no_header);
   }
   
   double pct;
-  Summary *ss;
   Units *units;
   char *tmp, *cmd, *median, *shift;
 
-  for (int i = 0; i < N; i++)
-    if (same[i] != -1) {
-      ss = s[same[i]];
-      units = select_units(ss->total.max, time_units);
-      cmd = command_announcement(ss->cmd, same[i], cmd_fmt, cmd_width);
-      units = select_units(ss->total.max, time_units);
-      median = apply_units(ss->total.median, units, UNITS);
-      if (ss->infer) {
-	shift = apply_units(ss->infer->shift, units, UNITS);
-	pct = (double) ss->infer->shift / s[bestidx]->total.median;
-	asprintf(&tmp, "%s  %.*s  %s " NUMFMT " %7.1f%%",
-		 winner, cmd_width, cmd, median, shift, pct * 100.0);
-      } else {
-	shift = NULL;
-	asprintf(&tmp, "%s  %.*s  %s ",
-		 winner, cmd_width, cmd, median);
-      }
-      if (option.explain)
-	explain(ss, tmp);
-      else
-	printf("%s\n", tmp);
-      free(tmp);
-      free(cmd);
-      free(median);
-      free(shift);
+  for (int i = 0; i < rank->count; i++) {
+    if (same[i] == -1) continue;
+    s = rank->summaries[same[i]];
+    units = select_units(s->total.max, time_units);
+    cmd = command_announcement(s->cmd, same[i], cmd_fmt, cmd_width);
+    units = select_units(s->total.max, time_units);
+    median = apply_units(s->total.median, units, UNITS);
+    if (s->infer) {
+      shift = apply_units(s->infer->shift, units, UNITS);
+      pct = (double) s->infer->shift / s->total.median;
+      asprintf(&tmp, "%s  %.*s  %s " NUMFMT " %7.1f%%",
+	       winner, cmd_width, cmd, median, shift, pct * 100.0);
+    } else {
+      shift = NULL;
+      asprintf(&tmp, "%s  %.*s  %s ",
+	       winner, cmd_width, cmd, median);
     }
+    if (option.explain)
+      explain(s, tmp);
+    else
+      printf("%s\n", tmp);
+    free(tmp);
+    free(cmd);
+    free(median);
+    free(shift);
+  }
 
   if (!option.explain)
     printf("\n");
 
   // Print the rest
-  for (int i = 0; i < N; i++)
-    if ((index[i] != -1) && (index[i] != bestidx)) {
-      ss = s[index[i]];
-      units = select_units(ss->total.max, time_units);
-      cmd = command_announcement(ss->cmd, index[i], cmd_fmt, cmd_width);
-      units = select_units(ss->total.max, time_units);
-      median = apply_units(ss->total.median, units, UNITS);
-      shift = apply_units(ss->infer->shift, units, UNITS);
-      pct = (double) ss->infer->shift / s[bestidx]->total.median;
+  for (int i = 0; i < rank->count; i++)
+    if ((same[i] == -1) && (rank->index[i] != bestidx)) {
+      s = rank->summaries[rank->index[i]];
+      units = select_units(s->total.max, time_units);
+      cmd = command_announcement(s->cmd, rank->index[i], cmd_fmt, cmd_width);
+      units = select_units(s->total.max, time_units);
+      median = apply_units(s->total.median, units, UNITS);
+      shift = apply_units(s->infer->shift, units, UNITS);
+      pct = (double) s->infer->shift / rank->summaries[bestidx]->total.median;
       asprintf(&tmp, "%s  %.*s  %s " NUMFMT " %7.1f%%",
 	       " ", cmd_width, cmd, median, shift, pct * 100.0);
       if (option.explain)
-	explain(ss, tmp);
+	explain(s, tmp);
       else
 	printf("%s\n", tmp);
       free(tmp);
@@ -1169,11 +1096,64 @@ void report(Usage *usage) {
 	   "═══════════════════════════════════════════════════════════" 
 	   "═══════════════════════════════════════════════════════════");
   }
-
   free(same);
- done2:
-  free(index);
- done1:
-  for (int i = 0; i < N; i++) free_summary(s[i]);
-  return;
+}
+
+void report(Ranking *rank) {
+  if (!rank) PANIC_NULL();
+
+  print_ranking(rank);
+
+  Summary *s;
+  FILE *csv_output = NULL, *hf_output = NULL;
+
+  if (option.csv_filename) 
+    csv_output = maybe_open(option.csv_filename, "w");
+  if (option.hf_filename)
+    hf_output = maybe_open(option.hf_filename, "w");
+
+  if (csv_output)
+    write_summary_header(csv_output);
+  if (hf_output)
+    write_hf_header(hf_output);
+
+  for (int i = 0; i < rank->count; i++) {
+
+    s = rank->summaries[i];
+    if (csv_output) 
+      write_summary_line(csv_output, s);
+    if (hf_output)
+      write_hf_line(hf_output, s);
+
+    if (option.report != REPORT_NONE) {
+      announce_command(s->cmd, i, "Command #%d: %s", NOLIMIT);
+      printf("\n");
+      print_summary(s, (option.report == REPORT_BRIEF));
+      printf("\n");
+
+    }
+
+    if (option.graph) {
+      if (option.report == REPORT_NONE) {
+	announce_command(s->cmd, rank->count, "Command #%d: %s", NOLIMIT);
+	printf("\n");
+      }
+      print_graph(s, rank->usage, rank->usageidx[i], rank->usageidx[i+1]);
+      printf("\n");
+    }
+
+    if (option.report == REPORT_FULL) {
+      print_descriptive_stats(s);
+      printf("\n");
+    }
+
+    fflush(stdout);
+  }
+
+  if (csv_output) fclose(csv_output);
+  if (hf_output) fclose(hf_output);
+
+  if (option.boxplot)
+    print_boxplots(rank->summaries, 0, rank->count);
+
 }
