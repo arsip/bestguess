@@ -931,10 +931,11 @@ static void print_sample(Summary *s, int num, double best_median) {
 // Explain the inferential statistics
 static void explain(Summary *s, int num) {
   char *tmp, *tmp2, *tmp3;
+  Inference *stat = s->infer;
   DisplayTable *t = new_display_table(NULL,
-				      82,
+				      90,
 				      7,
-				      (int []){6,13,15,5,5,20,4},
+				      (int []){6,13,16,5,5,24,6},
 				      (int []){0,2,1,2,2,2,2},
 				      "rllrrlr");
   int row = 0;
@@ -951,9 +952,9 @@ static void explain(Summary *s, int num) {
 
   display_table_set(t, row, 0, "%6d", s->runs);
 
-  display_table_set(t, row, 1, " W = %-8.0f", s->infer->W);
+  display_table_set(t, row, 1, " W = %-8.0f", stat->W);
 
-  tmp = apply_units(s->infer->shift, units, UNITS);
+  tmp = apply_units(stat->shift, units, UNITS);
   display_table_set(t, row, 2, " Δ = " NUMFMT_LEFT, tmp);
   free(tmp);
 
@@ -961,28 +962,39 @@ static void explain(Summary *s, int num) {
 //     printf(" (%3.f%%)", pct_shift);
 
   // p-value, unadjusted (more conservative than adjusted value)
-  if (s->infer->p < 0.001)
+  if (stat->p < 0.001)
     display_table_set(t, row, 3, "%s", "<.001");
   else
-    display_table_set(t, row, 3, "%5.3f", s->infer->p);
+    display_table_set(t, row, 3, "%5.3f", stat->p);
 
   // Adjusted for ties
-  if (s->infer->p_adj < 0.001) 
+  if (stat->p_adj < 0.001) 
     display_table_set(t, row, 4, "%s", "<.001");
   else
-    display_table_set(t, row, 4, "%5.3f", s->infer->p_adj);
+    display_table_set(t, row, 4, "%5.3f", stat->p_adj);
 
-  asprintf(&tmp, "%4.2f%%", s->infer->confidence * 100.0);
-  tmp2 = apply_units(s->infer->ci_low, units, NOUNITS);
-  tmp3 = apply_units(s->infer->ci_high, units, NOUNITS);
+  asprintf(&tmp, "%4.2f%%", stat->confidence * 100.0);
+  tmp2 = apply_units(stat->ci_low, units, NOUNITS);
+  tmp3 = apply_units(stat->ci_high, units, NOUNITS);
   display_table_set(t, row, 5, "%s (%s, %s) %2s",
 		    tmp, lefttrim(tmp2), lefttrim(tmp3), units->unitname);
   free(tmp);
   free(tmp2);
   free(tmp3);
 
-  display_table_set(t, row, 6, "%4.2f", s->infer->p_super);
+  display_table_set(t, row, 6, "%4.2f", stat->p_super);
 
+  row++;
+  if (HAS(stat->indistinct, INF_NOEFFECT))
+    display_table_set(t, row, 2, "%s", "* Small effect");
+  if (HAS(stat->indistinct, INF_NONSIG)) {
+    display_table_set(t, row, 3, "%s", "* α =");
+    display_table_set(t, row, 4, "%5.3f", config.alpha);
+  }
+  if (HAS(stat->indistinct, INF_CIZERO))
+    display_table_set(t, row, 5, "%s", "* Interval near zero");
+  if (HAS(stat->indistinct, INF_HIGHSUPER))
+    display_table_set(t, row, 6, "%s", "* High");
 
   display_table(t, 0);
   free_display_table(t);

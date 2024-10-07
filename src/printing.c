@@ -113,7 +113,17 @@ static const char *bar(int side, int line) {
   return decor[line * 2 + side];
 }
 
-#define BAR "────────────────────────────────────────────────────────────────────────────────"
+// Max width for the top and bottom borders of a table to properly be
+// displayed is the length of BAR, currently 8 * 40 = 320 chars.
+#define BAR \
+  "───────────────────────────────────────"	     \
+  "───────────────────────────────────────"	     \
+  "───────────────────────────────────────"	     \
+  "───────────────────────────────────────"	     \
+  "───────────────────────────────────────"	     \
+  "───────────────────────────────────────"	     \
+  "───────────────────────────────────────"	     \
+  "───────────────────────────────────────"
 
 static bool all_null(char **items, int cols) {
   for (int i = 0; i < cols; i++)
@@ -125,7 +135,7 @@ static bool all_null(char **items, int cols) {
 void display_table(DisplayTable *dt, int indent) {
   if (!dt) PANIC_NULL();
   if (indent < 0) indent = 0;
-  int bytesperbar = (uint8_t) "─"[0] >> 6; // Assumes UTF-8
+  int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int barlength = (dt->width - 2) * bytesperbar;
   char justif;
   const char *item;
