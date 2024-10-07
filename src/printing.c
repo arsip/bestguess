@@ -68,7 +68,8 @@ DisplayTable *new_display_table(const char *title,
     PANIC("Columns, margins, and table borders total %d chars,"
 	  " more than table width of %d", total + 2, width);
 
-  dt->title = title;		// Allowed to be NULL
+  // The title is allowed to be NULL
+  dt->title = title ? strndup(title, width - 2) : NULL;
 
   return dt;
 }
