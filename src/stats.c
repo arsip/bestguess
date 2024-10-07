@@ -622,7 +622,7 @@ void free_summaries(Summary **ss, int n) {
 // Summarize from usage[start] to usage[end-1]
 //
 Summary *summarize(Usage *usage, int start, int end) {
-  if (!usage) PANIC_NULL();
+  if (!usage) return NULL;
   if ((start < 0) || (end > usage->next)) return NULL;
 
   Summary *s = new_summary();
@@ -702,7 +702,11 @@ void free_ranking(Ranking *rank) {
 }
 
 Ranking *rank(Usage *usage) {
+  if (!usage) return NULL;	// No data
+  
   Ranking *rank = make_ranking(usage, 0, usage->next);
+  if (!rank) return NULL;	     // No data
+  if (rank->count == 0) return NULL; // No data
 
   int start = 0;
   int end = rank->count;

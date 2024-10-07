@@ -448,31 +448,41 @@ static const char *read_value(const char *p, int stop(const char c)) {
 // all parameters, keep calling until OPTABLE_NONE is returned.
 //  
 // SYNTAX ERROR: If the configuration parameter name is NOT followed
-// by '=', the syntax is illegal and OPTABLE_ERR is returned.
+// by '=', the syntax is illegal and OPTABLE_ERR is returned.  'start'
+// will point at the problematic setting name.
 //
 // SYNTAX ERROR: If the configuration parameter does not match any of
 // the 'parms' (a NULL-terminated list of config names), then
-// OPTABLE_ERR is returned.
+// OPTABLE_ERR is returned.  'start' will point at the problematic
+// setting name.
 //
 int optable_parse_config(const char *arg,
 			 const char **parms,
 			 const char **start,
 			 const char **end) {
+
   if (!arg || !parms || !start || !end) return OPTABLE_ERR;
+
   int idx = 0;
   if (commap(*arg)) arg++;
   if (!*arg) return OPTABLE_NONE;
+
   while (*parms) {
     *start = compare(arg, *parms);
     if (*start) {
       if (**start == '=') {
 	// Read the value, which may be quoted.
 	*end = read_value(++(*start), commap);
+	return idx;
+      } else {
+	// Syntax error: no equals sign
+	*start = arg;
+	return OPTABLE_ERR;
       }
-      return idx;
     }
     parms++;
     idx++;
   } // for each possible option name
+  *start = arg;
   return OPTABLE_ERR;
 }

@@ -157,12 +157,13 @@ static int run(const char *cmd, Usage *usage, int idx) {
       fprintf(stderr, "      An empty command run in a shell will measure shell startup.\n");
     }
 
-    if (option.input_filename) {
-      fprintf(stderr, "\nHint: Commands are being read from file '%s'.  Blank lines\n",
-	      option.input_filename);
-      fprintf(stderr, "      are read as empty commands unless option --%s is given.\n",
-	      optable_longname(OPT_GROUPS));
-    }
+//     if (option.input_filename) {
+//       fprintf(stderr, "\nHint: Commands are being read from file '%s'.  Blank lines\n",
+// 	      option.input_filename);
+//       fprintf(stderr, "      are read as empty commands unless option --%s is given.\n",
+// 	      optable_longname(OPT_GROUPS));
+//     }
+
     exit(ERR_RUNTIME);
   }
 
@@ -210,12 +211,7 @@ static int run(const char *cmd, Usage *usage, int idx) {
   return WEXITSTATUS(status);
 }
 
-// Returns modal total runtime for 'cmd'
-static Summary *run_command(int num,
-			    char *cmd,
-			    FILE *output,
-			    FILE *csv_output,
-			    FILE *hf_output) {
+static Usage *run_command(Usage *usage, int num, char *cmd, FILE *output) {
 
   if (!option.output_to_stdout) {
     if ((option.report != REPORT_NONE) || option.graph) {
@@ -224,9 +220,6 @@ static Summary *run_command(int num,
       fflush(stdout);
     }
   }
-
-  Usage *usage = new_usage_array(option.runs);
-  assert((option.runs <= 0) || usage);
 
   Usage *dummy = new_usage_array(option.warmups);
   int idx;
@@ -242,40 +235,16 @@ static Summary *run_command(int num,
     if (output) write_line(output, usage, idx);
   }
 
-  Summary *s = summarize(usage, 0, option.runs);
-  assert((option.runs <= 0) || s);
-
-  // If raw data is going to an output file, we print a summary on the
-  // terminal (else raw data goes to terminal so that it can be piped
-  // to another process).
-  if (!option.output_to_stdout) {
-    if (option.report != REPORT_NONE)
-      print_summary(s, (option.report == REPORT_BRIEF));
-    if (option.report == REPORT_FULL) 
-      print_descriptive_stats(s);
-    if (option.graph && usage) {
-      print_graph(s, usage, 0, usage->next);
-    }
-    if ((option.report != REPORT_NONE) || option.graph)
-      printf("\n");
-  }
-
-  // If exporting CSV file of summary stats, write that line of data
-  if (option.csv_filename) write_summary_line(csv_output, s);
-  // If exporting in Hyperfine CSV format, write that line of data
-  if (option.hf_filename) write_hf_line(hf_output, s);
-
-  free_usage_array(usage);
-  fflush(stdout);
-  return s;
+  return usage;
 }
 
 void run_all_commands(int argc, char **argv) {
   // 'n' is the number of summaries == number of commands
   int n = 0;
-  Summary *summaries[MAXCMDS];
+
   char *buf = malloc(MAXCMDLEN);
   if (!buf) PANIC_OOM();
+
   FILE *input = NULL, *output = NULL, *csv_output = NULL, *hf_output = NULL;
 
   // Best practice is to save the raw data (all the timing runs).
@@ -307,15 +276,29 @@ void run_all_commands(int argc, char **argv) {
   if (csv_output) write_summary_header(csv_output);
   if (hf_output) write_hf_header(hf_output);
 
+  if (option.runs <= 0) {
+    printf("  No data\n");
+    goto done;
+  }
+
+  int start;
+  Summary *s;
+  Usage *usage = new_usage_array(2 * option.runs);
+
   if (option.first > 0) {
     for (int k = option.first; k < argc; k++) {
-      summaries[n] = run_command(n, argv[k], output, csv_output, hf_output);
+      start = usage->next;
+      run_command(usage, n, argv[k], output);
+      s = summarize(usage, start, usage->next);
+      assert((option.runs <= 0) || s);
+      write_summary_stats(s, csv_output, hf_output);
+      report_one_command(s, usage, start, usage->next);
+      free_summary(s);
       if (++n == MAXCMDS) goto toomany;
     }
   }
 
   char *cmd = NULL;
-  int group_start = 0;
   if (input) {
     while ((cmd = fgets(buf, MAXCMDLEN, input))) {
       // fgets() guarantees a NUL-terminated string
@@ -325,39 +308,32 @@ void run_all_commands(int argc, char **argv) {
       } else {
 	ERROR("Read error on input file (max command length is %d bytes)", MAXCMDLEN);
       }
-      if ((!*cmd) && option.groups) {
-	// Blank line in input file AND groups option is set
-	if (!option.output_to_stdout) {
-	  if (group_start == n) continue; // multiple blank lines
-	  print_overall_summary(summaries, group_start, n);
-	  printf("\n");
-	  if (option.boxplot)
-	    print_boxplots(summaries, group_start, n);
-	  group_start = n;
-	  puts("");
-	}
-      } else {
-	// Regular command, which may be blank
-	summaries[n] = run_command(n, cmd, output, csv_output, hf_output);
-	if (++n == MAXCMDS) goto toomany;
-      }
+      // Command from file (may be blank)
+      start = usage->next;
+      run_command(usage, n, cmd, output);
+      s = summarize(usage, start, usage->next);
+      assert((option.runs <= 0) || s);
+      write_summary_stats(s, csv_output, hf_output);
+      report_one_command(s, usage, start, usage->next);
+      free_summary(s);
+      if (++n == MAXCMDS) goto toomany;
     } // while
   }
 
   if (!option.output_to_stdout) {
-    print_overall_summary(summaries, group_start, n);
-    if (option.boxplot)
-      print_boxplots(summaries, group_start, n);
-//     if (option.explain)
-//       explain_each(summaries, group_start, n);
+    Ranking *ranking = rank(usage);
+    if (ranking) {
+      report(ranking);
+      free_ranking(ranking);
+    }
   }
 
+ done:
   if (output) fclose(output);
   if (csv_output) fclose(csv_output);
   if (hf_output) fclose(hf_output);
   if (input) fclose(input);
 
-  for (int i = 0; i < n; i++) free_summary(summaries[i]);
   free(buf);
   return;
 

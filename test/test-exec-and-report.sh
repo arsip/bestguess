@@ -53,7 +53,7 @@ ok "$prog" -R none /bin/bash
 
 # No report but comparison is printed
 ok "$prog" -R none /bin/bash ls
-contains "times faster than"
+contains "Minimum observations"
 
 # Graph with default report
 ok "$prog" -G /bin/bash

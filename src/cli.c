@@ -22,11 +22,14 @@ const char *ConfigSettingDesc[] = {XConfig_Settings(THIRD)};
 const char *ConfigSettingDefault[] = {XConfig_Settings(FOURTH)};
 #undef FOURTH
 
+// Throw a usage error or do nothing if all is ok
 static void check_option_value(const char *val, int n) {
   if (val && (optable_numvals(n) == 0))
-    USAGE("Error: option '%s' does not take a value\n", optable_longname(n));
+    USAGE("Option '%s' does not take a value",
+	  optable_longname(n) ?: optable_shortname(n));
   if (!val && (optable_numvals(n) > 0))
-    USAGE("Error: option '%s' requires a value\n", optable_longname(n));
+    USAGE("Option '%s' requires a value",
+	  optable_longname(n) ?: optable_shortname(n));
 }
 
 static char *configuration_help_string = NULL;
@@ -85,17 +88,16 @@ static void set_super(const char *start, const char *end) {
     USAGE("Superiority parameter (%f) is out of range 0..1", config.super);
 }
 
-static void process_config_setting(const char *val) {
+static const char *process_config_setting(const char *val) {
   const char *start = val, *end = val;
   int i = 0;
   while (i >= 0) {
     i = optable_parse_config(end, ConfigSettingName, &start, &end);
     switch (i) {
       case OPTABLE_NONE:
-	return;
+	return NULL;		// OK
       case OPTABLE_ERR: 
-	printf("Unrecognized setting name.  Input was: %s\n", val);
-	continue;
+	return start;		// ERR
       case CONFIG_WIDTH:
 	set_width(start, end);
 	continue;
@@ -112,9 +114,10 @@ static void process_config_setting(const char *val) {
 	set_super(start, end);
 	continue;
       default:
-	PANIC("Unhandled configuration setting to process (%d)", i);
+	PANIC("Unhandled configuration setting (%d)", i);
     }
   }
+  return NULL;			// OK
 }
 
 // Any value < 0 means "uninitialized"
@@ -173,7 +176,7 @@ void show_config_settings(void) {
   "<ACTION> option is required.  See the manual for more." 
 
 static void init_action_options(void) {
-  optable_add(OPT_REPORT,     "R",  "report",  1, report_options());
+  optable_add(OPT_REPORT,     "R",  "report",  1, report_help());
   optable_add(OPT_GRAPH,      "G",  "graph",   0, HELP_GRAPH);
   optable_add(OPT_BOXPLOT,    "B",  "boxplot", 0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain", 0, HELP_EXPLAIN);
@@ -240,11 +243,13 @@ void process_common_options(int argc, char **argv) {
 	check_option_value(val, n);
 	option.report = interpret_report_option(val);
 	if (option.report == REPORT_ERROR)
-	  USAGE(report_options());
+	  USAGE(report_help());
 	break;
       case OPT_CONFIG:
 	check_option_value(val, n);
-	process_config_setting(val);
+	const char *err = process_config_setting(val);
+	if (err)
+	  USAGE("Invalid configuration setting '%s'", err);
 	break;
       case OPT_GRAPH:
 	check_option_value(val, n);
@@ -265,7 +270,7 @@ void process_common_options(int argc, char **argv) {
 #define HELP_NAME "Name to use in reports instead of full command"
 #define HELP_OUTPUT "Write timing data to CSV <FILE> (use - for stdout)"
 #define HELP_CMDFILE "Read commands from <FILE>"
-#define HELP_GROUPS "Blank lines in the input file delimit groups"
+//#define HELP_GROUPS "Blank lines in the input file delimit groups"
 #define HELP_SHOWOUTPUT "Show output of commands as they run"
 #define HELP_IGNORE "Ignore non-zero exit codes"
 #define HELP_SHELL "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands"
@@ -279,7 +284,7 @@ static void init_exec_options(void) {
   optable_add(OPT_PREP,       "p",  "prepare",        1, HELP_PREPARE);
   optable_add(OPT_OUTPUT,     "o",  "output",         1, HELP_OUTPUT);
   optable_add(OPT_FILE,       "f",  "file",           1, HELP_CMDFILE);
-  optable_add(OPT_GROUPS,     NULL, "groups",         0, HELP_GROUPS);
+  //  optable_add(OPT_GROUPS,     NULL, "groups",         0, HELP_GROUPS);
   optable_add(OPT_NAME,       "n",  "name",           1, HELP_NAME);
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, HELP_SHOWOUTPUT);
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, HELP_IGNORE);
@@ -287,7 +292,7 @@ static void init_exec_options(void) {
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
   optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
-  optable_add(OPT_REPORT,     "R",  "report",         1, report_options());
+  optable_add(OPT_REPORT,     "R",  "report",         1, report_help());
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain",        0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
@@ -347,10 +352,10 @@ void process_exec_options(int argc, char **argv) {
 	check_option_value(val, n);
 	option.input_filename = strdup(val);
 	break;
-      case OPT_GROUPS:
-	check_option_value(val, n);
-	option.groups = true;
-	break;
+//       case OPT_GROUPS:
+// 	check_option_value(val, n);
+// 	option.groups = true;
+// 	break;
       case OPT_SHOWOUTPUT:
 	check_option_value(val, n);
 	option.show_output = true;
@@ -389,7 +394,7 @@ static void init_report_options(void) {
   optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
-  optable_add(OPT_REPORT,     "R",  "report",         1, report_options());
+  optable_add(OPT_REPORT,     "R",  "report",         1, report_help());
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain",        0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);

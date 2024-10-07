@@ -43,14 +43,14 @@ void error_report(const char *fmt, ...) {
 // Custom usage struct with accessors and comparators
 // -----------------------------------------------------------------------------
 
-Usage *new_usage_array(int cap) {
-  if (cap < 1) return NULL;
+Usage *new_usage_array(int initial_capacity) {
+  if (initial_capacity < 1) return NULL;
   Usage *usage = malloc(sizeof(Usage));
   if (!usage) PANIC_OOM();
-  UsageData *data = calloc(cap, sizeof(UsageData));
+  UsageData *data = calloc(initial_capacity, sizeof(UsageData));
   if (!data) PANIC_OOM();
   usage->next = 0;
-  usage->capacity = cap;
+  usage->capacity = initial_capacity;
   usage->data = data;
   return usage;
 }
@@ -295,17 +295,18 @@ bool try_strtoint64(const char *str, int64_t *result) {
 int64_t strtoint64(const char *str) {
   int64_t value;
   if (!try_strtoint64(str, &value))
-    USAGE("Failed to get integer from '%s'\n", str);
+    USAGE("Failed to get integer from '%s'", str);
   return value;
 }
 
 // For convenience, behaves like strtoint64 when 'end' is NULL.  In
 // that usage, caller must ensure 'start' is a NUL-terminated string.
 int64_t buftoint64(const char *start, const char *end) {
+  if (end && (start >= end)) USAGE("Failed to get float from empty string");
   int64_t value;
   char buf[24];
   size_t len;
-  if (end == NULL)
+  if (!end)
     len = strlen(start);
   else
     len = end - start;
@@ -313,7 +314,7 @@ int64_t buftoint64(const char *start, const char *end) {
     memcpy(buf, start, len);
     buf[len] = '\0';
     if (!try_strtoint64(buf, &value))
-      USAGE("Failed to get integer from '%s'\n", buf);
+      USAGE("Failed to get integer from '%s'", buf);
     return value;
   }
   USAGE("Failed to get integer from too-long string (%zu bytes)", len);
@@ -329,17 +330,18 @@ bool try_strtodouble(const char *str, double *result) {
 double strtodouble(const char *str) {
   double value;
   if (!try_strtodouble(str, &value))
-    USAGE("Failed to get float from '%s'\n", str);
+    USAGE("Failed to get float from '%s'", str);
   return value;
 }
 
 // For convenience, behaves like strtodouble when 'end' is NULL.  In
 // that usage, caller must ensure 'start' is a NUL-terminated string.
 double buftodouble(const char *start, const char *end) {
+  if (end && (start >= end)) USAGE("Failed to get float from empty string");
   double value;
   char buf[100];
   size_t len;
-  if (end == NULL)
+  if (!end)
     len = strlen(start);
   else
     len = end - start;
@@ -347,7 +349,7 @@ double buftodouble(const char *start, const char *end) {
     memcpy(buf, start, len);
     buf[len] = '\0';
     if (!try_strtodouble(buf, &value))
-      USAGE("Failed to get float from '%s'\n", buf);
+      USAGE("Failed to get float from '%s'", buf);
     return value;
   }
   USAGE("Failed to get float from too-long string (%zu bytes)", len);

@@ -28,8 +28,8 @@ typedef enum { XReports(FIRST) } ReportCode;
 extern const char *ReportOptionName[];
 extern const char *ReportOptionDesc[];
 
-char       *report_options(void);
-void        free_report_options(void);
+char       *report_help(void);
+void        free_report_help(void);
 ReportCode  interpret_report_option(const char *op);
 
 void report(Ranking *ranking);
@@ -44,5 +44,10 @@ void print_graph(Summary *s, Usage *usagedata, int start, int end);
 void print_overall_summary(Summary *summaries[], int start, int end);
 void print_descriptive_stats(Summary *s);
 void print_boxplots(Summary *summaries[], int start, int end);
+
+// TODO: Find a home for these, and clean up the APIs
+void write_summary_stats(Summary *s, FILE *csv_output, FILE *hf_output);
+void report_one_command(Summary *s, Usage *usage, int start, int end);
+
 
 #endif

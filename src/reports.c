@@ -22,15 +22,15 @@ const char *ReportOptionName[] = {XReports(SECOND)};
 const char *ReportOptionDesc[] = {XReports(THIRD)};
 #undef THIRD
 
-static char *report_option_string = NULL;
+static char *report_help_string = NULL;
 
 #define BOXPLOT_NOLABELS 0
 #define BOXPLOT_LABEL_ABOVE 1
 #define BOXPLOT_LABEL_BELOW 2
 
 // For printing program help.  Caller must free the returned string.
-char *report_options(void) {
-  if (report_option_string) return report_option_string;
+char *report_help(void) {
+  if (report_help_string) return report_help_string;
   size_t bufsize = 1000;
   char *buf = malloc(bufsize);
   if (!buf) PANIC_OOM();
@@ -40,12 +40,12 @@ char *report_options(void) {
     len += snprintf(buf + len, bufsize, "\n  %-8s %s",
 		    ReportOptionName[i], ReportOptionDesc[i]);
   }
-  report_option_string = buf;
-  return report_option_string;
+  report_help_string = buf;
+  return report_help_string;
 }
 
-void free_report_options(void) {
-  free(report_option_string);
+void free_report_help(void) {
+  free(report_help_string);
 }
 
 ReportCode interpret_report_option(const char *op) {
@@ -66,10 +66,6 @@ char *command_announcement(const char *cmd, int index, const char *fmt, int len)
 void announce_command(const char *cmd, int index, const char *fmt, int len) {
   printf("%s", command_announcement(cmd, index, fmt, len)); 
 }
-
-// static void announce_command_short(const char *cmd, int index, int width, int precision) {
-//   printf("#%d: %*.*s", index + 1, width, precision, *cmd ? cmd : "(empty)");
-// }
 
 #define FMT "%6.1f"
 #define FMTL "%-.1f"
@@ -147,7 +143,7 @@ static const char *bar(int side, int line) {
 
 void print_summary(Summary *s, bool briefly) {
   if (!s) {
-    printf("  No data\n");
+    //    printf("  No data\n");
     return;
   }
 
@@ -265,23 +261,6 @@ void print_graph(Summary *s, Usage *usage, int start, int end) {
 #define COMMAND(i) (summaries[i]->cmd)
 
 #if 0
-// Returns index into summaries
-static int fastest(Summary *summaries[], int start, int end) {
-  int best = start;
-  int64_t fastest = MEDIAN(best);
-  
-  // Find the best total time, and also check for lack of data
-  for (int i = start; i < end; i++) {
-    if (!summaries[i]) return -1; // No data
-    if (MEDIAN(i) < fastest) {
-      fastest = MEDIAN(i);
-      best = i;
-    }
-  }
-  return best;
-}
-#endif
-
 // ASSUMES 'start' and 'end' are valid indexes into 'summaries'
 void print_overall_summary(Summary *summaries[], int start, int end) {
   if (!summaries) PANIC_NULL();
@@ -315,6 +294,7 @@ void print_overall_summary(Summary *summaries[], int start, int end) {
   free(index);
   fflush(stdout);
 }
+#endif
 
 // -----------------------------------------------------------------------------
 // Box plots
@@ -856,6 +836,7 @@ void print_boxplots(Summary *summaries[], int start, int end) {
     puts("");
   }
   puts("");
+  fflush(stdout);
 }
 
 // TODO: We index into input[] starting at option.first, not 0
@@ -1001,9 +982,9 @@ static void print_ranking(Ranking *rank) {
   const int b = strlen(fill);
 
   const int cmd_nonfillchars = 9;
-  const int cmd_width = 38;
+  const int cmd_width = 36;
   const int cmd_len = cmd_nonfillchars + (cmd_width - cmd_nonfillchars) * b;
-  const char *cmd_header = "═════ Command ═════════════════════════════════════════════";
+  const char *cmd_header = "══════ Command ═════════════════════════════════════════════";
 
   const int time_width = 16;
   const int time_nonfillchars = 12;
@@ -1017,7 +998,7 @@ static void print_ranking(Ranking *rank) {
   const char *delta_no_header = "══════════════════════════════════";
 			
   const char *winner = "✓";
-  const char *cmd_fmt = "%3d. %s";
+  const char *cmd_fmt = "%4d. %s";
 
   if (same_count > 1) 
     printf("Best guess ranking: (the top %d commands performed identically)\n",
@@ -1028,7 +1009,7 @@ static void print_ranking(Ranking *rank) {
   printf("\n");
 
   if (!option.explain) {
-    printf("%*.*s%*.*s", cmd_len, cmd_len, cmd_header, time_len, time_len, time_header);
+    printf("    %*.*s%*.*s", cmd_len, cmd_len, cmd_header, time_len, time_len, time_header);
     if (same_count < rank->count)
       printf("%*.*s\n", delta_len, delta_len, delta_header);
     else
@@ -1049,17 +1030,17 @@ static void print_ranking(Ranking *rank) {
     if (s->infer) {
       shift = apply_units(s->infer->shift, units, UNITS);
       pct = (double) s->infer->shift / s->total.median;
-      asprintf(&tmp, "%s  %.*s  %s " NUMFMT " %7.1f%%",
-	       winner, cmd_width, cmd, median, shift, pct * 100.0);
+      asprintf(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
+	       winner, -cmd_width, cmd_width, cmd, median, shift, pct * 100.0);
     } else {
       shift = NULL;
-      asprintf(&tmp, "%s  %.*s  %s ",
-	       winner, cmd_width, cmd, median);
+      asprintf(&tmp, "%s%*.*s  %s ",
+	       winner, -cmd_width, cmd_width, cmd, median);
     }
     if (option.explain)
       explain(s, tmp);
     else
-      printf("%s\n", tmp);
+      printf("    %s\n", tmp);
     free(tmp);
     free(cmd);
     free(median);
@@ -1079,12 +1060,12 @@ static void print_ranking(Ranking *rank) {
       median = apply_units(s->total.median, units, UNITS);
       shift = apply_units(s->infer->shift, units, UNITS);
       pct = (double) s->infer->shift / rank->summaries[bestidx]->total.median;
-      asprintf(&tmp, "%s  %.*s  %s " NUMFMT " %7.1f%%",
-	       " ", cmd_width, cmd, median, shift, pct * 100.0);
+      asprintf(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
+	       " ", -cmd_width, cmd_width, cmd, median, shift, pct * 100.0);
       if (option.explain)
 	explain(s, tmp);
       else
-	printf("%s\n", tmp);
+	printf("    %s\n", tmp);
       free(tmp);
       free(cmd);
       free(median);
@@ -1092,17 +1073,51 @@ static void print_ranking(Ranking *rank) {
     }
 
   if (!option.explain) {
-    printf("%.*s\n", (cmd_width + time_width + delta_width) * b,
+    printf("    %.*s\n", (cmd_width + time_width + delta_width) * b,
 	   "═══════════════════════════════════════════════════════════" 
 	   "═══════════════════════════════════════════════════════════");
   }
   free(same);
+  fflush(stdout);
 }
 
-void report(Ranking *rank) {
-  if (!rank) PANIC_NULL();
+void write_summary_stats(Summary *s, FILE *csv_output, FILE *hf_output) {
+  // If exporting CSV file of summary stats, write that line of data
+  if (option.csv_filename) write_summary_line(csv_output, s);
+  // If exporting in Hyperfine CSV format, write that line of data
+  if (option.hf_filename) write_hf_line(hf_output, s);
+}
 
-  print_ranking(rank);
+void report_one_command(Summary *s, Usage *usage, int start, int end) {
+  // If raw data is going to an output file, we print a summary on the
+  // terminal (else raw data goes to terminal so that it can be piped
+  // to another process).
+  if (!option.output_to_stdout) {
+    if (option.report != REPORT_NONE)
+      print_summary(s, (option.report == REPORT_BRIEF));
+    if (option.report == REPORT_FULL) 
+      print_descriptive_stats(s);
+    if (option.graph && usage) {
+      print_graph(s, usage, start, end);
+    }
+    if ((option.report != REPORT_NONE) || option.graph)
+      printf("\n");
+  }
+  fflush(stdout);
+}
+
+// report() produces box plots and an overall ranking.  These are the
+// only printed reports that use all of the data (across all
+// commands).
+//
+// report() also performs the same CSV output and printing of command
+// summaries (and bar graphs) that would happen during execution of
+// the original experiment.
+//
+// TODO: Separate these functions and clean up the API.
+//
+void report(Ranking *ranking) {
+  if (!ranking) PANIC_NULL();
 
   Summary *s;
   FILE *csv_output = NULL, *hf_output = NULL;
@@ -1117,36 +1132,20 @@ void report(Ranking *rank) {
   if (hf_output)
     write_hf_header(hf_output);
 
-  for (int i = 0; i < rank->count; i++) {
+  for (int i = 0; i < ranking->count; i++) {
 
-    s = rank->summaries[i];
-    if (csv_output) 
-      write_summary_line(csv_output, s);
-    if (hf_output)
-      write_hf_line(hf_output, s);
+    s = ranking->summaries[i];
 
     if (option.report != REPORT_NONE) {
       announce_command(s->cmd, i, "Command #%d: %s", NOLIMIT);
       printf("\n");
-      print_summary(s, (option.report == REPORT_BRIEF));
-      printf("\n");
-
     }
-
-    if (option.graph) {
-      if (option.report == REPORT_NONE) {
-	announce_command(s->cmd, rank->count, "Command #%d: %s", NOLIMIT);
-	printf("\n");
-      }
-      print_graph(s, rank->usage, rank->usageidx[i], rank->usageidx[i+1]);
-      printf("\n");
+    report_one_command(s, ranking->usage, ranking->usageidx[i], ranking->usageidx[i+1]);
+    
+    if (option.action == actionReport) {
+      write_summary_stats(s, csv_output, hf_output);
     }
-
-    if (option.report == REPORT_FULL) {
-      print_descriptive_stats(s);
-      printf("\n");
-    }
-
+    
     fflush(stdout);
   }
 
@@ -1154,6 +1153,8 @@ void report(Ranking *rank) {
   if (hf_output) fclose(hf_output);
 
   if (option.boxplot)
-    print_boxplots(rank->summaries, 0, rank->count);
+    print_boxplots(ranking->summaries, 0, ranking->count);
+
+  print_ranking(ranking);
 
 }
