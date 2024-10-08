@@ -109,7 +109,6 @@ Key changes from Hyperfine:
     * `-G`, `--graph` (show graph of one command's total CPU time)
     * `-R`, `--report <STYLE>` (report style `none`, `brief`, `summary`, or `full`)
     * `-B`, `--boxplot` (show rough boxplots of total CPU time on terminal)
-    * `--groups` (summarize commands from file in groups separated by blank lines)
 
 **Reports:** Best practice is to save raw measurement data (which includes CPU
 times, max RSS, page faults, and context switch counts).  Once saved via `-o

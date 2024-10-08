@@ -215,7 +215,7 @@ static Usage *run_command(Usage *usage, int num, char *cmd, FILE *output) {
 
   if (!option.output_to_stdout) {
     if ((option.report != REPORT_NONE) || option.graph) {
-      announce_command(cmd, num, "Command #%d: %s", NOLIMIT);
+      announce_command(cmd, num, "Command %d: %s", NOLIMIT);
       printf("\n");
       fflush(stdout);
     }

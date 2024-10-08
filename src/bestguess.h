@@ -74,7 +74,6 @@ typedef struct OptionValues {
   char *hf_filename;
   char *prep_command;
   const char *shell;
-  bool  groups;
   int   report;
   bool  boxplot;
   bool  explain;

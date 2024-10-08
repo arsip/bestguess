@@ -37,7 +37,6 @@ OptionValues option = {
   .hf_filename = NULL,
   .prep_command = NULL,
   .shell = "",
-  .groups = false,
   .report = REPORT_SUMMARY,
   .boxplot = false,
   .explain = false,

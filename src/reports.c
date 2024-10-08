@@ -260,42 +260,6 @@ void print_graph(Summary *s, Usage *usage, int start, int end) {
 #define MEDIAN(i) (summaries[i]->total.median)
 #define COMMAND(i) (summaries[i]->cmd)
 
-#if 0
-// ASSUMES 'start' and 'end' are valid indexes into 'summaries'
-void print_overall_summary(Summary *summaries[], int start, int end) {
-  if (!summaries) PANIC_NULL();
-
-  // Need at least two commands in order to have a comparison
-  if ((end - start) < 2) {
-    // Groups are a feature of commands read from a file (not from
-    // the command line)
-    if (option.input_filename && (option.action == actionExecute)) {
-      printf("Group contains only one command\n");
-    }
-    return;
-  }
-  if (!summaries[start]) return;
-  if ((end - start) <= 1) return;
-  
-  int *index = sort_by_totaltime(summaries, start, end);
-  int bestidx = index[0];
-
-  printf("Best guess is:\n");
-  printf("  ");
-  announce_command(COMMAND(bestidx), bestidx, "#%d: %s", NOLIMIT);
-  printf(" ran\n");
-  for (int i = 1; i < (end - start); i++) {
-    double factor = (double) MEDIAN(index[i]) / (double) MEDIAN(bestidx);
-    printf("  %6.2f times faster than ", factor);
-    announce_command(COMMAND(index[i]), index[i], "#%d: %s", NOLIMIT);
-    puts("");
-  }
-
-  free(index);
-  fflush(stdout);
-}
-#endif
-
 // -----------------------------------------------------------------------------
 // Box plots
 // -----------------------------------------------------------------------------
@@ -420,7 +384,7 @@ static void print_boxplot(int index,
   printf("\n");
   // Middle line
   if (index+1 < 100)
-    printf("#%-*d", indent-1, index+1);
+    printf("%*d:", indent-1, index+1);
   else
     printf("%-*d", indent, index+1);
   if (minpos == maxpos) {
@@ -607,7 +571,7 @@ void print_descriptive_stats(Summary *s) {
     div = MILLISECS;
   }
 
-  DisplayTable *t = new_display_table("Total CPU Time",
+  DisplayTable *t = new_display_table("Total CPU Time Distribution",
 				      78,
 				      3,
 				      (int []){16,15,40},
@@ -681,7 +645,7 @@ void print_descriptive_stats(Summary *s) {
   display_table(t, 2);
   free_display_table(t);
 
-  t = new_display_table("Total CPU Time",
+  t = new_display_table("Total CPU Time Distribution Tail",
 			78,
 			8,
 			(int []){10,7,7,7,7,7,7,7},
@@ -832,7 +796,7 @@ void print_boxplots(Summary *summaries[], int start, int end) {
   printf("Box plot legend:\n");
   for (int i = start; i < end; i++) {
     printf("  ");
-    announce_command(summaries[i]->cmd, i, "#%d: %s", NOLIMIT); // width - 2
+    announce_command(summaries[i]->cmd, i, "%d: %s", NOLIMIT); // width - 2
     puts("");
   }
   puts("");
@@ -998,10 +962,10 @@ static void print_ranking(Ranking *rank) {
   const char *delta_no_header = "══════════════════════════════════";
 			
   const char *winner = "✓";
-  const char *cmd_fmt = "%4d. %s";
+  const char *cmd_fmt = "%4d: %s";
 
   if (same_count > 1) 
-    printf("Best guess ranking: (the top %d commands performed identically)\n",
+    printf("Best guess ranking: The top %d commands performed identically\n",
 	   same_count);
   else
     printf("Best guess ranking:\n");
@@ -1137,7 +1101,7 @@ void report(Ranking *ranking) {
     s = ranking->summaries[i];
 
     if (option.report != REPORT_NONE) {
-      announce_command(s->cmd, i, "Command #%d: %s", NOLIMIT);
+      announce_command(s->cmd, i, "Command %d: %s", NOLIMIT);
       printf("\n");
     }
     report_one_command(s, ranking->usage, ranking->usageidx[i], ranking->usageidx[i+1]);

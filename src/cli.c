@@ -270,7 +270,6 @@ void process_common_options(int argc, char **argv) {
 #define HELP_NAME "Name to use in reports instead of full command"
 #define HELP_OUTPUT "Write timing data to CSV <FILE> (use - for stdout)"
 #define HELP_CMDFILE "Read commands from <FILE>"
-//#define HELP_GROUPS "Blank lines in the input file delimit groups"
 #define HELP_SHOWOUTPUT "Show output of commands as they run"
 #define HELP_IGNORE "Ignore non-zero exit codes"
 #define HELP_SHELL "Use <SHELL> (e.g. \"/bin/bash -c\") to run commands"
@@ -284,7 +283,6 @@ static void init_exec_options(void) {
   optable_add(OPT_PREP,       "p",  "prepare",        1, HELP_PREPARE);
   optable_add(OPT_OUTPUT,     "o",  "output",         1, HELP_OUTPUT);
   optable_add(OPT_FILE,       "f",  "file",           1, HELP_CMDFILE);
-  //  optable_add(OPT_GROUPS,     NULL, "groups",         0, HELP_GROUPS);
   optable_add(OPT_NAME,       "n",  "name",           1, HELP_NAME);
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, HELP_SHOWOUTPUT);
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, HELP_IGNORE);
@@ -352,10 +350,6 @@ void process_exec_options(int argc, char **argv) {
 	check_option_value(val, n);
 	option.input_filename = strdup(val);
 	break;
-//       case OPT_GROUPS:
-// 	check_option_value(val, n);
-// 	option.groups = true;
-// 	break;
       case OPT_SHOWOUTPUT:
 	check_option_value(val, n);
 	option.show_output = true;

@@ -203,19 +203,26 @@ State_.
       sample has a "batch number" unique to its data file, we might allow users
       to report on certain ones, e.g. `--batch 2,3-5,10`.
 
-- [ ] Consider an `--explain` option that prints explanations of descriptive and
-      inferential statistics.  E.g. `--explain infer` or maybe more granular
-      like `--explain skew`.
+- [X] Provide an `--explain` option that prints the inferential statistics
+      supporting the rankings, specifically illuminating why several commands
+      may be statistically indistinguishable based on their empirical
+      distributions.
+
+- [ ] Consider an enhanced`--explain` option that prints explanations of
+      individual descriptive and inferential statistics.  E.g. `--explain infer`
+      or maybe more granular like `--explain skew`.
 
 - [ ] We can compute Mann-Whitney U values for sample sizes under 20 if we use a
 	  table of critical U values instead of the normal-based approximation to
 	  p-value calculation we support today.  See,
 	  e.g. https://sphweb.bumc.bu.edu/otlt/MPH-Modules/BS/BS704_Nonparametric/BS704_Nonparametric4.html
 
-- [ ] A log feature might be useful.  It would log actions such as warmup runs
-      and timed runs, to make the overall behavior explicit.  This feature could
-      be used by people who want to better understand the operation of BestGuess
-      as well as scientists who want to record an experiment log.
+- [ ] A log feature has become essential.  It will log actions such as warmup
+      runs and timed runs, to make the overall behavior explicit.  This feature
+      could be used by people who want to better understand the operation of
+      BestGuess as well as scientists who want to record an experiment log.
+      - When commands are named, the log should contain each name and the full
+        text of the command.
 	  - Including some information about the platform at the start of the log
         could be useful.  OS and hardware (CPU, memory)?
 	  - Writing timestamps and measures of system load (and temperature?) into
