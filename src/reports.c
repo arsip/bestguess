@@ -812,16 +812,19 @@ void print_boxplots(Summary *summaries[], int start, int end) {
 // right quantity.
 
 // Explain the inferential statistics
-static void explain(Summary *s, char *title) {
+static void explain(Summary *s, char *firstrow) {
   char *tmp, *tmp2, *tmp3;
   Inference *stat = s->infer;
-  DisplayTable *t = new_display_table(title,
+  DisplayTable *t = new_display_table(NULL,
 				      90,
 				      7,
 				      (int []){6,13,16,5,5,24,6},
 				      (int []){0,2,1,2,2,2,2},
 				      "rllrrlr");
   int row = 0;
+  display_table_span(t, row, 0, 6, 'l', firstrow);
+  row++;
+
   display_table_set(t, row, 0, "");
   row++;
 
@@ -972,13 +975,11 @@ static void print_ranking(Ranking *rank) {
 
   printf("\n");
 
-  if (!option.explain) {
-    printf("    %*.*s%*.*s", cmd_len, cmd_len, cmd_header, time_len, time_len, time_header);
-    if (same_count < rank->count)
-      printf("%*.*s\n", delta_len, delta_len, delta_header);
-    else
-      printf("%.*s\n", delta_width * b, delta_no_header);
-  }
+  printf("    %*.*s%*.*s", cmd_len, cmd_len, cmd_header, time_len, time_len, time_header);
+  if (same_count < rank->count)
+    printf("%*.*s\n", delta_len, delta_len, delta_header);
+  else
+    printf("%.*s\n", delta_width * b, delta_no_header);
   
   double pct;
   Units *units;
@@ -1001,18 +1002,13 @@ static void print_ranking(Ranking *rank) {
       asprintf(&tmp, "%s%*.*s  %s ",
 	       winner, -cmd_width, cmd_width, cmd, median);
     }
-    if (option.explain)
-      explain(s, tmp);
-    else
-      printf("    %s\n", tmp);
+    printf("    %s\n", tmp);
     free(tmp);
     free(cmd);
     free(median);
     free(shift);
   }
-
-  if (!option.explain)
-    printf("\n");
+  printf("\n");
 
   // Print the rest
   for (int i = 0; i < rank->count; i++)
@@ -1026,21 +1022,67 @@ static void print_ranking(Ranking *rank) {
       pct = (double) s->infer->shift / rank->summaries[bestidx]->total.median;
       asprintf(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
 	       " ", -cmd_width, cmd_width, cmd, median, shift, pct * 100.0);
-      if (option.explain)
-	explain(s, tmp);
-      else
-	printf("    %s\n", tmp);
+      printf("    %s\n", tmp);
       free(tmp);
       free(cmd);
       free(median);
       free(shift);
     }
 
-  if (!option.explain) {
-    printf("    %.*s\n", (cmd_width + time_width + delta_width) * b,
-	   "═══════════════════════════════════════════════════════════" 
-	   "═══════════════════════════════════════════════════════════");
-  }
+  printf("    %.*s\n", (cmd_width + time_width + delta_width) * b,
+	 "═══════════════════════════════════════════════════════════" 
+	 "═══════════════════════════════════════════════════════════");
+
+  fflush(stdout);
+
+  // TODO: Most of the loop bodies below are identical to those above
+
+  // Explain
+  if (option.explain) {
+    for (int i = 0; i < rank->count; i++) {
+      if (same[i] == -1) continue;
+      s = rank->summaries[same[i]];
+      units = select_units(s->total.max, time_units);
+      cmd = command_announcement(s->cmd, same[i], cmd_fmt, cmd_width);
+      units = select_units(s->total.max, time_units);
+      median = apply_units(s->total.median, units, UNITS);
+      if (s->infer) {
+	shift = apply_units(s->infer->shift, units, UNITS);
+	pct = (double) s->infer->shift / s->total.median;
+	asprintf(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
+		 winner, -cmd_width, cmd_width, cmd, median, shift, pct * 100.0);
+      } else {
+	shift = NULL;
+	asprintf(&tmp, "%s%*.*s  %s ",
+		 winner, -cmd_width, cmd_width, cmd, median);
+      }
+      explain(s, tmp);
+      free(tmp);
+      free(cmd);
+      free(median);
+      free(shift);
+
+    }
+    // Print the rest
+    for (int i = 0; i < rank->count; i++)
+      if ((same[i] == -1) && (rank->index[i] != bestidx)) {
+	s = rank->summaries[rank->index[i]];
+	units = select_units(s->total.max, time_units);
+	cmd = command_announcement(s->cmd, rank->index[i], cmd_fmt, cmd_width);
+	units = select_units(s->total.max, time_units);
+	median = apply_units(s->total.median, units, UNITS);
+	shift = apply_units(s->infer->shift, units, UNITS);
+	pct = (double) s->infer->shift / rank->summaries[bestidx]->total.median;
+	asprintf(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
+		 " ", -cmd_width, cmd_width, cmd, median, shift, pct * 100.0);
+	explain(s, tmp);
+	free(tmp);
+	free(cmd);
+	free(median);
+	free(shift);
+      }
+  } // If explaining
+
   free(same);
   fflush(stdout);
 }
