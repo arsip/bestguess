@@ -945,6 +945,16 @@ static void print_ranking(Ranking *rank) {
   // TODO: Move the double-line printing stuff somewhere.  Maybe it
   // should be a table format, since it's a table without the sides.
 
+#define DOUBLE_BAR				 \
+  "════════════════════════════════════════"	 \
+  "════════════════════════════════════════"	 \
+  "════════════════════════════════════════"	 \
+  "════════════════════════════════════════"	 \
+
+
+  const int indent = 4;
+  const int table_width = 70;
+
   const char *fill = "═";
   const int b = strlen(fill);
 
@@ -962,7 +972,7 @@ static void print_ranking(Ranking *rank) {
   const int delta_len = (delta_nonfillchars
 			 + (delta_width - delta_nonfillchars) * b);
   const char *delta_header = "══ Slower by ═════════════════";
-  const char *delta_no_header = "══════════════════════════════════";
+  const char *delta_no_header = DOUBLE_BAR;
 			
   const char *winner = "✓";
   const char *cmd_fmt = "%4d: %s";
@@ -975,7 +985,9 @@ static void print_ranking(Ranking *rank) {
 
   printf("\n");
 
-  printf("    %*.*s%*.*s", cmd_len, cmd_len, cmd_header, time_len, time_len, time_header);
+  printf("%*s%*.*s%*.*s", indent, "",
+	 cmd_len, cmd_len, cmd_header,
+	 time_len, time_len, time_header);
   if (same_count < rank->count)
     printf("%*.*s\n", delta_len, delta_len, delta_header);
   else
@@ -1002,13 +1014,13 @@ static void print_ranking(Ranking *rank) {
       asprintf(&tmp, "%s%*.*s  %s ",
 	       winner, -cmd_width, cmd_width, cmd, median);
     }
-    printf("    %s\n", tmp);
+    printf("%*s%s\n", indent, "", tmp);
     free(tmp);
     free(cmd);
     free(median);
     free(shift);
   }
-  printf("\n");
+  printf("%*s%.*s\n", indent, "", table_width * b, DOUBLE_BAR);
 
   // Print the rest
   for (int i = 0; i < rank->count; i++)
@@ -1022,16 +1034,14 @@ static void print_ranking(Ranking *rank) {
       pct = (double) s->infer->shift / rank->summaries[bestidx]->total.median;
       asprintf(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
 	       " ", -cmd_width, cmd_width, cmd, median, shift, pct * 100.0);
-      printf("    %s\n", tmp);
+      printf("%*s%s\n", indent, "", tmp);
       free(tmp);
       free(cmd);
       free(median);
       free(shift);
     }
 
-  printf("    %.*s\n", (cmd_width + time_width + delta_width) * b,
-	 "═══════════════════════════════════════════════════════════" 
-	 "═══════════════════════════════════════════════════════════");
+  printf("%*s%.*s\n", indent, "", table_width * b, DOUBLE_BAR);
 
   fflush(stdout);
 
@@ -1142,11 +1152,18 @@ void report(Ranking *ranking) {
 
     s = ranking->summaries[i];
 
-    if (option.report != REPORT_NONE) {
+    if ((option.action != actionExecute)
+	&& (option.report != REPORT_NONE)) {
+      // If 'actionExecute' then a summary of each command was printed
+      // after each series of timed runs.  Otherwise, we need to print
+      // a summary, but only for report settings other than NONE.
       announce_command(s->cmd, i, "Command %d: %s", NOLIMIT);
       printf("\n");
+      report_one_command(s,
+			 ranking->usage,
+			 ranking->usageidx[i],
+			 ranking->usageidx[i+1]);
     }
-    report_one_command(s, ranking->usage, ranking->usageidx[i], ranking->usageidx[i+1]);
     
     if (option.action == actionReport) {
       write_summary_stats(s, csv_output, hf_output);
