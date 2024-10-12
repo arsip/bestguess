@@ -201,6 +201,9 @@ extern Units count_units[];
 Units *select_units(int64_t maxvalue, Units *options);
 char  *apply_units(int64_t value, Units *units, bool show_unit_names);
 
+char *command_announcement(const char *cmd, int index, const char *fmt, int len);
+void  announce_command(const char *cmd, int index);
+
 /* ----------------------------------------------------------------------------- */
 /* Error handling for runtime errors                                             */
 /* ----------------------------------------------------------------------------- */

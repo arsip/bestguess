@@ -690,3 +690,23 @@ size_t utf8_width(const char *str, int count) {
   const char *s = utf8_index(str, count);
   return s ? (size_t) (s - str) : strlen(str);
 }
+
+// -----------------------------------------------------------------------------
+// Printing utilities, for consistent presentation
+// -----------------------------------------------------------------------------
+
+// Note: 'len' is the maximum length of the printed string.  Caller
+// must free the returned string.
+char *command_announcement(const char *cmd, int index, const char *fmt, int len) {
+  char *tmp;
+  asprintf(&tmp, fmt, index + 1, *cmd ? cmd : "(empty)");
+  if ((len != NOLIMIT) && ((int) strlen(tmp) > len))
+    tmp[len] = '\0';
+  return tmp;
+}
+
+void announce_command(const char *cmd, int index) {
+  const char *fmt = "Command %d: %s";
+  printf("%s", command_announcement(cmd, index, fmt, NOLIMIT)); 
+}
+

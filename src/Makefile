@@ -7,7 +7,8 @@
 PROGRAM?=bestguess
 REPORTPROGRAM?=bestreport
 
-OBJECTS= cli.o utils.o optable.o exec.o csv.o stats.o reports.o printing.o
+OBJECTS= cli.o utils.o optable.o exec.o csv.o stats.o \
+         reports.o printing.o graphs.o
 
 # When DEBUG is set, we get extra debugging output and expensive
 # assertions will run.  E.g. 'make DEBUG=1'

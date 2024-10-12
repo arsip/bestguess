@@ -36,14 +36,9 @@ void report(Ranking *ranking);
 
 Usage *read_input_files(int argc, char **argv);
 
-char *command_announcement(const char *cmd, int index, const char *fmt, int len);
-void  announce_command(const char *cmd, int index, const char *fmt, int maxlen);
-
 void print_summary(Summary *s, bool briefly);
-void print_graph(Summary *s, Usage *usagedata, int start, int end);
 void print_overall_summary(Summary *summaries[], int start, int end);
 void print_descriptive_stats(Summary *s);
-void print_boxplots(Summary *summaries[], int start, int end);
 
 // TODO: Find a home for these, and clean up the APIs
 void write_summary_stats(Summary *s, FILE *csv_output, FILE *hf_output);
