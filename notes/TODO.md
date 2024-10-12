@@ -95,7 +95,7 @@
          like hyper-threading should be disabled to maintain predictable good
          performance.)
 
-- [ ] The OS scheduling quantum would seem to be relevant.  
+- [ ] The OS scheduling quantum would seem to be relevant.
 	  - As of Linux kernel v6.11, the "minimal preemption granularity for
         CPU-bound tasks" defaults to 0.75 msec * (1 + ilog(ncpus)).  The integer
         log base 2 of 4 cores is 2, so on a 4-core CPU, a process that does not
@@ -151,7 +151,7 @@ State_.
 
 
 
-## Measurement techniques
+## Measurement and analysis techniques
 
 - [ ] Provide configurable environment randomization.  (Really this is just
       creating an environment variable of a random size before launching the
@@ -174,6 +174,18 @@ State_.
 
 
 ## BestGuess features
+
+- [ ] If we want to use Hyperfine terms for the various kinds of commands, we
+      need to support:
+	  - Setup -s, --setup (runs before each batch)
+	  - Prepare -p, --prepare (runs before each timed run)
+	  - Conclude -C, --conclude (runs after each timed run)
+	  - Cleanup -c, --cleanup (runs after each batch)
+      These names could be improved.  A possible replacement set is:
+	  [ ] Setup    --setup (runs before each batch)
+	  [ ] Pre-cmd  --pre (runs before each timed run)
+	  [ ] Post-cmd --post (runs after each timed run)
+	  [ ] Cleanup  --cleanup (runs after each batch)
 
 - [ ] Raw data files should have a "batch number" in every row.  That way, users
       can benchmark the same command more than once (or combine results files
@@ -233,7 +245,7 @@ State_.
 
 - [-] Maybe compute medcouple, a non-parametric measure of skewness.
 
-- [ ] There are several conventions for drawing box plots.  Should we adopt the
+- [-] There are several conventions for drawing box plots.  Should we adopt the
       one where the whiskers extend at most 1.5 x IQR, with observations beyond
       shown as dots?  That form is described as "box plot with outliers", but
       performance data often has some very observations that should not be

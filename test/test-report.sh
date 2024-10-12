@@ -5,6 +5,7 @@ SHOWOUTPUT=
 prog=../bestreport
 
 printf "%s\n"   '-----------------------------------'
+printf "%s\n"   "$0"
 printf "%s\n"   'Bestreport tests (terminal output)'
 printf "%s\n\n" '-----------------------------------'
 
@@ -43,21 +44,21 @@ infile=raw1.csv
 # Default report is summary
 ok "$prog" "$infile"
 contains "Min      Q₁    Median      Q₃       Max"
-contains "Command #1: ls -l" "Total CPU time    4.63 ms" 
+contains "Command 1: ls -l" "Total CPU time    4.63 ms" 
 contains "Slower by"
 contains "790.3%"
 
 # Explicitly request the summary
 ok "$prog" -R summary "$infile"
 contains "Min      Q₁    Median      Q₃       Max"
-contains "Command #1: ls -l" "Total CPU time    4.63 ms"
+contains "Command 1: ls -l" "Total CPU time    4.63 ms"
 contains "Slower by"
 contains "790.3%"
 
 # Brief report
 ok "$prog" -R brief "$infile"
 contains "Min   Median      Max"
-contains "Command #1: ls -l" "Total CPU time    4.63 ms"
+contains "Command 1: ls -l" "Total CPU time    4.63 ms"
 contains "Slower by" "ps Aux" "790.3%"
 
 # No report, but summary prints
@@ -67,7 +68,7 @@ contains "Slower by" "ps Aux" "790.3%"
 # Graph with default report
 ok "$prog" -G "$infile"
 contains "Min      Q₁    Median      Q₃       Max"
-contains "Command #1: ls -l" "Total CPU time    4.63 ms"
+contains "Command 1: ls -l" "Total CPU time    4.63 ms"
 contains "Slower by" "ps Aux" "790.3%"
 contains "0     " "     max"
 contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭"
@@ -83,7 +84,7 @@ contains "│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭�
 # Boxplot
 ok "$prog" -B "$infile"
 contains "Min      Q₁    Median      Q₃       Max"
-contains "Command #1: ls -l" "Total CPU time    4.63 ms"
+contains "Command 1: ls -l" "Total CPU time    4.63 ms"
 contains "Slower by" "ps Aux" "790.3%"
 contains "├────" "─┼─"
 

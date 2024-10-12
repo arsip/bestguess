@@ -4,6 +4,7 @@
 prog="../bestguess"
 
 printf "%s\n"   '--------------------------------------'
+printf "%s\n"   "$0"
 printf "%s\n"   'Basic tests, e.g. checking exit status'
 printf "%s\n\n" '--------------------------------------'
 

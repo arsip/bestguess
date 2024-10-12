@@ -1104,7 +1104,7 @@ void write_summary_stats(Summary *s, FILE *csv_output, FILE *hf_output) {
   if (option.hf_filename) write_hf_line(hf_output, s);
 }
 
-void report_one_command(Summary *s, Usage *usage, int start, int end) {
+void report_one_command(Summary *s) {
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
@@ -1113,13 +1113,18 @@ void report_one_command(Summary *s, Usage *usage, int start, int end) {
       print_summary(s, (option.report == REPORT_BRIEF));
     if (option.report == REPORT_FULL) 
       print_descriptive_stats(s);
+  }
+  fflush(stdout);
+}
+
+void graph_one_command(Summary *s, Usage *usage, int start, int end) {
+  if (!option.output_to_stdout) {
     if (option.graph && usage) {
       print_graph(s, usage, start, end);
     }
     if ((option.report != REPORT_NONE) || option.graph)
       printf("\n");
   }
-  fflush(stdout);
 }
 
 // report() produces box plots and an overall ranking.  These are the
@@ -1152,17 +1157,29 @@ void report(Ranking *ranking) {
 
     s = ranking->summaries[i];
 
-    if ((option.action != actionExecute)
-	&& (option.report != REPORT_NONE)) {
+    if (option.action != actionExecute) {
       // If 'actionExecute' then a summary of each command was printed
       // after each series of timed runs.  Otherwise, we need to print
       // a summary, but only for report settings other than NONE.
-      announce_command(s->cmd, i, "Command %d: %s", NOLIMIT);
-      printf("\n");
-      report_one_command(s,
-			 ranking->usage,
-			 ranking->usageidx[i],
-			 ranking->usageidx[i+1]);
+      if (option.report != REPORT_NONE) {
+	announce_command(s->cmd, i, "Command %d: %s", NOLIMIT);
+	printf("\n");
+      }
+      report_one_command(s);
+    }
+
+    // GRAPH
+    // If we have are not printing a report for each command, then we
+    // need to announce the current command for the graph.
+    if (option.graph) {
+      if (option.report == REPORT_NONE) {
+	announce_command(s->cmd, i, "Command %d: %s", NOLIMIT);
+	printf("\n");
+      }
+      graph_one_command(s,
+			ranking->usage,
+			ranking->usageidx[i],
+			ranking->usageidx[i+1]);
     }
     
     if (option.action == actionReport) {

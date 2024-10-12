@@ -6,6 +6,7 @@ SHOWOUTPUT=
 prog=../bestguess
 
 printf "%s\n"   '--------------------------------------'
+printf "%s\n"   "$0"
 printf "%s\n"   'Raw data output tests'
 printf "%s\n\n" '--------------------------------------'
 

@@ -292,7 +292,8 @@ void run_all_commands(int argc, char **argv) {
       s = summarize(usage, start, usage->next);
       assert((option.runs <= 0) || s);
       write_summary_stats(s, csv_output, hf_output);
-      report_one_command(s, usage, start, usage->next);
+      report_one_command(s);
+      graph_one_command(s, usage, start, usage->next);
       free_summary(s);
       if (++n == MAXCMDS) goto toomany;
     }
@@ -314,7 +315,8 @@ void run_all_commands(int argc, char **argv) {
       s = summarize(usage, start, usage->next);
       assert((option.runs <= 0) || s);
       write_summary_stats(s, csv_output, hf_output);
-      report_one_command(s, usage, start, usage->next);
+      report_one_command(s);
+      graph_one_command(s, usage, start, usage->next);
       free_summary(s);
       if (++n == MAXCMDS) goto toomany;
     } // while

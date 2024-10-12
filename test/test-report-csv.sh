@@ -5,6 +5,7 @@ SHOWOUTPUT=
 prog=../bestreport
 
 printf "%s\n"   '-----------------------------'
+printf "%s\n"   "$0"
 printf "%s\n"   'Bestreport tests (CSV output)'
 printf "%s\n\n" '-----------------------------'
 
@@ -45,14 +46,14 @@ outfile=$(mktemp -p /tmp)
 # Write summary stats (and get default report on terminal)
 ok "$prog" --export-csv "$outfile" "$infile"
 contains "Min      Q₁    Median      Q₃       Max"
-contains "Command #1: ls -l" "Total CPU time    4.63 ms"
+contains "Command 1: ls -l" "Total CPU time    4.63 ms"
 contains "Slower by" "ps Aux" "790.3%"
 ok diff "$outfile" "$expectfile"
 
 # Write summary stats (and get brief report on terminal)
 ok "$prog" -R brief --export-csv "$outfile" "$infile"
 contains "Min   Median      Max"
-contains "Command #1: ls -l" "Total CPU time    4.63 ms"
+contains "Command 1: ls -l" "Total CPU time    4.63 ms"
 contains "Slower by" "ps Aux" "790.3%"
 ok diff "$outfile" "$expectfile"
 
@@ -72,16 +73,16 @@ outfile=$(mktemp -p /tmp)
 # Write summary stats (and get default report on terminal)
 ok "$prog" --hyperfine-csv "$outfile" "$infile"
 contains "Min      Q₁    Median      Q₃       Max"
-contains "Command #1: ls -l" "Total CPU time    4.63 ms"
-contains "Command #2: ps Aux"
+contains "Command 1: ls -l" "Total CPU time    4.63 ms"
+contains "Command 2: ps Aux"
 contains "Slower by" "ps Aux" "790.3%"
 ok diff "$outfile" "$expectfile"
 
 # Write summary stats (and get brief report on terminal)
 ok "$prog" -R brief --hyperfine-csv "$outfile" "$infile"
 contains "Min   Median      Max"
-contains "Command #1: ls -l" "Total CPU time    4.63 ms"
-contains "Command #2: ps Aux" 
+contains "Command 1: ls -l" "Total CPU time    4.63 ms"
+contains "Command 2: ps Aux" 
 contains "Slower by" "ps Aux" "790.3%"
 ok diff "$outfile" "$expectfile"
 

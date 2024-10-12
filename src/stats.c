@@ -791,6 +791,15 @@ static int i64_lt(const void *a, const void *b, void *data) {
   return Xa - Xb;
 }
 
+// IMPORTANT: A RankedCombinedSample may contain n1+n2 elements (size
+// of 'X' and 'ranks') or n1*n2 elements.
+typedef struct RankedCombinedSample {
+  int      n1;		// Size of sample 1
+  int      n2;		// Size of sample 2
+  int64_t *X;		// Ranked (sorted) differences
+  double  *rank;	// Assigned ranks for X[]
+} RankedCombinedSample;
+
 static RankedCombinedSample rank_difference_magnitude(Usage *usage,
 						      int start1, int end1,
 						      int start2, int end2,

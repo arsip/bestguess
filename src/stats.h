@@ -103,15 +103,6 @@ typedef struct Ranking {
   int count;	       // Number of summaries, index, usageidx
 } Ranking;
 
-// IMPORTANT: A RankedCombinedSample may contain n1+n2 elements (size
-// of 'X' and 'ranks') or n1*n2 elements.
-typedef struct RankedCombinedSample {
-  int      n1;		// Size of sample 1
-  int      n2;		// Size of sample 2
-  int64_t *X;		// Ranked (sorted) differences
-  double  *rank;	// Assigned ranks for X[]
-} RankedCombinedSample;
-
 // -----------------------------------------------------------------------------
 
 // The minimum sample size needed for our inferential statistics is

@@ -47,7 +47,7 @@ void print_boxplots(Summary *summaries[], int start, int end);
 
 // TODO: Find a home for these, and clean up the APIs
 void write_summary_stats(Summary *s, FILE *csv_output, FILE *hf_output);
-void report_one_command(Summary *s, Usage *usage, int start, int end);
-
+void report_one_command(Summary *s);
+void graph_one_command(Summary *s, Usage *usage, int start, int end);
 
 #endif
