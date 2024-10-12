@@ -11,6 +11,7 @@ RUN dnf install -y libasan libubsan
 RUN dnf -y install libbsd-devel
 
 COPY src /opt/project/src
+COPY test /opt/project/test
 COPY Makefile /opt/project
 COPY containers/build-and-test.sh /run.sh
 

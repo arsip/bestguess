@@ -223,6 +223,10 @@ void  announce_command(const char *cmd, int index);
 
 void error_report(const char *fmt, ...);
 
+#define ASPRINTF(...) do {					\
+    if (asprintf(__VA_ARGS__) == -1) PANIC("asprintf failed");	\
+  } while (0)
+
 /* ----------------------------------------------------------------------------- */
 /* Error handling for internal errors (bugs) and warnings                        */
 /* ----------------------------------------------------------------------------- */

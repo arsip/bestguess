@@ -248,7 +248,7 @@ static bool have_valid_ADscore(Measures *m) {
 static const char *ADscore_repr(Measures *m) {
   char *tmp;
   if (have_valid_ADscore(m)) {
-    asprintf(&tmp, "%6.2f", m->ADscore);
+    ASPRINTF(&tmp, "%6.2f", m->ADscore);
     return tmp;
   }
   return ". ";
@@ -260,14 +260,14 @@ static const char *ADscore_description(Measures *m) {
   if (have_valid_ADscore(m)) {
     if (m->p_normal <= config.alpha) {
       if (m->p_normal < 0.001)
-	asprintf(&tmp, "p < 0.001 (signif., α = %4.2f) Not normal",
+	ASPRINTF(&tmp, "p < 0.001 (signif., α = %4.2f) Not normal",
 		 config.alpha);
       else
-	asprintf(&tmp, "p = %5.3f (signif., α = %4.2f) Not normal",
+	ASPRINTF(&tmp, "p = %5.3f (signif., α = %4.2f) Not normal",
 		 m->p_normal, config.alpha);
       return tmp;
     } else {
-      asprintf(&tmp, "p = %5.3f (non-signif., α = %4.2f) Cannot rule out normal",
+      ASPRINTF(&tmp, "p = %5.3f (non-signif., α = %4.2f) Cannot rule out normal",
 	       m->p_normal, config.alpha);
       return tmp;
     }
@@ -280,7 +280,7 @@ static const char *ADscore_description(Measures *m) {
     // Approx. 1 observation in a sample of 390 BILLION will trigger
     // this situation if the sample really is normally distributed.
     // https://en.wikipedia.org/wiki/68–95–99.7_rule
-    asprintf(&tmp, "Extreme values (Z ≈ %0.1f): not normal", m->ADscore);
+    ASPRINTF(&tmp, "Extreme values (Z ≈ %0.1f): not normal", m->ADscore);
     return tmp;
   }
   return "(not calculated)";
@@ -290,7 +290,7 @@ static const char *ADscore_description(Measures *m) {
 static const char *skew_repr(Measures *m) {
   char *tmp;
   if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN)) {
-    asprintf(&tmp, "%6.2f", m->skew);
+    ASPRINTF(&tmp, "%6.2f", m->skew);
   } else {
     return ". ";
   }
@@ -301,7 +301,7 @@ static const char *skew_repr(Measures *m) {
 static const char *skew_description(Measures *m) {
   char *tmp;
   if (!HAS(m->code, CODE_LOWVARIANCE) && !HAS(m->code, CODE_SMALLN)) {
-    asprintf(&tmp, "%s",
+    ASPRINTF(&tmp, "%s",
 	     HAS(m->code, CODE_HIGH_SKEW)
 	     ? "Substantial deviation from normal"
 	     : "Non-significant");
@@ -322,7 +322,7 @@ static const char *skew_description(Measures *m) {
 static const char *kurtosis_repr(Measures *m) {
   char *tmp;
   if (!HAS(m->code, CODE_SMALLN)) {
-    asprintf(&tmp, "%6.2f", m->kurtosis);
+    ASPRINTF(&tmp, "%6.2f", m->kurtosis);
   } else {
     return ". ";
   }
@@ -333,7 +333,7 @@ static const char *kurtosis_repr(Measures *m) {
 static const char *kurtosis_description(Measures *m) {
   char *tmp;
   if (!HAS(m->code, CODE_SMALLN)) {
-    asprintf(&tmp, "%s",
+    ASPRINTF(&tmp, "%s",
 	     HAS(m->code, CODE_HIGH_SKEW)
 	     ? "Substantial deviation from normal"
 	     : "Non-significant");
@@ -382,9 +382,9 @@ void print_descriptive_stats(Summary *s) {
   int64_t range = m->max - m->min;
   display_table_set(t, row, 0, "Range");
   if (sec)
-    asprintf(&tmp, FMTs " … " FMTsL, ROUND1(m->min, div), ROUND1(m->max, div));
+    ASPRINTF(&tmp, FMTs " … " FMTsL, ROUND1(m->min, div), ROUND1(m->max, div));
   else
-    asprintf(&tmp, FMT " … " FMTL, ROUND1(m->min, div), ROUND1(m->max, div));
+    ASPRINTF(&tmp, FMT " … " FMTL, ROUND1(m->min, div), ROUND1(m->max, div));
   display_table_set(t, row, 1, tmp);
   display_table_set(t, row, 2, sec ? "s" : "ms");
   row++;
@@ -397,9 +397,9 @@ void print_descriptive_stats(Summary *s) {
 
   display_table_set(t, row, 0, "IQR");
   if (sec)
-    asprintf(&tmp, FMTs " … " FMTsL, ROUND1(m->Q1, div), ROUND1(m->Q3, div));
+    ASPRINTF(&tmp, FMTs " … " FMTsL, ROUND1(m->Q1, div), ROUND1(m->Q3, div));
   else
-    asprintf(&tmp, FMT " … " FMTL, ROUND1(m->Q1, div), ROUND1(m->Q3, div));
+    ASPRINTF(&tmp, FMT " … " FMTL, ROUND1(m->Q1, div), ROUND1(m->Q3, div));
   display_table_set(t, row, 1, tmp);
   display_table_set(t, row, 2, sec ? "s" : "ms");
   row++;
@@ -609,7 +609,7 @@ static void add_explanation(DisplayTable *t,
     else
       display_table_set(t, *row, 4, "%5.3f", stat->p_adj);
 
-    asprintf(&tmp, "%4.2f%%", stat->confidence * 100.0);
+    ASPRINTF(&tmp, "%4.2f%%", stat->confidence * 100.0);
     tmp2 = apply_units(stat->ci_low, units, NOUNITS);
     tmp3 = apply_units(stat->ci_high, units, NOUNITS);
     display_table_set(t, *row, 5, "%s (%s, %s) %2s",
@@ -789,11 +789,11 @@ static void print_ranking(Ranking *rank) {
     if (s->infer) {
       shift = apply_units(s->infer->shift, units, UNITS);
       pct = (double) s->infer->shift / s->total.median;
-      asprintf(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
+      ASPRINTF(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
 	       winner, -cmd_width, cmd_width, cmd, median, shift, pct * 100.0);
     } else {
       shift = NULL;
-      asprintf(&tmp, "%s%*.*s  %s ",
+      ASPRINTF(&tmp, "%s%*.*s  %s ",
 	       winner, -cmd_width, cmd_width, cmd, median);
     }
     printf("%*s%s\n", indent, "", tmp);
@@ -817,7 +817,7 @@ static void print_ranking(Ranking *rank) {
       median = apply_units(s->total.median, units, UNITS);
       shift = apply_units(s->infer->shift, units, UNITS);
       pct = (double) s->infer->shift / rank->summaries[bestidx]->total.median;
-      asprintf(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
+      ASPRINTF(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
 	       " ", -cmd_width, cmd_width, cmd, median, shift, pct * 100.0);
       printf("%*s%s\n", indent, "", tmp);
       if (option.explain) add_explanation(t, &row, tmp, s);

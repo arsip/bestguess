@@ -610,9 +610,9 @@ char *apply_units(int64_t value, Units *units, bool include_unit_name) {
   // Note: The printf family of functions rounds float types to the
   // precision specified in the format string.
   if (include_unit_name)
-    asprintf(&str, units->fmt_units, display_value, units->unitname);
+    ASPRINTF(&str, units->fmt_units, display_value, units->unitname);
   else
-    asprintf(&str, units->fmt_nounits, display_value);
+    ASPRINTF(&str, units->fmt_nounits, display_value);
   return str;
 }
 
@@ -699,7 +699,7 @@ size_t utf8_width(const char *str, int count) {
 // must free the returned string.
 char *command_announcement(const char *cmd, int index, const char *fmt, int len) {
   char *tmp;
-  asprintf(&tmp, fmt, index + 1, *cmd ? cmd : "(empty)");
+  ASPRINTF(&tmp, fmt, index + 1, *cmd ? cmd : "(empty)");
   if ((len != NOLIMIT) && ((int) strlen(tmp) > len))
     tmp[len] = '\0';
   return tmp;
@@ -707,6 +707,8 @@ char *command_announcement(const char *cmd, int index, const char *fmt, int len)
 
 void announce_command(const char *cmd, int index) {
   const char *fmt = "Command %d: %s";
-  printf("%s", command_announcement(cmd, index, fmt, NOLIMIT)); 
+  char *announcement = command_announcement(cmd, index, fmt, NOLIMIT); 
+  printf("%s", announcement);
+  free(announcement);
 }
 

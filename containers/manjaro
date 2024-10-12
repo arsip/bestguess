@@ -14,6 +14,7 @@ RUN pacman -S "gcc>=12.0" --noconfirm gcc
 RUN gcc -v
 
 COPY src /opt/project/src
+COPY test /opt/project/test
 COPY Makefile /opt/project
 COPY containers/build-and-test.sh /run.sh
 

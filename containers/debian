@@ -9,6 +9,7 @@ RUN apt-get -y update && apt-get install -y \
 # Debian comes with libasan and libubsan, so no need to install them explicitly
 
 COPY src /opt/project/src
+COPY test /opt/project/test
 COPY Makefile /opt/project
 COPY containers/build-and-test.sh /run.sh
 

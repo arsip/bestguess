@@ -23,3 +23,8 @@ RUN cat /etc/os-release
 
 WORKDIR /
 #ENTRYPOINT ["/run.sh"]
+
+# TO RUN A SHELL:
+#
+# podman run -ti bestguess:ubuntu-interactive /bin/bash
+#

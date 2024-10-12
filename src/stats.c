@@ -596,10 +596,7 @@ void free_summary(Summary *s) {
 }
 
 static Summary **new_summaries(int n) {
-  Summary **ss = malloc(n * sizeof(Summary *));
-  for (int i = 0; i < n; i++)
-    ss[i] = new_summary();
-  return ss;
+  return calloc(n, sizeof(Summary *));
 }
 
 void free_summaries(Summary **ss, int n) {
@@ -672,9 +669,6 @@ static Ranking *make_ranking(Usage *usage, int start, int end) {
     for (i++; i < end; i++) 
       if (strncmp(cmd, get_string(usage, i, F_CMD), MAXCMDLEN) != 0) break;
     rank->usageidx[count+1] = i;
-//     printf("Group %d usage from %d to %d (%d observations)\n",
-// 	   count, rank->usageidx[count], rank->usageidx[count+1],
-// 	   rank->usageidx[count+1] - rank->usageidx[count]);
     count++;
   }
 
@@ -705,8 +699,11 @@ Ranking *rank(Usage *usage) {
   if (!usage) return NULL;	// No data
   
   Ranking *rank = make_ranking(usage, 0, usage->next);
-  if (!rank) return NULL;	     // No data
-  if (rank->count == 0) return NULL; // No data
+  if (!rank) return NULL;	// No data
+  if (rank->count == 0) {
+    free_ranking(rank);
+    return NULL;		// No data
+  }
 
   int start = 0;
   int end = rank->count;
@@ -717,7 +714,7 @@ Ranking *rank(Usage *usage) {
 
   Summary **s = rank->summaries;
 
-  // Need INFERENCE_N_THRESHOLD observations at minimum
+  // Need a minimum of INFERENCE_N_THRESHOLD observations
   if (s[bestidx]->runs >= INFERENCE_N_THRESHOLD) {
     // Compare each sample to the best performer
     for (int k = start; k < end; k++) {

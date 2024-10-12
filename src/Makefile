@@ -40,18 +40,18 @@ release:
 install: $(PROGRAM)
 	@printf "NOTE: DESTDIR is $(DESTDIR)\n"; \
 	mkdir -p "$(DESTDIR)/bin"; \
-        if [[ $$? -ne 0 ]]; then \
+        if [ $$? -ne 0 ]; then \
 	  echo "Failed to create $(DESTDIR)/bin"; \
 	  exit -1;\
 	fi; \
 	cp "$(PROGRAM)" "$(DESTDIR)/bin/$(PROGRAM)"; \
-        if [[ $$? -ne 0 ]]; then \
+        if [ $$? -ne 0 ]; then \
 	  echo "Failed to copy $(PROGRAM)"; \
 	  exit -1;\
 	fi; \
 	printf "Copied $(PROGRAM) to $(DESTDIR)/bin\n"; \
 	ln -fs "$(DESTDIR)/bin/$(PROGRAM)" "$(DESTDIR)/bin/$(REPORTPROGRAM)"; \
-        if [[ $$? -ne 0 ]]; then \
+        if [ $$? -ne 0 ]; then \
 	  echo "Failed to create symlink from $(PROGRAM) to $(REPORTPROGRAM)"; \
 	  exit -1;\
 	fi; \

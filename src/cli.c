@@ -228,7 +228,7 @@ void process_common_options(int argc, char **argv) {
 	  break;
 	} else {
 	  char *message;
-	  asprintf(&message,
+	  ASPRINTF(&message,
 		   "Valid actions are:\n"
 		   "%-8s  run an experiment (measure runtimes of commands)\n"
 		   "%-8s  read raw timing data from a CSV file and produce reports\n",
