@@ -560,12 +560,13 @@ Usage *read_input_files(int argc, char **argv) {
 
 // Explain the inferential statistics
 static void explain(Summary *s, char *firstrow) {
+  const char *mark = "✗";
   char *tmp, *tmp2, *tmp3;
   Inference *stat = s->infer;
   DisplayTable *t = new_display_table(NULL,
-				      90,
+				      92,
 				      7,
-				      (int []){6,13,16,5,5,24,6},
+				      (int []){6,13,18,5,5,24,6},
 				      (int []){0,2,1,2,2,2,2},
 				      "rllrrlr");
   int row = 0;
@@ -594,7 +595,7 @@ static void explain(Summary *s, char *firstrow) {
     display_table_set(t, row, 1, " W = %-8.0f", stat->W);
 
     tmp = apply_units(stat->shift, units, UNITS);
-    display_table_set(t, row, 2, " Δ = " NUMFMT_LEFT, tmp);
+    display_table_set(t, row, 2, "Effect = " NUMFMT_LEFT, lefttrim(tmp));
     free(tmp);
 
     //     double pct_shift = 100.0 * stat->shift / best_median;
@@ -624,16 +625,20 @@ static void explain(Summary *s, char *firstrow) {
     display_table_set(t, row, 6, "%4.2f", stat->p_super);
 
     row++;
-    if (HAS(stat->indistinct, INF_NOEFFECT))
-      display_table_set(t, row, 2, "%s", "* Small effect");
+    if (HAS(stat->indistinct, INF_NOEFFECT)) {
+      units = select_units(config.effect, time_units);
+      tmp = apply_units(config.effect, units, UNITS);
+      display_table_set(t, row, 2, "%s Eff. < %s", mark, lefttrim(tmp));
+      free(tmp);
+    }
     if (HAS(stat->indistinct, INF_NONSIG)) {
-      display_table_set(t, row, 3, "%s", "* α =");
+      display_table_set(t, row, 3, "%s α =", mark);
       display_table_set(t, row, 4, "%5.3f", config.alpha);
     }
     if (HAS(stat->indistinct, INF_CIZERO))
-      display_table_set(t, row, 5, "%s", "* Interval near zero");
+      display_table_set(t, row, 5, "%s Interval near zero", mark);
     if (HAS(stat->indistinct, INF_HIGHSUPER))
-      display_table_set(t, row, 6, "%s", "* High");
+      display_table_set(t, row, 6, "%s High", mark);
 
   }
   display_table(t, 0);
@@ -699,7 +704,7 @@ static void print_ranking(Ranking *rank) {
   "════════════════════════════════════════"	 \
 
 
-  const int indent = 4;
+  const int indent = 1;
   const int table_width = 70;
 
   const char *fill = "═";
@@ -788,7 +793,8 @@ static void print_ranking(Ranking *rank) {
       free(shift);
     }
 
-  printf("%*s%.*s\n", indent, "", table_width * b, DOUBLE_BAR);
+  if (same_count < rank->count)
+    printf("%*s%.*s\n", indent, "", table_width * b, DOUBLE_BAR);
 
   fflush(stdout);
 
@@ -913,21 +919,22 @@ void report(Ranking *ranking) {
 	printf("\n");
       }
       report_one_command(s);
-    }
 
-    // GRAPH
-    // If we have are not printing a report for each command, then we
-    // need to announce the current command for the graph.
-    if (option.graph) {
-      if (option.report == REPORT_NONE) {
-	announce_command(s->cmd, i);
-	printf("\n");
+      // GRAPH
+      // If we have are not printing a report for each command, then we
+      // need to announce the current command for the graph.
+      if (option.graph) {
+	if (option.report == REPORT_NONE) {
+	  announce_command(s->cmd, i);
+	  printf("\n");
+	}
+	graph_one_command(s,
+			  ranking->usage,
+			  ranking->usageidx[i],
+			  ranking->usageidx[i+1]);
       }
-      graph_one_command(s,
-			ranking->usage,
-			ranking->usageidx[i],
-			ranking->usageidx[i+1]);
-    }
+
+    } // If not executing an experiment
     
     if (option.action == actionReport) {
       write_summary_stats(s, csv_output, hf_output);
