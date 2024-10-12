@@ -55,6 +55,8 @@ void display_table_span(DisplayTable *dt,
 			char justification,
 			const char *fmt, ...);
 
+void display_table_hline(DisplayTable *dt, int row);
+
 void display_table(DisplayTable *dt, int indent);
 
 

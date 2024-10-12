@@ -21,7 +21,7 @@
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 
 // -----------------------------------------------------------------------------
-// 
+// Printing tables of data
 // -----------------------------------------------------------------------------
 
 DisplayTable *new_display_table(const char *title,
@@ -74,7 +74,7 @@ DisplayTable *new_display_table(const char *title,
   dt->spans = malloc(dt->maxspans * sizeof(struct Span));
   if (!dt->spans) PANIC_OOM();
   // Initialize each span to "unused" using row number of -1
-  for (int i = 0; i < MAXROWS; i++) dt->spans[i].row = -1;
+  for (int i = 0; i < dt->maxspans; i++) dt->spans[i].row = -1;
 
   // The title is allowed to be NULL
   dt->title = title ? strndup(title, width - 2) : NULL;
@@ -90,16 +90,6 @@ void free_display_table(DisplayTable *dt) {
   free(dt->items);
   free(dt);
 }
-
-// // Takes ownership of 'buf'
-// static void insert(DisplayTable *dt, int row, int col, char *buf) {
-//   if (!dt) PANIC_NULL();
-//   if ((row < 0) || (row >= dt->rows)) PANIC("No such row (%d) in display table", row);
-//   if ((col < 0) || (col >= dt->cols)) PANIC("No such column (%d) in display table", col);
-//   int idx = row * dt->cols + col;
-//   if (dt->items[idx]) free(dt->items[idx]);
-//   dt->items[idx] = buf;
-// }
 
 // Takes ownership of 'buf'
 static void insert(DisplayTable *dt,
@@ -130,21 +120,32 @@ static void insert(DisplayTable *dt,
       return;
 
   // Find the next available entry in the span list
-  int i;
-  for (i = 0; i < dt->maxspans; i++) if (dt->spans[i].row == -1) break;
-  if (i == dt->maxspans)
+  for (idx = 0; idx < dt->maxspans; idx++)
+    if (dt->spans[idx].row == -1) break;
+  if (idx == dt->maxspans)
     PANIC("Too many spans in display table (limit is %d)", dt->maxspans);
 
   int spanwidth = 0;
-  for (i = start_col; i <= end_col; i++)
-    spanwidth += dt->colwidths[i] + dt->margins[i];
 
-  dt->spans[i] = (struct Span) {.row = row,
-				.start_col = start_col,
-				.end_col = end_col,
-				.width = spanwidth,
-				.justification = justification};
-  //printf("Inserted span at row %d cols (%d, %d) '%c'\n", row, start_col, end_col, justification);
+  // Special case: To span the entire table, we need the entire table
+  // width except for the left and right borders.  The sum of the col
+  // widths plus the sum of the margins before each column may total
+  // up to a smaller value.  (I.e. there may be unused space after the
+  // last column, before the right border.)
+  if ((start_col == 0) && (end_col == dt->cols - 1)) {
+    spanwidth = dt->width - 2;
+  } else {
+    for (int i = start_col; i <= end_col; i++)
+      spanwidth += dt->colwidths[i] + dt->margins[i];
+  }
+
+  dt->spans[idx] = (struct Span) {.row = row,
+				  .start_col = start_col,
+				  .end_col = end_col,
+				  .width = spanwidth,
+				  .justification = justification};
+//   printf("Inserted span at row %d cols (%d, %d) '%c'\n",
+// 	 row, start_col, end_col, justification);
 }
 
 __attribute__ ((format (printf, 4, 5)))
@@ -198,13 +199,22 @@ static const char *bar(int side, int line) {
   "───────────────────────────────────────"	     \
   "───────────────────────────────────────"
 
+void display_table_hline(DisplayTable *dt, int row) {
+  int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
+  int width = dt->width - 2;
+  int barlen = strlen(BAR) / bytesperbar;
+  if (width > barlen) width = barlen;
+  display_table_span(dt, row, 0, dt->cols - 1, 'l',
+		     "%*.*s", width, width * bytesperbar, BAR);
+}
+
 static bool all_null(char **items, int cols) {
   for (int i = 0; i < cols; i++)
     if (items[i]) return false;
   return true;
 }
 
-static void print_item (const char *item, char justif, int fwidth, int margin) {
+static void print_item (const char *item, char justif, int fwidth) {
   int nchars = utf8_length(item);
   int padding = fwidth - nchars;
   if (padding > 0) 
@@ -230,8 +240,6 @@ static void print_item (const char *item, char justif, int fwidth, int margin) {
       case 'c': printf("%*s", (padding + 1) / 2, ""); break;
       default: break;
     }
-
-  printf("%*s", margin, "");
 }
 
 static struct Span *span_starts(DisplayTable *dt, int row, int col) {
@@ -257,7 +265,8 @@ void display_table(DisplayTable *dt, int indent) {
   if (indent < 0) indent = 0;
   int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
   int barlength = (dt->width - 2) * bytesperbar;
-  
+  struct Span *span;
+
   printf("%*s%s%.*s%s\n", indent, "",
 	 bar(LEFT, TOPLINE),
 	 barlength, BAR,
@@ -267,12 +276,10 @@ void display_table(DisplayTable *dt, int indent) {
     printf("%*s%s", indent, "", bar(LEFT, MIDLINE));
     print_item(dt->title,
 	       'c',
-	       dt->width - 2,
-	       0);
+	       dt->width - 2);
     printf("%s\n", bar(RIGHT, MIDLINE));
   }
 
-  struct Span *span;
   for (int row = 0; row < dt->rows; row++) {
     if (all_null(&(dt->items[row * dt->cols]), dt->cols)) continue;
     printf("%*s%s%*s", indent, "", bar(LEFT, MIDLINE), dt->margins[0], "");
@@ -280,13 +287,16 @@ void display_table(DisplayTable *dt, int indent) {
       if ((span = span_starts(dt, row, col))) {
 	print_item(dt->items[row * dt->cols + col] ?: "",
 		   span->justification,
-		   span->width,
-		   dt->margins[span->end_col+1]);
+		   span->width);
+	// Special case: A span of the entire table requires that we
+	// do not insert margin space after the last data column
+	if ((span->start_col != 0) || (span->end_col != dt->cols - 1))
+	  printf("%*s", dt->margins[span->end_col+1], "");
       } else if (!span_covers(dt, row, col)) {
 	print_item(dt->items[row * dt->cols + col] ?: "",
 		   dt->justifications[col],
-		   dt->colwidths[col],
-		   dt->margins[col+1]);
+		   dt->colwidths[col]);
+	printf("%*s", dt->margins[col+1], "");
       }
     }
     printf("%s\n", bar(RIGHT, MIDLINE));
