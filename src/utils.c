@@ -554,10 +554,11 @@ FILE *maybe_open(const char *filename, const char *mode) {
   return f;
 }
 
+// Caller must free the returned string
 char *lefttrim(char *str) {
   if (!str) PANIC_NULL();
   while (*str && (*str == ' ')) str++;
-  return str;
+  return strdup(str);
 }
 
 // Problem: Microseconds are awkward to display because the numbers

@@ -565,17 +565,24 @@ static void add_explanation(DisplayTable *t,
 			    Summary *s,
 			    double pct) {
   const char *mark = "✗";
+  const char *check = "✓";
   const char *cmd_fmt = "%4d: %s";
-  const char *winner = "✓";
+  const char *winner = "✔";
 
   Inference *infer = s->infer;
 
-  char *tmp;
+  char *tmp, *tmp2, *tmp3;
   char *shift_repr = NULL;
   char *info_line = NULL;
   Units *units = select_units(s->total.median, time_units);
   char *median_repr = apply_units(s->total.median, units, UNITS);
   char *cmd = command_announcement(s->cmd, cmd_idx, cmd_fmt, 40);
+
+  ASPRINTF(&tmp, " %-40s %10s%16s",
+	   "           Command", "Median ", "Slower by  ");
+  display_table_span(t, *row, 0, 6, 'l', "%s", tmp);
+  free(tmp);
+  (*row)++;
 
   // For the fastest command, 'infer' will be NULL and there is
   // only the median total run time to print.
@@ -588,7 +595,7 @@ static void add_explanation(DisplayTable *t,
     ASPRINTF(&info_line, "%s%s %10s",
 	     winnerp ? winner : " ", cmd, median_repr);
   }
-  display_table_span(t, *row, 0, 4, 'l', "%s", info_line);
+  display_table_span(t, *row, 0, 6, 'l', "%s", info_line);
   (*row)++;
 
   // 'info_line' is now owned by the display table
@@ -609,20 +616,29 @@ static void add_explanation(DisplayTable *t,
 
     display_table_set(t, *row, 0, "Mann-Whitney");
     display_table_set(t, *row, 2, "W = %-8.0f", infer->W);
-    display_table_set(t, *row, 3, "  Settings");
+    display_table_span(t, *row, 3, 5, 'c', "Settings");
     (*row)++;
 
     units = select_units(infer->shift, time_units);
     display_table_set(t, *row, 0, "Hodges-Lehmann");
     if (HAS(infer->indistinct, INF_NOEFFECT)) 
       display_table_set(t, *row, 1, mark);
+    else if (infer->indistinct)
+      display_table_set(t, *row, 1, check);
+      
     tmp = apply_units(infer->shift, units, UNITS);
-    display_table_set(t, *row, 2, "Δ = " NUMFMT_LEFT, lefttrim(tmp));
-    // 'tmp' now owned by display table
-    units = select_units(config.effect, time_units);
-    tmp = apply_units(config.effect, units, UNITS);
-    display_table_set(t, *row, 3, "effect = %s", lefttrim(tmp));
-    // 'tmp' now owned by display table
+    tmp2 = lefttrim(tmp);
+    display_table_set(t, *row, 2, "Δ = " NUMFMT_LEFT, tmp2);
+    // 'tmp2' now owned by display table
+    free(tmp);
+    //units = select_units(config.effect, time_units);
+    tmp = apply_units(config.effect, units, NOUNITS);
+    display_table_set(t, *row, 3, "effect");
+    tmp2 = lefttrim(tmp);
+    display_table_set(t, *row, 4, "%s", tmp2);
+    // 'tmp2' now owned by display table
+    free(tmp);
+    display_table_set(t, *row, 5, "%s", units->unitname);
     (*row)++;
 
     // p-values, both adjusted for ties and the unadjusted value
@@ -636,33 +652,47 @@ static void add_explanation(DisplayTable *t,
     display_table_set(t, *row, 0, "p-value (adjusted)");
     if (HAS(infer->indistinct, INF_NONSIG)) 
       display_table_set(t, *row, 1, mark);
+    else if (infer->indistinct)
+      display_table_set(t, *row, 1, check);
     display_table_set(t, *row, 2, pfmts[pselect], infer->p, infer->p_adj);
-    display_table_set(t, *row, 3, "alpha = %-4.2f", config.alpha);
+    display_table_set(t, *row, 3, "alpha");
+    display_table_set(t, *row, 4, "%4.2f", config.alpha);
     (*row)++;
 
     units = select_units(infer->ci_high, time_units);
     display_table_set(t, *row, 0, "Confidence interval");
     if (HAS(infer->indistinct, INF_CIZERO)) 
       display_table_set(t, *row, 1, mark);
+    else if (infer->indistinct)
+      display_table_set(t, *row, 1, check);
     char *ci_low = apply_units(infer->ci_low, units, NOUNITS);
     char *ci_high = apply_units(infer->ci_high, units, NOUNITS);
     ASPRINTF(&tmp, "%4.2f%%", infer->confidence * 100.0);
+    tmp2 = lefttrim(ci_low);
+    tmp3 = lefttrim(ci_high);
     display_table_set(t, *row, 2, "%s (%s, %s) %2s",
-		      tmp, lefttrim(ci_low), lefttrim(ci_high), units->unitname);
-    // 'tmp' now owned by display table
+		      tmp, tmp2, tmp3, units->unitname);
+    // 'tmp', 'tmp2', 'tmp3' now owned by display table
     free(ci_low);
     free(ci_high);
-    units = select_units(config.epsilon, time_units);
-    tmp = apply_units(config.epsilon, units, UNITS);
-    display_table_set(t, *row, 3, "epsilon = %s", lefttrim(tmp));
-    // 'tmp' now owned by display table
+    //units = select_units(config.epsilon, time_units);
+    tmp = apply_units(config.epsilon, units, NOUNITS);
+    display_table_set(t, *row, 3, "epsilon");
+    tmp2 = lefttrim(tmp);
+    display_table_set(t, *row, 4, "%s", tmp2);
+    // 'tmp2' now owned by display table
+    free(tmp);
+    display_table_set(t, *row, 5, "%s", units->unitname);
     (*row)++;
 
     display_table_set(t, *row, 0, "Prob. of superiority");
     if (HAS(infer->indistinct, INF_HIGHSUPER)) 
       display_table_set(t, *row, 1, mark);
+    else if (infer->indistinct)
+      display_table_set(t, *row, 1, check);
     display_table_set(t, *row, 2, "Â = %4.2f", infer->p_super);
-    display_table_set(t, *row, 3, "super = %-4.2f", config.super);
+    display_table_set(t, *row, 3, "super");
+    display_table_set(t, *row, 4, "%4.2f", config.super);
     (*row)++;
   }
 }
@@ -686,12 +716,13 @@ static void add_explanation(DisplayTable *t,
 
 // Explain the inferential statistics
 static DisplayTable *explanation_table(void) {
-  DisplayTable *t = new_display_table(NULL,
-				      80,
-				      4,
-				      (int []){24,1,28,18},
-				      (int []){4,1,1,1,2,0},
-				      "llll");
+  DisplayTable *t =
+    new_display_table(NULL,
+		      80,
+		      6,
+		      (int []){ 22, 3,  28,  7,  5,  2},
+		      (int []){4, 1,  1,   1,  1,  1, 1},
+		      "lcllrl");
   return t;
 }
 

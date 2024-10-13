@@ -144,8 +144,9 @@ static void insert(DisplayTable *dt,
   if ((start_col == 0) && (end_col == dt->cols)) {
     spanwidth = dt->width - 2;
   } else {
-    for (int i = start_col; i <= end_col; i++)
-      spanwidth += dt->colwidths[i] + dt->margins[i];
+    spanwidth = dt->colwidths[start_col];
+    for (int i = start_col + 1; i <= end_col; i++) 
+      spanwidth += dt->margins[i] + dt->colwidths[i];
   }
 
   dt->spans[idx] = (struct Span) {.row = row,
