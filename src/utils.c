@@ -647,6 +647,7 @@ static const char *utf8_next(const char *str) {
     PANIC("Invalid UTF-8 at index %zu of '%s'", (s - str), str);
   }
   s++;
+
   while (cbytes--) {
     if ((*(s++) & 0xC0) != 0x80) goto invalid;
   }
@@ -681,12 +682,12 @@ size_t utf8_length(const char *str) {
 }
 
 // How many bytes of 'str' are in the first 'count' characters?  If
-// there are less than 'count' characters, returns the length of 'str'.
+// there are less than 'count' characters, returns the length of
+// 'str', i.e. all the bytes.
 //
 size_t utf8_width(const char *str, int count) {
   if (!str) PANIC_NULL();
-  if (count < 0)
-    PANIC("Width in bytes cannot be calculated for %d (< 0) codepoints", count);
+  if (count < 0) PANIC("Negative string length argumnet %d", count);
   const char *s = utf8_index(str, count);
   return s ? (size_t) (s - str) : strlen(str);
 }

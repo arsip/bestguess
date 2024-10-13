@@ -9,13 +9,14 @@
 #include <assert.h>
 #include <stdarg.h> 		// __VA_ARGS__ (var args)
 
-#define MAXROWS 100
+#define MAXROWS 1000
 
 #define LEFT       0
 #define RIGHT      1
 #define TOPLINE    0
 #define MIDLINE    1
-#define BOTTOMLINE 2
+#define MIDLINETEE 2
+#define BOTTOMLINE 3
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -91,7 +92,13 @@ void free_display_table(DisplayTable *dt) {
   free(dt);
 }
 
-// Takes ownership of 'buf'
+//
+// NOTE: Takes ownership of 'buf'
+//
+// Normal insert: start_col == end_col
+// Span (inclusive range of cols): start_col < end_col
+// Span (entire table): start_col == 0, end_col == dt->cols
+// 
 static void insert(DisplayTable *dt,
 		   int row,
 		   int start_col, int end_col,
@@ -102,7 +109,9 @@ static void insert(DisplayTable *dt,
     PANIC("No such row (%d) in display table", row);
   if ((start_col < 0) || (start_col >= dt->cols))
     PANIC("No such column (%d) in display table", start_col);
-  if ((end_col < 0) || (end_col >= dt->cols))
+  if ((end_col < 0)
+      || ((start_col == 0) && (end_col > dt->cols))
+      || ((start_col > 0) && (end_col >= dt->cols)))
     PANIC("No such column (%d) in display table", end_col);
   if (start_col > end_col)
     PANIC("Start column (%d) is after end column (%d) in display table", start_col, end_col);
@@ -132,7 +141,7 @@ static void insert(DisplayTable *dt,
   // widths plus the sum of the margins before each column may total
   // up to a smaller value.  (I.e. there may be unused space after the
   // last column, before the right border.)
-  if ((start_col == 0) && (end_col == dt->cols - 1)) {
+  if ((start_col == 0) && (end_col == dt->cols)) {
     spanwidth = dt->width - 2;
   } else {
     for (int i = start_col; i <= end_col; i++)
@@ -144,8 +153,11 @@ static void insert(DisplayTable *dt,
 				  .end_col = end_col,
 				  .width = spanwidth,
 				  .justification = justification};
-//   printf("Inserted span at row %d cols (%d, %d) '%c'\n",
-// 	 row, start_col, end_col, justification);
+// TEMP:
+//   int utfwidth = utf8_width(buf, spanwidth);
+//   printf("Inserted span at row %d, cols (%d, %d), width %d, justif '%c', strlen %zu, utf8 width %d\n",
+//    	 row, start_col, end_col, spanwidth, justification, strlen(buf), utfwidth);
+//   printf("%s\n", buf);
 }
 
 __attribute__ ((format (printf, 4, 5)))
@@ -177,8 +189,9 @@ void display_table_span(DisplayTable *dt,
 }
 
 static const char *bar(int side, int line) {
-  const char *decor[6] = { "┌", "┐",
+  const char *decor[8] = { "┌", "┐",
 			   "│", "│",
+			   "├", "┤",
 			   "└", "┘" };
   if ((side != LEFT) && (side != RIGHT))
     return ":";
@@ -200,12 +213,7 @@ static const char *bar(int side, int line) {
   "───────────────────────────────────────"
 
 void display_table_hline(DisplayTable *dt, int row) {
-  int bytesperbar = (uint8_t) BAR[0] >> 6; // Assumes UTF-8
-  int width = dt->width - 2;
-  int barlen = strlen(BAR) / bytesperbar;
-  if (width > barlen) width = barlen;
-  display_table_span(dt, row, 0, dt->cols - 1, 'l',
-		     "%*.*s", width, width * bytesperbar, BAR);
+  display_table_span(dt, row, 0, dt->cols, '-', "");
 }
 
 static bool all_null(char **items, int cols) {
@@ -214,7 +222,7 @@ static bool all_null(char **items, int cols) {
   return true;
 }
 
-static void print_item (const char *item, char justif, int fwidth) {
+static void print_item(const char *item, char justif, int fwidth) {
   int nchars = utf8_length(item);
   int padding = fwidth - nchars;
   if (padding > 0) 
@@ -281,22 +289,50 @@ void display_table(DisplayTable *dt, int indent) {
   }
 
   for (int row = 0; row < dt->rows; row++) {
+    // Skip any row that contains only NULLs
     if (all_null(&(dt->items[row * dt->cols]), dt->cols)) continue;
+
+    // Check for this special case: the span covers entire table (all
+    // columns and margins)
+    if ((span = span_starts(dt, row, 0))) {
+      if (span->end_col == dt->cols) {
+	// Yes, the special case!
+	if (span->justification == '-') {
+	  // The span is a horizontal line (hline)
+	  printf("%*s%s", indent, "", bar(LEFT, MIDLINETEE));
+	  printf("%.*s", barlength, BAR);
+	  printf("%s\n", bar(RIGHT, MIDLINETEE));
+	} else {
+	  // The span is text
+	  printf("%*s%s", indent, "", bar(LEFT, MIDLINE));
+	  print_item(dt->items[row * dt->cols + 0] ?: "",
+		     span->justification,
+		     span->width);
+	  printf("%s\n", bar(RIGHT, MIDLINE));
+	}
+	// Continue with the next row
+	continue;
+      }
+    } // End of special case
+
+    // Either we do not have a span, or the span does not cover all
+    // columns and margins. The loop below handles the printing.
     printf("%*s%s%*s", indent, "", bar(LEFT, MIDLINE), dt->margins[0], "");
+
     for (int col = 0; col < dt->cols; col++) {
       if ((span = span_starts(dt, row, col))) {
-	print_item(dt->items[row * dt->cols + col] ?: "",
-		   span->justification,
-		   span->width);
-	// Special case: A span of the entire table requires that we
-	// do not insert margin space after the last data column
-	if ((span->start_col != 0) || (span->end_col != dt->cols - 1))
-	  printf("%*s", dt->margins[span->end_col+1], "");
+	  print_item(dt->items[row * dt->cols + col] ?: "",
+		     span->justification,
+		     span->width);
+	  // Special case: A span of the entire table requires that we
+	  // do not insert margin space after the last data column
+	  if ((span->start_col != 0) || (span->end_col != dt->cols))
+	    printf("%*s", dt->margins[span->end_col+1], "");
       } else if (!span_covers(dt, row, col)) {
-	print_item(dt->items[row * dt->cols + col] ?: "",
-		   dt->justifications[col],
-		   dt->colwidths[col]);
-	printf("%*s", dt->margins[col+1], "");
+	  print_item(dt->items[row * dt->cols + col] ?: "",
+		     dt->justifications[col],
+		     dt->colwidths[col]);
+	  printf("%*s", dt->margins[col+1], "");
       }
     }
     printf("%s\n", bar(RIGHT, MIDLINE));

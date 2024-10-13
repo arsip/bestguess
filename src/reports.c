@@ -560,114 +560,138 @@ Usage *read_input_files(int argc, char **argv) {
 
 static void add_explanation(DisplayTable *t,
 			    int *row,
-			    char *announcement,
-			    Summary *s) {
+			    int cmd_idx,
+			    bool winnerp,
+			    Summary *s,
+			    double pct) {
   const char *mark = "✗";
-  char *tmp, *tmp2, *tmp3;
-  Inference *stat = s->infer;
+  const char *cmd_fmt = "%4d: %s";
+  const char *winner = "✓";
 
-  display_table_set(t, *row, 0, "");
+  Inference *infer = s->infer;
+
+  char *tmp;
+  char *shift_repr = NULL;
+  char *info_line = NULL;
+  Units *units = select_units(s->total.median, time_units);
+  char *median_repr = apply_units(s->total.median, units, UNITS);
+  char *cmd = command_announcement(s->cmd, cmd_idx, cmd_fmt, 40);
+
+  // For the fastest command, 'infer' will be NULL and there is
+  // only the median total run time to print.
+  if (infer) {
+    shift_repr = apply_units(infer->shift, units, UNITS);
+    ASPRINTF(&info_line, "%s%s %10s%10s%6.1f%%",
+	     winnerp ? winner : " ",
+	     cmd, median_repr, shift_repr, pct * 100.0);
+  } else {
+    ASPRINTF(&info_line, "%s%s %10s",
+	     winnerp ? winner : " ", cmd, median_repr);
+  }
+  display_table_span(t, *row, 0, 4, 'l', "%s", info_line);
   (*row)++;
 
-  display_table_span(t, *row, 0, 6, 'l', announcement);
-  (*row)++;
+  // 'info_line' is now owned by the display table
+  free(cmd);
+  free(median_repr);
+  free(shift_repr);
 
-  // The fastest command has no comparative stats, so 'stat' will be
+  // The fastest command has no comparative stats, so 'infer' will be
   // NULL and there is nothing more to print.
-  if (stat) {
+  if (infer) {
 
     display_table_set(t, *row, 0, "");
     (*row)++;
     
-    display_table_set(t, *row, 0, "N");
-    display_table_set(t, *row, 1, "Mann-Whitney");
-    display_table_set(t, *row, 2, "Hodges-Lehmann");
-    display_table_set(t, *row, 3, "p  ");
-    display_table_set(t, *row, 4, "(adj)");
-    display_table_set(t, *row, 5, "Confidence Interval");
-    display_table_set(t, *row, 6, "Â ");
-    (*row)++;
-  
-    Units *units = select_units(s->total.max, time_units);
-    display_table_set(t, *row, 0, "%6d", s->runs);
-    display_table_set(t, *row, 1, " W = %-8.0f", stat->W);
-    tmp = apply_units(stat->shift, units, UNITS);
-    display_table_set(t, *row, 2, "Effect = " NUMFMT_LEFT, lefttrim(tmp));
-    free(tmp);
-    //     double pct_shift = 100.0 * stat->shift / best_median;
-    //     printf(" (%3.f%%)", pct_shift);
-
-    // p-value, unadjusted (more conservative than adjusted value)
-    if (stat->p < 0.001)
-      display_table_set(t, *row, 3, "%s", "<.001");
-    else
-      display_table_set(t, *row, 3, "%5.3f", stat->p);
-
-    // Adjusted for ties
-    if (stat->p_adj < 0.001) 
-      display_table_set(t, *row, 4, "%s", "<.001");
-    else
-      display_table_set(t, *row, 4, "%5.3f", stat->p_adj);
-
-    ASPRINTF(&tmp, "%4.2f%%", stat->confidence * 100.0);
-    tmp2 = apply_units(stat->ci_low, units, NOUNITS);
-    tmp3 = apply_units(stat->ci_high, units, NOUNITS);
-    display_table_set(t, *row, 5, "%s (%s, %s) %2s",
-		      tmp, lefttrim(tmp2), lefttrim(tmp3), units->unitname);
-    free(tmp);
-    free(tmp2);
-    free(tmp3);
-
-    display_table_set(t, *row, 6, "%4.2f", stat->p_super);
-
+    display_table_set(t, *row, 0, "Timed observations");
+    display_table_set(t, *row, 2, "N = %-5d", s->runs);
     (*row)++;
 
-    if (stat->indistinct) {
+    display_table_set(t, *row, 0, "Mann-Whitney");
+    display_table_set(t, *row, 2, "W = %-8.0f", infer->W);
+    display_table_set(t, *row, 3, "  Settings");
+    (*row)++;
 
-      if (HAS(stat->indistinct, INF_NOEFFECT)) {
-	units = select_units(config.effect, time_units);
-	tmp = apply_units(config.effect, units, UNITS);
-	display_table_set(t, *row, 2, "%s Eff. < %s", mark, lefttrim(tmp));
-	free(tmp);
-      }
+    units = select_units(infer->shift, time_units);
+    display_table_set(t, *row, 0, "Hodges-Lehmann");
+    if (HAS(infer->indistinct, INF_NOEFFECT)) 
+      display_table_set(t, *row, 1, mark);
+    tmp = apply_units(infer->shift, units, UNITS);
+    display_table_set(t, *row, 2, "Δ = " NUMFMT_LEFT, lefttrim(tmp));
+    // 'tmp' now owned by display table
+    units = select_units(config.effect, time_units);
+    tmp = apply_units(config.effect, units, UNITS);
+    display_table_set(t, *row, 3, "effect = %s", lefttrim(tmp));
+    // 'tmp' now owned by display table
+    (*row)++;
 
-      if (HAS(stat->indistinct, INF_NONSIG)) {
-	display_table_set(t, *row, 3, "%s α =", mark);
-	display_table_set(t, *row, 4, "%5.3f", config.alpha);
-      }
+    // p-values, both adjusted for ties and the unadjusted value
+    // (which is more conservative than adjusted value)
+    const char *pfmts[4] =
+      { "p = %5.3f  (%5.3f)",
+	"p = %5.3f  (< %0.3f)",
+	"p < %0.3f  (%5.3f)",
+	"p < %0.3f  (< %0.3f)" };
+    int pselect = (infer->p < 0.001) * 2 + (infer->p_adj < 0.001);
+    display_table_set(t, *row, 0, "p-value (adjusted)");
+    if (HAS(infer->indistinct, INF_NONSIG)) 
+      display_table_set(t, *row, 1, mark);
+    display_table_set(t, *row, 2, pfmts[pselect], infer->p, infer->p_adj);
+    display_table_set(t, *row, 3, "alpha = %-4.2f", config.alpha);
+    (*row)++;
 
-      if (HAS(stat->indistinct, INF_CIZERO))
-	display_table_set(t, *row, 5, "%s Interval near zero", mark);
+    units = select_units(infer->ci_high, time_units);
+    display_table_set(t, *row, 0, "Confidence interval");
+    if (HAS(infer->indistinct, INF_CIZERO)) 
+      display_table_set(t, *row, 1, mark);
+    char *ci_low = apply_units(infer->ci_low, units, NOUNITS);
+    char *ci_high = apply_units(infer->ci_high, units, NOUNITS);
+    ASPRINTF(&tmp, "%4.2f%%", infer->confidence * 100.0);
+    display_table_set(t, *row, 2, "%s (%s, %s) %2s",
+		      tmp, lefttrim(ci_low), lefttrim(ci_high), units->unitname);
+    // 'tmp' now owned by display table
+    free(ci_low);
+    free(ci_high);
+    units = select_units(config.epsilon, time_units);
+    tmp = apply_units(config.epsilon, units, UNITS);
+    display_table_set(t, *row, 3, "epsilon = %s", lefttrim(tmp));
+    // 'tmp' now owned by display table
+    (*row)++;
 
-      if (HAS(stat->indistinct, INF_HIGHSUPER))
-	display_table_set(t, *row, 6, "%s High", mark);
-
-      (*row)++;
-    }
+    display_table_set(t, *row, 0, "Prob. of superiority");
+    if (HAS(infer->indistinct, INF_HIGHSUPER)) 
+      display_table_set(t, *row, 1, mark);
+    display_table_set(t, *row, 2, "Â = %4.2f", infer->p_super);
+    display_table_set(t, *row, 3, "super = %-4.2f", config.super);
+    (*row)++;
   }
-
-//   display_table_set(t, *row, 0, "");
-//   (*row)++;
 }
+
+/*
+  The table below is 80 cols wide, and it displays best when the
+  number of observations, N, is less than 10,000.
+
+╔══════ Command ══════════════════════════ Total time ═══ Slower by Δ ════════╗
+║✓   1. rosie match -o line 'find:{[0-9]{    32.05 ms    0.03 ms     0.1%     ║
+║                                                                             ║
+║    Timed observations         N = 100                                       ║
+║    Mann-Whitney               W = 9532                       Settings       ║
+║    Hodges-Lehmann (effect)    Δ = 0.03 ms                  effect = 0.500   ║
+║    p-value (adjusted)       ✗ p = 0.206  (0.206)           alpha = 0.050    ║
+║    Confidence interval      ✗ 95.33% (-0.01, 0.06) ms      epsilon = 0.250  ║
+║    Prob. of superiority     ✗ Â = 0.45                     super = 0.33     ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+*/
 
 // Explain the inferential statistics
 static DisplayTable *explanation_table(void) {
   DisplayTable *t = new_display_table(NULL,
-				      92,
-				      7,
-				      (int []){6,13,18,5,5,24,6},
-				      (int []){0,2,1,2,2,2,2},
-				      "rllrrlr");
-//   // Column headings
-//   display_table_set(t, 0, 0, "N");
-//   display_table_set(t, 0, 1, "Mann-Whitney");
-//   display_table_set(t, 0, 2, "Hodges-Lehmann");
-//   display_table_set(t, 0, 3, "p  ");
-//   display_table_set(t, 0, 4, "(adj)");
-//   display_table_set(t, 0, 5, "Confidence Interval");
-//   display_table_set(t, 0, 6, "Â ");
-//   // Blank line
-//   display_table_set(t, 1, 0, "");
+				      80,
+				      4,
+				      (int []){24,1,28,18},
+				      (int []){4,1,1,1,2,0},
+				      "llll");
   return t;
 }
 
@@ -779,6 +803,7 @@ static void print_ranking(Ranking *rank) {
   DisplayTable *t = NULL;
   if (option.explain) t = explanation_table();
 
+  int64_t best_time = rank->summaries[rank->index[0]]->total.median;
   for (int i = 0; i < rank->count; i++) {
     if (same[i] == -1) continue;
     s = rank->summaries[same[i]];
@@ -788,7 +813,7 @@ static void print_ranking(Ranking *rank) {
     median = apply_units(s->total.median, units, UNITS);
     if (s->infer) {
       shift = apply_units(s->infer->shift, units, UNITS);
-      pct = (double) s->infer->shift / s->total.median;
+      pct = (double) s->infer->shift / best_time;
       ASPRINTF(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
 	       winner, -cmd_width, cmd_width, cmd, median, shift, pct * 100.0);
     } else {
@@ -797,17 +822,21 @@ static void print_ranking(Ranking *rank) {
 	       winner, -cmd_width, cmd_width, cmd, median);
     }
     printf("%*s%s\n", indent, "", tmp);
-    if (option.explain) add_explanation(t, &row, tmp, s);
     free(tmp);
     free(cmd);
     free(median);
     free(shift);
+    if (option.explain) {
+      if (s->infer) display_table_hline(t, row++);
+      add_explanation(t, &row, same[i], true, s, pct);
+    }
   }
   printf("%*s%.*s\n", indent, "", table_width * b, DOUBLE_BAR);
   if (option.explain) display_table_hline(t, row);
   row++;
 
   // Print the rest
+  bool first_time = true;
   for (int i = 0; i < rank->count; i++)
     if ((same[i] == -1) && (rank->index[i] != bestidx)) {
       s = rank->summaries[rank->index[i]];
@@ -816,15 +845,19 @@ static void print_ranking(Ranking *rank) {
       units = select_units(s->total.max, time_units);
       median = apply_units(s->total.median, units, UNITS);
       shift = apply_units(s->infer->shift, units, UNITS);
-      pct = (double) s->infer->shift / rank->summaries[bestidx]->total.median;
+      pct = (double) s->infer->shift / best_time;
       ASPRINTF(&tmp, "%s%*.*s  %s " NUMFMT " %7.1f%%",
 	       " ", -cmd_width, cmd_width, cmd, median, shift, pct * 100.0);
       printf("%*s%s\n", indent, "", tmp);
-      if (option.explain) add_explanation(t, &row, tmp, s);
       free(tmp);
       free(cmd);
       free(median);
       free(shift);
+      if (option.explain) {
+	if (!first_time) display_table_hline(t, row++);
+	add_explanation(t, &row, rank->index[i], false, s, pct);
+      }
+      first_time = false;
     }
 
   if (same_count < rank->count)

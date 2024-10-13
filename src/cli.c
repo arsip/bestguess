@@ -126,7 +126,7 @@ void set_config_defaults(void) {
     set_width(ConfigSettingDefault[CONFIG_WIDTH], NULL);
   if (config.alpha < 0)
     set_alpha(ConfigSettingDefault[CONFIG_ALPHA], NULL);
-  if (config.alpha < 0)
+  if (config.effect < 0)
     set_effect(ConfigSettingDefault[CONFIG_EFFECT], NULL);
   if (config.epsilon < 0)
     set_epsilon(ConfigSettingDefault[CONFIG_EPSILON], NULL);
