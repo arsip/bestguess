@@ -359,13 +359,14 @@ void print_descriptive_stats(Summary *s) {
     div = MILLISECS;
   }
 
-  DisplayTable *t = new_display_table("Total CPU Time Distribution",
-				      78,
+  DisplayTable *t = new_display_table(78,
 				      3,
 				      (int []){16,15,40},
 				      (int []){2,1,1},
-				      "rrl");
+				      "|rrl|");
   int row = 0;
+  display_table_title(t, row, 'c', "Total CPU Time Distribution");
+  row++;
   display_table_set(t, row, 0, "");
   row++;
 
@@ -433,12 +434,14 @@ void print_descriptive_stats(Summary *s) {
   display_table(t, 2);
   free_display_table(t);
 
-  t = new_display_table("Total CPU Time Distribution Tail",
-			78,
+  t = new_display_table(78,
 			8,
 			(int []){10,7,7,7,7,7,7,7},
-			(int []){2,1,1,1,1,1,1,1}, "rrrrrrrr");
+			(int []){2,1,1,1,1,1,1,1},
+			"|rrrrrrrr|");
   row = 0;
+  display_table_title(t, row, 'c', "Total CPU Time Distribution Tail");
+  row++;
   display_table_set(t, row, 0, "");
   row++;
 
@@ -469,7 +472,6 @@ void print_descriptive_stats(Summary *s) {
 
   display_table(t, 2);
   free_display_table(t);
-
 }
 
 // -----------------------------------------------------------------------------
@@ -567,7 +569,7 @@ static void add_explanation(DisplayTable *t,
   const char *mark = "✗";
   const char *check = "✓";
   const char *cmd_fmt = "%4d: %s";
-  const char *winner = "✔";
+  const char *winner = "✻";
 
   Inference *infer = s->infer;
 
@@ -576,9 +578,9 @@ static void add_explanation(DisplayTable *t,
   char *info_line = NULL;
   Units *units = select_units(s->total.median, time_units);
   char *median_repr = apply_units(s->total.median, units, UNITS);
-  char *cmd = command_announcement(s->cmd, cmd_idx, cmd_fmt, 40);
-
-  ASPRINTF(&tmp, " %-40s %10s%16s",
+  const int cmd_width = 40;
+  char *cmd = command_announcement(s->cmd, cmd_idx, cmd_fmt, cmd_width);
+  ASPRINTF(&tmp, " %-*s %10s%16s", cmd_width,
 	   "           Command", "Median ", "Slower by  ");
   display_table_span(t, *row, 0, 6, 'l', "%s", tmp);
   free(tmp);
@@ -588,20 +590,21 @@ static void add_explanation(DisplayTable *t,
   // only the median total run time to print.
   if (infer) {
     shift_repr = apply_units(infer->shift, units, UNITS);
-    ASPRINTF(&info_line, "%s%s %10s%10s%6.1f%%",
+    ASPRINTF(&info_line, "%s%-*s %10s%10s%6.1f%%",
 	     winnerp ? winner : " ",
-	     cmd, median_repr, shift_repr, pct * 100.0);
+	     cmd_width, cmd, median_repr, shift_repr, pct * 100.0);
   } else {
-    ASPRINTF(&info_line, "%s%s %10s",
-	     winnerp ? winner : " ", cmd, median_repr);
+    ASPRINTF(&info_line, "%s%-*s %10s",
+	     winnerp ? winner : " ",
+	     cmd_width, cmd, median_repr);
   }
   display_table_span(t, *row, 0, 6, 'l', "%s", info_line);
   (*row)++;
 
-  // 'info_line' is now owned by the display table
   free(cmd);
   free(median_repr);
   free(shift_repr);
+  free(info_line);
 
   // The fastest command has no comparative stats, so 'infer' will be
   // NULL and there is nothing more to print.
@@ -629,15 +632,13 @@ static void add_explanation(DisplayTable *t,
     tmp = apply_units(infer->shift, units, UNITS);
     tmp2 = lefttrim(tmp);
     display_table_set(t, *row, 2, "Δ = " NUMFMT_LEFT, tmp2);
-    // 'tmp2' now owned by display table
-    free(tmp);
+    free(tmp); free(tmp2);
     //units = select_units(config.effect, time_units);
     tmp = apply_units(config.effect, units, NOUNITS);
     display_table_set(t, *row, 3, "effect");
     tmp2 = lefttrim(tmp);
     display_table_set(t, *row, 4, "%s", tmp2);
-    // 'tmp2' now owned by display table
-    free(tmp);
+    free(tmp); free(tmp2);
     display_table_set(t, *row, 5, "%s", units->unitname);
     (*row)++;
 
@@ -672,16 +673,15 @@ static void add_explanation(DisplayTable *t,
     tmp3 = lefttrim(ci_high);
     display_table_set(t, *row, 2, "%s (%s, %s) %2s",
 		      tmp, tmp2, tmp3, units->unitname);
-    // 'tmp', 'tmp2', 'tmp3' now owned by display table
     free(ci_low);
     free(ci_high);
+    free(tmp); free(tmp2); free(tmp3);
     //units = select_units(config.epsilon, time_units);
     tmp = apply_units(config.epsilon, units, NOUNITS);
     display_table_set(t, *row, 3, "epsilon");
     tmp2 = lefttrim(tmp);
     display_table_set(t, *row, 4, "%s", tmp2);
-    // 'tmp2' now owned by display table
-    free(tmp);
+    free(tmp); free(tmp2);
     display_table_set(t, *row, 5, "%s", units->unitname);
     (*row)++;
 
@@ -717,8 +717,7 @@ static void add_explanation(DisplayTable *t,
 // Explain the inferential statistics
 static DisplayTable *explanation_table(void) {
   DisplayTable *t =
-    new_display_table(NULL,
-		      80,
+    new_display_table(80,
 		      6,
 		      (int []){ 22, 3,  28,  7,  5,  2},
 		      (int []){4, 1,  1,   1,  1,  1, 1},
@@ -919,8 +918,10 @@ void report_one_command(Summary *s) {
   if (!option.output_to_stdout) {
     if (option.report != REPORT_NONE)
       print_summary(s, (option.report == REPORT_BRIEF));
-    if (option.report == REPORT_FULL) 
+    if (option.report == REPORT_FULL)
       print_descriptive_stats(s);
+    if ((option.report != REPORT_NONE) || (option.report == REPORT_FULL))
+      printf("\n");
   }
   fflush(stdout);
 }
