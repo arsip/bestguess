@@ -33,6 +33,8 @@ typedef struct DisplayTable {
   char        *justifications;	// c/r/l for column i is justifications[i]
   const char  *orig_justif;	// May have vertical border indicators
   int          borders;		// Number of table border chars
+  bool         topborder;	// True if table has a top border
+  bool         bottomborder;	// True if table has a bottom border
   bool         leftborder;	// True if table has a left border
   bool         rightborder;	// True if table has a right border
   int          rightpad;	// Padding after last data col before border
@@ -45,7 +47,9 @@ DisplayTable *new_display_table(int width,
 				int cols,
 				int *colwidths,
 				int *margins,
-				const char *justifications);
+				const char *justifications,
+				bool top,
+				bool bottom);
 
 void free_display_table(DisplayTable *dt);
 

@@ -688,7 +688,7 @@ size_t utf8_length(const char *str) {
 //
 size_t utf8_width(const char *str, int count) {
   if (!str) PANIC_NULL();
-  if (count < 0) PANIC("Negative string length argumnet %d", count);
+  if (count < 0) PANIC("Negative string length argument %d", count);
   const char *s = utf8_index(str, count);
   return s ? (size_t) (s - str) : strlen(str);
 }

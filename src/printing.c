@@ -54,7 +54,9 @@ DisplayTable *new_display_table(int width,
 				int cols,
 				int *colwidths,
 				int *margins,
-				const char *justifications) {
+				const char *justifications,
+				bool top,
+				bool bottom) {
   if ((width < 2) || (cols < 1) || !colwidths || !margins || !justifications)
     PANIC("Bad arguments to display table");
 
@@ -82,6 +84,8 @@ DisplayTable *new_display_table(int width,
   dt->leftborder = (dt->orig_justif[0] == '|');
   dt->rightborder = (dt->orig_justif[len-1] == '|');
   dt->borders = dt->leftborder + dt->rightborder;
+  dt->topborder = top;
+  dt->bottomborder = bottom;
   
   for (int i = 0; i < rows * cols; i++)
     dt->items[i] = NULL;
@@ -108,7 +112,10 @@ DisplayTable *new_display_table(int width,
   for (int i = 0; i < dt->maxspans; i++) dt->spans[i].row = -1;
 
   if (TABLEDEBUG) {
-    printf("New display table: width = %d, cols = %d\n", dt->width, dt->cols);
+    printf("New display table: width = %d, cols = %d, top = %s, bottom = %s\n",
+	   dt->width, dt->cols,
+	   dt->topborder ? "true" : "false",
+	   dt->bottomborder ? "true" : "false");
     printf("Cols   ");
     for (int i = 0; i < dt->cols; i++)
       printf("     %2d ", i);
@@ -326,12 +333,14 @@ void display_table(DisplayTable *dt, int indent) {
   int barlength = (dt->width - dt->borders) * bytesperbar;
   struct DisplaySpan *span;
 
-  if (dt->leftborder)
-    printf("%*s%s", indent, "", bar(LEFT, TOPLINE));
-  printf("%.*s", barlength, BAR);
-  if (dt->rightborder)
-    printf("%s", bar(RIGHT, TOPLINE));
-  printf("\n");
+  if (dt->topborder) {
+    if (dt->leftborder)
+      printf("%*s%s", indent, "", bar(LEFT, TOPLINE));
+    printf("%.*s", barlength, BAR);
+    if (dt->rightborder)
+      printf("%s", bar(RIGHT, TOPLINE));
+    printf("\n");
+  }
   
   for (int row = 0; row < dt->rows; row++) {
     // Skip any row that contains only NULLs
@@ -380,10 +389,12 @@ void display_table(DisplayTable *dt, int indent) {
     printf("%*s%s\n", dt->rightpad, "", dt->rightborder ? bar(RIGHT, MIDLINE) : "");
   }  
 
-  if (dt->leftborder)
-    printf("%*s%s", indent, "", bar(LEFT, BOTTOMLINE));
-  printf("%.*s", barlength, BAR);
-  if (dt->rightborder)
-    printf("%s", bar(RIGHT, BOTTOMLINE));
-  printf("\n");
+  if (dt->bottomborder) {
+    if (dt->leftborder)
+      printf("%*s%s", indent, "", bar(LEFT, BOTTOMLINE));
+    printf("%.*s", barlength, BAR);
+    if (dt->rightborder)
+      printf("%s", bar(RIGHT, BOTTOMLINE));
+    printf("\n");
+  }
 }
