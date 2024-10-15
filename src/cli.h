@@ -21,7 +21,6 @@ enum Options {
   OPT_CSV,			// BestGuess-format summary CSV
   OPT_HFCSV,			// Hyperfine-format summary CSV
   OPT_FILE,			// Input file of commands
-  //  OPT_GROUPS,
   OPT_BRIEF,
   OPT_GRAPH,
   OPT_REPORT,

@@ -10,6 +10,8 @@
 #include "csv.h"
 #include "graphs.h"
 #include "printing.h"
+#include "cli.h"		// To print hint on changing config settings
+#include "optable.h"		// To print hint on changing config settings
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
@@ -233,10 +235,6 @@ void print_summary(Summary *s, bool briefly) {
 #define ROUND1(intval, divisor) \
   (round((double)((intval) * 10) / (divisor)) / 10.0)
 #define MS(nanoseconds) (ROUND1(nanoseconds, 1000.0))
-#define MSFMT "%8.1fms"
-#define COLSEP "  "
-#define INDENT "  "
-#define LBLFMT "%-14s"
 
 static bool have_valid_ADscore(Measures *m) {
   return (!HAS(m->code, CODE_HIGHZ)
@@ -361,11 +359,11 @@ void print_descriptive_stats(Summary *s) {
 
   DisplayTable *t = new_display_table(78,
 				      3,
-				      (int []){16,15,40},
-				      (int []){2,1,1},
+				      (int []){16,15,40,END},
+				      (int []){2,1,1,END},
 				      "|rrl|", true, true);
   int row = 0;
-  display_table_title(t, row, 'c', "Total CPU Time Distribution");
+  display_table_fullspan(t, row, 'c', "Total CPU Time Distribution");
   row++;
   display_table_set(t, row, 0, "");
   row++;
@@ -436,11 +434,11 @@ void print_descriptive_stats(Summary *s) {
 
   t = new_display_table(78,
 			8,
-			(int []){10,7,7,7,7,7,7,7},
-			(int []){2,1,1,1,1,1,1,1},
+			(int []){10,7,7,7,7,7,7,7,END},
+			(int []){2,1,1,1,1,1,1,1,END},
 			"|rrrrrrrr|", true, true);
   row = 0;
-  display_table_title(t, row, 'c', "Total CPU Time Distribution Tail");
+  display_table_fullspan(t, row, 'c', "Total CPU Time Distribution Tail");
   row++;
   display_table_set(t, row, 0, "");
   row++;
@@ -566,6 +564,9 @@ Usage *read_input_files(int argc, char **argv) {
 
 #define DOUBLE_BAR						 \
   "════════════════════════════════════════════════════════════" \
+  "════════════════════════════════════════════════════════════" \
+  "════════════════════════════════════════════════════════════" \
+  "════════════════════════════════════════════════════════════" \
   "════════════════════════════════════════════════════════════"
 
 static void add_ranking(DisplayTable *t,
@@ -587,7 +588,7 @@ static void add_ranking(DisplayTable *t,
   char *info_line = NULL;
 
   if (option.explain) {
-    display_table_span(t, *row, 0, 6, 'l', "%s", RANK_HEADER);
+    display_table_fullspan(t, *row, 'l', "%s", RANK_HEADER);
     (*row)++;
   }
 
@@ -609,7 +610,7 @@ static void add_ranking(DisplayTable *t,
 	     winnerp ? winner : " ",
 	     cmd_width, cmd, median_repr);
   }
-  display_table_span(t, *row, 0, 6, 'l', "%s", info_line);
+  display_table_fullspan(t, *row, 'l', "%s", info_line);
   (*row)++;
 
   free(cmd);
@@ -628,32 +629,24 @@ static void add_ranking(DisplayTable *t,
   (*row)++;
     
   display_table_set(t, *row, 0, "Timed observations");
-  display_table_set(t, *row, 2, "N = %-5d", s->runs);
+  display_table_set(t, *row, 1, "N = %-5d", s->runs);
   (*row)++;
 
   display_table_set(t, *row, 0, "Mann-Whitney");
-  display_table_set(t, *row, 2, "W = %-8.0f", infer->W);
-  display_table_span(t, *row, 3, 5, 'c', "Settings");
+  display_table_set(t, *row, 1, "W = %-8.0f", infer->W);
   (*row)++;
 
   units = select_units(infer->shift, time_units);
   display_table_set(t, *row, 0, "Hodges-Lehmann");
-  if (HAS(infer->indistinct, INF_NOEFFECT)) 
-    display_table_set(t, *row, 1, mark);
-  else if (infer->indistinct)
-    display_table_set(t, *row, 1, check);
+//   if (HAS(infer->indistinct, INF_NOEFFECT)) 
+//     display_table_set(t, *row, 1, mark);
+//   else if (infer->indistinct)
+//     display_table_set(t, *row, 1, check);
       
   tmp = apply_units(infer->shift, units, UNITS);
   tmp2 = lefttrim(tmp);
-  display_table_set(t, *row, 2, "Δ = " NUMFMT_LEFT, tmp2);
+  display_table_set(t, *row, 1, "Δ = " NUMFMT_LEFT, tmp2);
   free(tmp); free(tmp2);
-  //units = select_units(config.effect, time_units);
-  tmp = apply_units(config.effect, units, NOUNITS);
-  display_table_set(t, *row, 3, "effect");
-  tmp2 = lefttrim(tmp);
-  display_table_set(t, *row, 4, "%s", tmp2);
-  free(tmp); free(tmp2);
-  display_table_set(t, *row, 5, "%s", units->unitname);
   (*row)++;
 
   // p-values, both adjusted for ties and the unadjusted value
@@ -665,50 +658,39 @@ static void add_ranking(DisplayTable *t,
       "p < %0.3f  (< %0.3f)" };
   int pselect = (infer->p < 0.001) * 2 + (infer->p_adj < 0.001);
   display_table_set(t, *row, 0, "p-value (adjusted)");
-  if (HAS(infer->indistinct, INF_NONSIG)) 
-    display_table_set(t, *row, 1, mark);
-  else if (infer->indistinct)
-    display_table_set(t, *row, 1, check);
-  display_table_set(t, *row, 2, pfmts[pselect],
+//   if (HAS(infer->indistinct, INF_NONSIG)) 
+//     display_table_set(t, *row, 1, mark);
+//   else if (infer->indistinct)
+//     display_table_set(t, *row, 1, check);
+  display_table_set(t, *row, 1, pfmts[pselect],
 		    (infer->p < 0.001) ? 0.001 : infer->p,
 		    (infer->p_adj < 0.001) ? 0.001 : infer->p_adj);
-  display_table_set(t, *row, 3, "alpha");
-  display_table_set(t, *row, 4, "%4.2f", config.alpha);
   (*row)++;
 
   units = select_units(infer->ci_high, time_units);
   display_table_set(t, *row, 0, "Confidence interval");
-  if (HAS(infer->indistinct, INF_CIZERO)) 
-    display_table_set(t, *row, 1, mark);
-  else if (infer->indistinct)
-    display_table_set(t, *row, 1, check);
+//   if (HAS(infer->indistinct, INF_CIZERO)) 
+//     display_table_set(t, *row, 1, mark);
+//   else if (infer->indistinct)
+//     display_table_set(t, *row, 1, check);
   char *ci_low = apply_units(infer->ci_low, units, NOUNITS);
   char *ci_high = apply_units(infer->ci_high, units, NOUNITS);
   ASPRINTF(&tmp, "%4.2f%%", infer->confidence * 100.0);
   tmp2 = lefttrim(ci_low);
   tmp3 = lefttrim(ci_high);
-  display_table_set(t, *row, 2, "%s (%s, %s) %2s",
+  display_table_set(t, *row, 1, "%s (%s, %s) %2s",
 		    tmp, tmp2, tmp3, units->unitname);
   free(ci_low);
   free(ci_high);
   free(tmp); free(tmp2); free(tmp3);
-  //units = select_units(config.epsilon, time_units);
-  tmp = apply_units(config.epsilon, units, NOUNITS);
-  display_table_set(t, *row, 3, "epsilon");
-  tmp2 = lefttrim(tmp);
-  display_table_set(t, *row, 4, "%s", tmp2);
-  free(tmp); free(tmp2);
-  display_table_set(t, *row, 5, "%s", units->unitname);
   (*row)++;
 
   display_table_set(t, *row, 0, "Prob. of superiority");
-  if (HAS(infer->indistinct, INF_HIGHSUPER)) 
-    display_table_set(t, *row, 1, mark);
-  else if (infer->indistinct)
-    display_table_set(t, *row, 1, check);
-  display_table_set(t, *row, 2, "Â = %4.2f", infer->p_super);
-  display_table_set(t, *row, 3, "super");
-  display_table_set(t, *row, 4, "%4.2f", config.super);
+//   if (HAS(infer->indistinct, INF_HIGHSUPER)) 
+//     display_table_set(t, *row, 1, mark);
+//   else if (infer->indistinct)
+//     display_table_set(t, *row, 1, check);
+  display_table_set(t, *row, 1, "Â = %4.2f", infer->p_super);
   (*row)++;
 }
 
@@ -731,15 +713,12 @@ static void add_ranking(DisplayTable *t,
 */
 
 static DisplayTable *ranking_table(void) {
-  DisplayTable *t =
+  return
     new_display_table(78,
-		      6,
-		      (int []){ 22, 3,  28,  7,  5,  2},
-		      (int []){4, 1,  1,   1,  1,  1, 1},
-		      "lcllrl", false, false);
-  if (!option.explain) 
-    display_table_span(t, 0, 0, 6, 'l', "%s", RANK_HEADER);
-  return t;
+		      5,
+		      (int []){  22, 26, 8, 6, 2, END},
+		      (int []){4,   1,  1, 1, 1, END},
+		      "lllrl", false, false);
 }
 
 static void print_ranking(Ranking *rank) {
@@ -786,8 +765,54 @@ static void print_ranking(Ranking *rank) {
 
   printf("\n");
 
-  int row = option.explain ? 0 : 1;
+  int row = 0;
   DisplayTable *t = ranking_table();
+
+  if (option.explain) {
+    Units *units;
+    char *tmp, *tmp2;
+    display_table_span(t, row, -1, 0, 'l', "Inferential statistics");
+    ASPRINTF(&tmp, "Settings (modify with -%s)", optable_shortname(OPT_CONFIG));
+    display_table_span(t, row, 1, 4, 'r', "%s", tmp);
+    free(tmp);
+    row++;
+
+    display_table_span(t, row, 0, 1, 'l', "Minimum effect size (H.L. median shift)");
+    units = select_units(config.effect, time_units);
+    tmp = apply_units(config.effect, units, NOUNITS);
+    display_table_set(t, row, 2, "effect");
+    tmp2 = lefttrim(tmp);
+    display_table_set(t, row, 3, "%s", tmp2);
+    display_table_set(t, row, 4, "%s", units->unitname);
+    free(tmp); free(tmp2);
+    row++;
+
+    display_table_span(t, row, 0, 1, 'l', "Significance level, α");
+    display_table_set(t, row, 2, "alpha");
+    display_table_set(t, row, 3, "%4.2f", config.alpha);
+    row++;
+
+    display_table_span(t, row, 0, 1, 'l', "C.I. ± ε contains zero");
+    units = select_units(config.epsilon, time_units);
+    tmp = apply_units(config.epsilon, units, NOUNITS);
+    display_table_set(t, row, 2, "epsilon");
+    tmp2 = lefttrim(tmp);
+    display_table_set(t, row, 3, "%s", tmp2);
+    display_table_set(t, row, 4, "%s", units->unitname);
+    free(tmp); free(tmp2);
+    row++;
+
+    display_table_span(t, row, 0, 1, 'l', "Probability of superiority");
+    display_table_set(t, row, 2, "super");
+    display_table_set(t, row, 3, "%4.2f", config.super);
+    row++;
+
+    display_table_set(t, row, 0, "");
+    row++;
+
+  } else {
+    display_table_fullspan(t, row++, 'l', "%s", RANK_HEADER);
+  }
 
   int64_t best_time = rank->summaries[bestidx]->total.median;
 
@@ -801,8 +826,8 @@ static void print_ranking(Ranking *rank) {
   if (option.explain)
     display_table_set(t, row++, 0, "");
   else
-    display_table_span(t, row++, 0, t->cols, 'l',
-		       "%.*s", utf8_width(DOUBLE_BAR, t->width), DOUBLE_BAR);
+    display_table_fullspan(t, row++, 'l', "%.*s",
+			   utf8_width(DOUBLE_BAR, t->width), DOUBLE_BAR);
 
   // Print the rest
   bool first_time = true;
@@ -815,8 +840,8 @@ static void print_ranking(Ranking *rank) {
     }
 
   if (same_count < rank->count)
-    display_table_span(t, row++, 0, t->cols, 'l',
-		       "%.*s", utf8_width(DOUBLE_BAR, t->width), DOUBLE_BAR);
+    display_table_fullspan(t, row++, 'l', "%.*s",
+			   utf8_width(DOUBLE_BAR, t->width), DOUBLE_BAR);
 
   display_table(t, 2);
   fflush(stdout);

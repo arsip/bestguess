@@ -10,6 +10,8 @@
 #include "bestguess.h"
 #define INT64FMT "%" PRId64
 
+#define END -1
+
 // -----------------------------------------------------------------------------
 // 
 // -----------------------------------------------------------------------------
@@ -18,9 +20,9 @@
 
 typedef struct DisplaySpan {
   int row;
-  int start_col;
-  int end_col;
-  int width;
+  int start_col;      // -1 includes left margin, before col 0
+  int end_col;	      // tbl->cols includes right margin, after tbl->cols-1
+  int width;	      // pre-calculated based on start/end cols
   char justification;
 } DisplaySpan;
 
@@ -64,7 +66,10 @@ void display_table_span(DisplayTable *dt,
 			char justification,
 			const char *fmt, ...);
 
-void display_table_title(DisplayTable *dt, int row, char justif, const char *title);
+void display_table_fullspan(DisplayTable *dt,
+			    int row,
+			    char justification,
+			    const char *fmt, ...);
 
 void display_table_hline(DisplayTable *dt, int row);
 
