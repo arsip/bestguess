@@ -1122,8 +1122,8 @@ Inference *compare_samples(Usage *usage,
     SET(stat->indistinct, INF_NONSIG);
 
   // Check for end of CI interval being too close to zero
-  bool ci_touches_0 = ((llabs(stat->ci_low) < config.epsilon) ||
-		       (llabs(stat->ci_high) < config.epsilon));
+  bool ci_touches_0 = ((llabs(stat->ci_low) <= config.epsilon) ||
+		       (llabs(stat->ci_high) <= config.epsilon));
   // Or CI outright includes zero
   bool ci_includes_0 = (stat->ci_low < 0) && (stat->ci_high > 0);
 

@@ -559,8 +559,8 @@ Usage *read_input_files(int argc, char **argv) {
 // right quantity.
 
 #define RANK_HEADER						\
-  "══════ Command ══════════════════════════ Total time "	\
-  "═══ Slower by ═════════════"
+  "══════ Command ═══════════════════════════ Total time "	\
+  "═══ Slower by ════════════════════════════════════════"
 
 #define DOUBLE_BAR						 \
   "════════════════════════════════════════════════════════════" \
@@ -576,7 +576,7 @@ static void add_ranking(DisplayTable *t,
 			Summary *s,
 			int64_t best_time) {
   const char *mark = "✗";
-  const char *check = "✓";
+  //  const char *check = "✓";
   const char *cmd_fmt = "%4d: %s";
   const char *winner = "✻";
 
@@ -602,7 +602,7 @@ static void add_ranking(DisplayTable *t,
   if (infer) {
     pct = infer->shift / (double) best_time;
     shift_repr = apply_units(infer->shift, units, UNITS);
-    ASPRINTF(&info_line, "%s%-*s %10s%10s%6.1f%%",
+    ASPRINTF(&info_line, "%s%-*s %10s %10s%5.1f%%",
 	     winnerp ? winner : " ",
 	     cmd_width, cmd, median_repr, shift_repr, pct * 100.0);
   } else {
@@ -636,12 +636,15 @@ static void add_ranking(DisplayTable *t,
   display_table_set(t, *row, 1, "W = %-8.0f", infer->W);
   (*row)++;
 
-  units = select_units(infer->shift, time_units);
   display_table_set(t, *row, 0, "Hodges-Lehmann");
-//   if (HAS(infer->indistinct, INF_NOEFFECT)) 
-//     display_table_set(t, *row, 1, mark);
-//   else if (infer->indistinct)
-//     display_table_set(t, *row, 1, check);
+  if (HAS(infer->indistinct, INF_NOEFFECT)) {
+    display_table_set(t, *row, 2, mark);
+    units = select_units(infer->shift, time_units);
+    tmp = apply_units(config.effect, units, UNITS);
+    tmp2 = lefttrim(tmp);
+    display_table_set(t, *row, 3, "effect < %s", tmp2);
+    free(tmp); free(tmp2);
+  }
       
   tmp = apply_units(infer->shift, units, UNITS);
   tmp2 = lefttrim(tmp);
@@ -658,21 +661,17 @@ static void add_ranking(DisplayTable *t,
       "p < %0.3f  (< %0.3f)" };
   int pselect = (infer->p < 0.001) * 2 + (infer->p_adj < 0.001);
   display_table_set(t, *row, 0, "p-value (adjusted)");
-//   if (HAS(infer->indistinct, INF_NONSIG)) 
-//     display_table_set(t, *row, 1, mark);
-//   else if (infer->indistinct)
-//     display_table_set(t, *row, 1, check);
   display_table_set(t, *row, 1, pfmts[pselect],
 		    (infer->p < 0.001) ? 0.001 : infer->p,
 		    (infer->p_adj < 0.001) ? 0.001 : infer->p_adj);
+  if (HAS(infer->indistinct, INF_NONSIG)) {
+    display_table_set(t, *row, 2, mark);
+    display_table_set(t, *row, 3, "non-signif. (α = %4.2f)", config.alpha);
+  }
   (*row)++;
 
   units = select_units(infer->ci_high, time_units);
   display_table_set(t, *row, 0, "Confidence interval");
-//   if (HAS(infer->indistinct, INF_CIZERO)) 
-//     display_table_set(t, *row, 1, mark);
-//   else if (infer->indistinct)
-//     display_table_set(t, *row, 1, check);
   char *ci_low = apply_units(infer->ci_low, units, NOUNITS);
   char *ci_high = apply_units(infer->ci_high, units, NOUNITS);
   ASPRINTF(&tmp, "%4.2f%%", infer->confidence * 100.0);
@@ -683,14 +682,22 @@ static void add_ranking(DisplayTable *t,
   free(ci_low);
   free(ci_high);
   free(tmp); free(tmp2); free(tmp3);
+  if (HAS(infer->indistinct, INF_CIZERO)) {
+    display_table_set(t, *row, 2, mark);
+    units = select_units(config.epsilon, time_units);
+    tmp = apply_units(config.epsilon, units, UNITS);
+    tmp2 = lefttrim(tmp);
+    display_table_set(t, *row, 3, "CI ± %s contains 0", tmp2);
+    free(tmp); free(tmp2);
+  }
   (*row)++;
 
   display_table_set(t, *row, 0, "Prob. of superiority");
-//   if (HAS(infer->indistinct, INF_HIGHSUPER)) 
-//     display_table_set(t, *row, 1, mark);
-//   else if (infer->indistinct)
-//     display_table_set(t, *row, 1, check);
   display_table_set(t, *row, 1, "Â = %4.2f", infer->p_super);
+  if (HAS(infer->indistinct, INF_HIGHSUPER)) {
+    display_table_set(t, *row, 2, mark);
+    display_table_set(t, *row, 3, "high (> %4.2f)", config.super);
+  }
   (*row)++;
 }
 
@@ -713,12 +720,11 @@ static void add_ranking(DisplayTable *t,
 */
 
 static DisplayTable *ranking_table(void) {
-  return
-    new_display_table(78,
-		      5,
-		      (int []){  22, 26, 8, 6, 2, END},
-		      (int []){4,   1,  1, 1, 1, END},
-		      "lllrl", false, false);
+  return new_display_table(80,
+			   4,
+			   (int []){  22, 26, 1, 23, END},
+			   (int []){4,   1,  1, 1, END},
+			   "llcl", false, false);
 }
 
 static void print_ranking(Ranking *rank) {
@@ -773,38 +779,32 @@ static void print_ranking(Ranking *rank) {
     char *tmp, *tmp2;
     display_table_span(t, row, -1, 0, 'l', "Inferential statistics");
     ASPRINTF(&tmp, "Settings (modify with -%s)", optable_shortname(OPT_CONFIG));
-    display_table_span(t, row, 1, 4, 'r', "%s", tmp);
+    display_table_span(t, row, 1, 3, 'r', "%s", tmp);
     free(tmp);
     row++;
 
-    display_table_span(t, row, 0, 1, 'l', "Minimum effect size (H.L. median shift)");
-    units = select_units(config.effect, time_units);
-    tmp = apply_units(config.effect, units, NOUNITS);
-    display_table_set(t, row, 2, "effect");
-    tmp2 = lefttrim(tmp);
-    display_table_set(t, row, 3, "%s", tmp2);
-    display_table_set(t, row, 4, "%s", units->unitname);
-    free(tmp); free(tmp2);
+    display_table_span(t, row, 0, 1, 'l', "Significance level, α");
+    display_table_span(t, row, 2, 3, 'l', "    alpha    %4.2f", config.alpha);
     row++;
 
-    display_table_span(t, row, 0, 1, 'l', "Significance level, α");
-    display_table_set(t, row, 2, "alpha");
-    display_table_set(t, row, 3, "%4.2f", config.alpha);
+    display_table_span(t, row, 0, 1, 'l', "Probability of superiority");
+    display_table_span(t, row, 2, 3, 'l', "    super    %4.2f", config.super);
     row++;
 
     display_table_span(t, row, 0, 1, 'l', "C.I. ± ε contains zero");
     units = select_units(config.epsilon, time_units);
-    tmp = apply_units(config.epsilon, units, NOUNITS);
-    display_table_set(t, row, 2, "epsilon");
+    tmp = apply_units(config.epsilon, units, UNITS);
     tmp2 = lefttrim(tmp);
-    display_table_set(t, row, 3, "%s", tmp2);
-    display_table_set(t, row, 4, "%s", units->unitname);
+    display_table_span(t, row, 2, 3, 'l', "    epsilon  %s", tmp2);
     free(tmp); free(tmp2);
     row++;
 
-    display_table_span(t, row, 0, 1, 'l', "Probability of superiority");
-    display_table_set(t, row, 2, "super");
-    display_table_set(t, row, 3, "%4.2f", config.super);
+    display_table_span(t, row, 0, 1, 'l', "Minimum effect size (H.L. median shift)");
+    units = select_units(config.effect, time_units);
+    tmp = apply_units(config.effect, units, UNITS);
+    tmp2 = lefttrim(tmp);
+    display_table_span(t, row, 2, 3, 'l', "    effect   %s", tmp2);
+    free(tmp); free(tmp2);
     row++;
 
     display_table_set(t, row, 0, "");

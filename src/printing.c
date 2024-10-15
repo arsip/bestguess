@@ -9,7 +9,7 @@
 #include <assert.h>
 #include <stdarg.h> 		// __VA_ARGS__ (var args)
 
-#define TABLEDEBUG 1
+#define TABLEDEBUG 0
 
 #define MAXROWS 1000
 
