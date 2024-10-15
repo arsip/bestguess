@@ -34,7 +34,7 @@ ReportCode  interpret_report_option(const char *op);
 
 void report(Ranking *ranking);
 
-Usage *read_input_files(int argc, char **argv);
+Ranking *read_input_files(int argc, char **argv);
 
 void print_summary(Summary *s, bool briefly);
 void print_overall_summary(Summary *summaries[], int start, int end);

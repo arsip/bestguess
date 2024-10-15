@@ -129,7 +129,6 @@ static const char *bar(int side, int line) {
 
 void print_summary(Summary *s, bool briefly) {
   if (!s) {
-    //    printf("  No data\n");
     return;
   }
 
@@ -480,7 +479,7 @@ void print_descriptive_stats(Summary *s) {
 // the array grows dynamically.
 #define ESTIMATED_DATA_POINTS 500
 
-Usage *read_input_files(int argc, char **argv) {
+Ranking *read_input_files(int argc, char **argv) {
 
   if ((option.first == 0) || (option.first == argc))
     USAGE("No data files to read");
@@ -545,8 +544,9 @@ Usage *read_input_files(int argc, char **argv) {
   free(buf);
   for (int i = option.first; i < argc; i++) fclose(input[i]);
   // Check for no data actually read from any of the files
-  if (usage->next == 0) ERROR("No data read.  Exiting...");
-  return usage;
+  if (usage->next == 0) ERROR("No data read from file(s)");
+  // Usage will now be owned by the 'ranking' struct 
+  return rank(usage);
 }
 
 
@@ -892,7 +892,7 @@ void graph_one_command(Summary *s, Usage *usage, int start, int end) {
 // TODO: Separate these functions and clean up the API.
 //
 void report(Ranking *ranking) {
-  if (!ranking) PANIC_NULL();
+  if (!ranking) USAGE("No data");
 
   Summary *s;
   FILE *csv_output = NULL, *hf_output = NULL;

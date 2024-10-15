@@ -321,7 +321,7 @@ static int64_t estimate_mode(int64_t *X, int n) {
 // we can with the data we have.
 static int64_t percentile(int pct, int64_t *X, int n) {
   if (!X) PANIC_NULL();
-  if (n < 1) PANIC("No data");
+  if (n < 1) PANIC("No data on which to calculate a percentile");
   switch (pct) {
     case 0:
       return X[0];		// Q0 = Min

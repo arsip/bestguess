@@ -8,11 +8,11 @@
 #define exec_h
 
 #include "bestguess.h"
-#include "utils.h"
+#include "stats.h"
 #include <sys/types.h>
 #include <sys/wait.h>
 
-void run_all_commands(int argc, char **argv);
+Ranking *run_all_commands(int argc, char **argv);
 
 #endif
 

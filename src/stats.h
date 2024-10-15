@@ -124,11 +124,10 @@ Inference *compare_samples(Usage *usage,
 int *sort_by_totaltime(Summary *summaries[], int start, int end);
 
 Summary *summarize(Usage *usage, int start, int end);
+void     free_summary(Summary *s);
+void     free_summaries(Summary **ss, int n);
 
 Ranking *rank(Usage *usage);
 void     free_ranking(Ranking *rank);
-
-void     free_summary(Summary *s);
-void     free_summaries(Summary **ss, int n);
 
 #endif

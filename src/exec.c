@@ -238,8 +238,8 @@ static Usage *run_command(Usage *usage, int num, char *cmd, FILE *output) {
   return usage;
 }
 
-void run_all_commands(int argc, char **argv) {
-  // 'n' is the number of summaries == number of commands
+Ranking *run_all_commands(int argc, char **argv) {
+  // 'n' is the number of commands executed
   int n = 0;
 
   char *buf = malloc(MAXCMDLEN);
@@ -276,14 +276,14 @@ void run_all_commands(int argc, char **argv) {
   if (csv_output) write_summary_header(csv_output);
   if (hf_output) write_hf_header(hf_output);
 
-  if (option.runs <= 0) {
-    printf("  No data\n");
-    goto done;
-  }
-
   int start;
   Summary *s;
-  Usage *usage = new_usage_array(2 * option.runs);
+  Usage *usage = NULL;
+
+  if (option.runs <= 0) 
+    USAGE("Number of runs is 0, nothing to do");
+
+  usage = new_usage_array(2 * option.runs);
 
   if (option.first > 0) {
     for (int k = option.first; k < argc; k++) {
@@ -322,22 +322,17 @@ void run_all_commands(int argc, char **argv) {
     } // while
   }
 
-  if (!option.output_to_stdout) {
-    Ranking *ranking = rank(usage);
-    if (ranking) {
-      report(ranking);
-      free_ranking(ranking);
-    }
-  }
-
- done:
   if (output) fclose(output);
   if (csv_output) fclose(csv_output);
   if (hf_output) fclose(hf_output);
   if (input) fclose(input);
-
   free(buf);
-  return;
+
+  if (n == 0) 
+    USAGE("No commands provided on command line or via input files");
+
+  // Usage array now will be owned by 'ranking' structure
+  return rank(usage);
 
  toomany:
   free(buf);

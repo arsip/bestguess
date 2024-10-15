@@ -87,7 +87,6 @@ static Action action_from_progname(const char *executable) {
 
 int main(int argc, char *argv[]) {
 
-  Usage *usage;
   Ranking *ranking;
   
   if (argc) progname = argv[0];
@@ -131,13 +130,14 @@ int main(int argc, char *argv[]) {
       case actionExecute:
 	optable_setusage("[options] <cmd1> ...");
 	process_exec_options(argc, argv);
-	run_all_commands(argc, argv);
+	ranking = run_all_commands(argc, argv);
+	report(ranking);
+	free_ranking(ranking);
 	break;
       case actionReport:
 	optable_setusage("[options] <datafile1> ...");
 	process_report_options(argc, argv);
-	usage = read_input_files(argc, argv);
-	ranking = rank(usage);
+	ranking = read_input_files(argc, argv);
 	report(ranking);
 	free_ranking(ranking);
 	break;

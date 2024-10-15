@@ -21,7 +21,7 @@ void panic_report(const char *prelude,
 	     const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    fprintf(stderr, "%s %s:%d ", prelude, filename, lineno);
+    fprintf(stderr, "%s %s:%d [internal error]", prelude, filename, lineno);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
     fputc('\n', stderr);
@@ -32,7 +32,7 @@ void panic_report(const char *prelude,
 void error_report(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    fprintf(stderr, "%s: ", progname);
+    fprintf(stderr, "%s error: ", progname);
     vfprintf(stderr, fmt, ap);
     va_end(ap);
     fputc('\n', stderr);

@@ -231,7 +231,7 @@ void print_boxplots(Summary *summaries[], int start, int end) {
 
   // Check for no data
   if (((end - start) < 1) || (!summaries[start])) {
-    printf("  No data for box plot\n");
+    printf("No data for box plot\n");
     return;
   }
 

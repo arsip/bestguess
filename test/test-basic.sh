@@ -46,6 +46,7 @@ function panic {
     fi
 }
 
+# Bad options
 usage   "$prog"
 usage   "$prog" -foo
 usage   "$prog" -r abc
@@ -57,15 +58,18 @@ usage   "$prog" -w 1048577
 usage   "$prog" --no-such-option
 usage   "$prog" -d
 
+# Missing commands
+usage   "$prog" -r 0
+usage   "$prog" -w 0
+usage   "$prog" -r 1
+usage   "$prog" -w 1
+usage   "$prog" -r 10000
+usage   "$prog" -w 10000
+usage   "$prog" -r 1048576
+usage   "$prog" -w 1048576
+
+ok      "$prog" -v
 ok      "$prog" -h
-ok      "$prog" -r 0
-ok      "$prog" -w 0
-ok      "$prog" -r 1
-ok      "$prog" -w 1
-ok      "$prog" -r 10000
-ok      "$prog" -w 10000
-ok      "$prog" -r 1048576
-ok      "$prog" -w 1048576
 
 # Bad shell programs '-fasdkl' and foobarbaz
 usage   "$prog" -S -fasdkl ls -l

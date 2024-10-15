@@ -75,39 +75,23 @@ ok "$prog" -R none -B /bin/bash
 contains "├────" "─┼─"
 
 for warmups in $(seq 0 5); do
-    for runs in $(seq 0 5); do
+    for runs in $(seq 1 5); do
 	# Default report
 	ok "$prog" -w $warmups -r $runs /bin/bash
-	if [[ $runs -eq 0 ]]; then
-	    contains "No data"
-	else
-	    contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
-	fi
+	contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
 
 	# Brief report
 	ok "$prog" -w $warmups -r $runs -R brief /bin/bash
-	if [[ $runs -eq 0 ]]; then
-	    contains "No data"
-	else
-	    contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
-	fi
+	contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
 
 	# Graph
 	ok "$prog" -w $warmups -r $runs -R=brief -G /bin/bash
-	if [[ $runs -eq 0 ]]; then
-	    contains "No data"
-	else
-	    contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
-	    contains "0     "  "     max"
-	fi
+	contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
+	contains "0     "  "     max"
 
 	# Boxplot
 	ok "$prog" -w $warmups -r $runs -R=none -B /bin/bash
-	if [[ $runs -eq 0 ]]; then
-	    contains "No data"
-	else
-	    contains "├────" "─┼─"
-	fi
+	contains "├────" "─┼─"
     done
 done
 
