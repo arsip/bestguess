@@ -73,6 +73,8 @@ void display_table_fullspan(DisplayTable *dt,
 
 void display_table_hline(DisplayTable *dt, int row);
 
+void display_table_blankline(DisplayTable *dt, int row);
+
 void display_table(DisplayTable *dt, int indent);
 
 

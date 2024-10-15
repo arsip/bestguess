@@ -364,7 +364,7 @@ void print_descriptive_stats(Summary *s) {
   int row = 0;
   display_table_fullspan(t, row, 'c', "Total CPU Time Distribution");
   row++;
-  display_table_set(t, row, 0, "");
+  display_table_blankline(t, row);
   row++;
 
   display_table_set(t, row, 0, "N (observations)");
@@ -410,7 +410,7 @@ void print_descriptive_stats(Summary *s) {
     display_table_set(t, row, 2, sec ? "s" : "ms");
   row++;
 
-  display_table_set(t, row, 0, "");
+  display_table_blankline(t, row);
   row++;
   
   display_table_set(t, row, 0, "AD normality");
@@ -439,7 +439,7 @@ void print_descriptive_stats(Summary *s) {
   row = 0;
   display_table_fullspan(t, row, 'c', "Total CPU Time Distribution Tail");
   row++;
-  display_table_set(t, row, 0, "");
+  display_table_blankline(t, row);
   row++;
 
   display_table_set(t, row, 0, "Tail shape");
@@ -458,11 +458,11 @@ void print_descriptive_stats(Summary *s) {
   display_table_set(t, row, 3, sec ? FMTs : FMT, ROUND1(m->median, div));
   display_table_set(t, row, 4, sec ? FMTs : FMT, ROUND1(m->Q3, div));
   if (m->pct95 < 0)
-    display_table_set(t, row, 5,  ". ");
+    display_table_set(t, row, 5,  "-- ");
   else 
     display_table_set(t, row, 5, sec ? FMTs : FMT, ROUND1(m->pct95, div));
   if (m->pct99 < 0)
-    display_table_set(t, row, 6,  ". ");
+    display_table_set(t, row, 6,  "-- ");
   else 
     display_table_set(t, row, 6, sec ? FMTs : FMT, ROUND1(m->pct99, div));
   display_table_set(t, row, 7, sec ? FMTs : FMT, ROUND1(m->max, div));
@@ -625,7 +625,7 @@ static void add_ranking(DisplayTable *t,
 
   if (!option.explain || !infer) return;
 
-  display_table_set(t, *row, 0, "");
+  display_table_blankline(t, *row);
   (*row)++;
     
   display_table_set(t, *row, 0, "Timed observations");
@@ -719,11 +719,57 @@ static void add_ranking(DisplayTable *t,
 
 */
 
+static void print_stats_legend(void) {
+  Units *units;
+  char *tmp, *tmp2;
+  DisplayTable *L =
+    new_display_table(78,
+		      4,
+		      (int []){ 2,  42,  8, 10, END},
+		      (int []){2, 0,   2,  1,  END},
+		      "|lllr|", true, true);
+
+  int row = 0;
+  
+  display_table_span(L, row, 0, 1, 'l', "Inferential statistics:");
+  ASPRINTF(&tmp, "Settings: (modify with -%s)", optable_shortname(OPT_CONFIG));
+  display_table_span(L, row, 2, 4, 'l', "%s", tmp);
+  free(tmp);
+  row++;
+
+  display_table_set(L, row, 1, "Significance level, α");
+  display_table_span(L, row, 2, 3, 'l',  "  alpha    %4.2f", config.alpha);
+  row++;
+
+  display_table_set(L, row, 1, "Probability of superiority");
+  display_table_span(L, row, 2, 3, 'l',  "  super    %4.2f", config.super);
+  row++;
+
+  display_table_set(L, row, 1, "C.I. ± ε contains zero");
+  units = select_units(config.epsilon, time_units);
+  tmp = apply_units(config.epsilon, units, UNITS);
+  tmp2 = lefttrim(tmp);
+  display_table_span(L, row, 2, 3, 'l',  "  epsilon  %s", tmp2);
+  free(tmp); free(tmp2);
+  row++;
+
+  display_table_set(L, row, 1, "Minimum effect size (H.L. median shift)");
+  units = select_units(config.effect, time_units);
+  tmp = apply_units(config.effect, units, UNITS);
+  tmp2 = lefttrim(tmp);
+  display_table_span(L, row, 2, 3, 'l',  "  effect   %s", tmp2);
+  free(tmp); free(tmp2);
+  row++;
+
+  display_table(L, 2);
+  free_display_table(L);
+}
+
 static DisplayTable *ranking_table(void) {
-  return new_display_table(80,
+  return new_display_table(78,
 			   4,
-			   (int []){  22, 26, 1, 23, END},
-			   (int []){4,   1,  1, 1, END},
+			   (int []){  22, 24, 1, 23, END},
+			   (int []){4,   2,  1, 1, END},
 			   "llcl", false, false);
 }
 
@@ -763,54 +809,12 @@ static void print_ranking(Ranking *rank) {
 
   // -----------------------------------------------------------------------------
 
-  if (same_count > 1) 
-    printf("Best guess ranking: The top %d commands performed identically\n",
-	   same_count);
-  else
-    printf("Best guess ranking:\n");
-
-  printf("\n");
-
   int row = 0;
   DisplayTable *t = ranking_table();
 
-  if (option.explain) {
-    Units *units;
-    char *tmp, *tmp2;
-    display_table_span(t, row, -1, 0, 'l', "Inferential statistics");
-    ASPRINTF(&tmp, "Settings (modify with -%s)", optable_shortname(OPT_CONFIG));
-    display_table_span(t, row, 1, 3, 'r', "%s", tmp);
-    free(tmp);
-    row++;
-
-    display_table_span(t, row, 0, 1, 'l', "Significance level, α");
-    display_table_span(t, row, 2, 3, 'l', "    alpha    %4.2f", config.alpha);
-    row++;
-
-    display_table_span(t, row, 0, 1, 'l', "Probability of superiority");
-    display_table_span(t, row, 2, 3, 'l', "    super    %4.2f", config.super);
-    row++;
-
-    display_table_span(t, row, 0, 1, 'l', "C.I. ± ε contains zero");
-    units = select_units(config.epsilon, time_units);
-    tmp = apply_units(config.epsilon, units, UNITS);
-    tmp2 = lefttrim(tmp);
-    display_table_span(t, row, 2, 3, 'l', "    epsilon  %s", tmp2);
-    free(tmp); free(tmp2);
-    row++;
-
-    display_table_span(t, row, 0, 1, 'l', "Minimum effect size (H.L. median shift)");
-    units = select_units(config.effect, time_units);
-    tmp = apply_units(config.effect, units, UNITS);
-    tmp2 = lefttrim(tmp);
-    display_table_span(t, row, 2, 3, 'l', "    effect   %s", tmp2);
-    free(tmp); free(tmp2);
-    row++;
-
-    display_table_set(t, row, 0, "");
-    row++;
-
-  } else {
+  if (!option.explain) {
+    // Explanations have RANK_HEADER before each command.  If we are
+    // not explaining, then RANK_HEADER appears once, so add it to 't':
     display_table_fullspan(t, row++, 'l', "%s", RANK_HEADER);
   }
 
@@ -819,12 +823,13 @@ static void print_ranking(Ranking *rank) {
   for (int i = 0; i < rank->count; i++) {
     if (same[i] == -1) continue;
     s = rank->summaries[same[i]];
-    if (option.explain && s->infer) display_table_set(t, row++, 0, "");
+    if (option.explain && s->infer)
+      display_table_blankline(t, row++);
     add_ranking(t, &row, same[i], true, s, best_time);
   }
 
   if (option.explain)
-    display_table_set(t, row++, 0, "");
+    display_table_blankline(t, row++);
   else
     display_table_fullspan(t, row++, 'l', "%.*s",
 			   utf8_width(DOUBLE_BAR, t->width), DOUBLE_BAR);
@@ -834,7 +839,8 @@ static void print_ranking(Ranking *rank) {
   for (int i = 0; i < rank->count; i++)
     if ((same[i] == -1) && (rank->index[i] != bestidx)) {
       s = rank->summaries[rank->index[i]];
-      if (option.explain && !first_time) display_table_set(t, row++, 0, "");
+      if (option.explain && !first_time)
+	display_table_blankline(t, row++);
       add_ranking(t, &row, rank->index[i], false, s, best_time);
       first_time = false;
     }
@@ -843,7 +849,19 @@ static void print_ranking(Ranking *rank) {
     display_table_fullspan(t, row++, 'l', "%.*s",
 			   utf8_width(DOUBLE_BAR, t->width), DOUBLE_BAR);
 
-  display_table(t, 2);
+  if (option.explain) {
+    print_stats_legend();
+    printf("\n");
+  } 
+
+  const int indent = 2;
+  if (same_count > 1) 
+    printf("%*sBest guess ranking: The top %d commands performed identically\n\n",
+	   indent, "", same_count);
+  else
+    printf("%*sBest guess ranking:\n\n", indent, "");
+
+  display_table(t, indent);
   fflush(stdout);
   free_display_table(t);
   free(same);

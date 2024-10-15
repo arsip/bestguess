@@ -123,10 +123,11 @@ DisplayTable *new_display_table(int width,
   for (int i = 0; i < dt->maxspans; i++) dt->spans[i].row = -1;
 
   if (TABLEDEBUG) {
-    printf("New display table: width = %d, cols = %d, top = %s, bottom = %s\n",
+    printf("New display table: width = %d, cols = %d, top = %s, bottom = %s, borders = %d\n",
 	   dt->width, dt->cols,
 	   dt->topborder ? "true" : "false",
-	   dt->bottomborder ? "true" : "false");
+	   dt->bottomborder ? "true" : "false",
+	   dt->borders);
     printf("Cols   ");
     for (int i = 0; i < dt->cols; i++)
       printf("     %2d ", i);
@@ -239,11 +240,12 @@ static void insert(DisplayTable *dt,
   // Plus the margins within the span
   for (int i = (start_col == -1) ? 1 : start_col + 1; i < end_col; i++) 
     spanwidth += dt->margins[i];
-  // Plus the width of the last column of the span, unless it is dt->cols
-  if (end_col == dt->cols)
-    spanwidth += dt->rightpad;
+  // Plus the margin and width of the last column of the span, unless
+  // the end_col is dt->cols
+  if (end_col < dt->cols)
+    spanwidth += dt->margins[end_col] + dt->colwidths[end_col];
   else
-    spanwidth += dt->colwidths[end_col];
+    spanwidth += dt->rightpad;
 
   if (TABLEDEBUG) {
     if (fullspan(start_col, end_col, dt->cols)) {
@@ -341,6 +343,10 @@ static const char *bar(int side, int line) {
 
 void display_table_hline(DisplayTable *dt, int row) {
   display_table_span(dt, row, 0, dt->cols, '-', "%s", "");
+}
+
+void display_table_blankline(DisplayTable *dt, int row) {
+  display_table_span(dt, row, -1, dt->cols, 'l', "%s", "");
 }
 
 static bool all_null(char **items, int cols) {
