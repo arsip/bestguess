@@ -1,7 +1,7 @@
 FROM docker.io/fedora:latest
 
 RUN dnf -y update
-RUN dnf install -y gcc git make
+RUN dnf install -y gcc git make diffutils
 
 # ASAN and UBSAN libs are not included in this distro
 RUN dnf install -y libasan libubsan

@@ -637,19 +637,18 @@ static void add_ranking(DisplayTable *t,
   (*row)++;
 
   display_table_set(t, *row, 0, "Hodges-Lehmann");
-  if (HAS(infer->indistinct, INF_NOEFFECT)) {
-    display_table_set(t, *row, 2, mark);
-    units = select_units(infer->shift, time_units);
-    tmp = apply_units(config.effect, units, UNITS);
-    tmp2 = lefttrim(tmp);
-    display_table_set(t, *row, 3, "effect < %s", tmp2);
-    free(tmp); free(tmp2);
-  }
-      
   tmp = apply_units(infer->shift, units, UNITS);
   tmp2 = lefttrim(tmp);
   display_table_set(t, *row, 1, "Δ = " NUMFMT_LEFT, tmp2);
   free(tmp); free(tmp2);
+  if (HAS(infer->indistinct, INF_NOEFFECT)) {
+    display_table_set(t, *row, 2, mark);
+    units = select_units(config.effect, time_units);
+    tmp = apply_units(config.effect, units, UNITS);
+    tmp2 = lefttrim(tmp);
+    display_table_set(t, *row, 3, "Effect size < %s", tmp2);
+    free(tmp); free(tmp2);
+  }
   (*row)++;
 
   // p-values, both adjusted for ties and the unadjusted value
@@ -666,7 +665,7 @@ static void add_ranking(DisplayTable *t,
 		    (infer->p_adj < 0.001) ? 0.001 : infer->p_adj);
   if (HAS(infer->indistinct, INF_NONSIG)) {
     display_table_set(t, *row, 2, mark);
-    display_table_set(t, *row, 3, "non-signif. (α = %4.2f)", config.alpha);
+    display_table_set(t, *row, 3, "Non-signif. (α = %4.2f)", config.alpha);
   }
   (*row)++;
 
@@ -696,7 +695,7 @@ static void add_ranking(DisplayTable *t,
   display_table_set(t, *row, 1, "Â = %4.2f", infer->p_super);
   if (HAS(infer->indistinct, INF_HIGHSUPER)) {
     display_table_set(t, *row, 2, mark);
-    display_table_set(t, *row, 3, "high (> %4.2f)", config.super);
+    display_table_set(t, *row, 3, "Pr. faster obv. > %2.0f%%", 100 * config.super);
   }
   (*row)++;
 }
@@ -719,7 +718,7 @@ static void add_ranking(DisplayTable *t,
 
 */
 
-static void print_stats_legend(void) {
+static void print_stats_legend(int indent) {
   Units *units;
   char *tmp, *tmp2;
   DisplayTable *L =
@@ -731,26 +730,10 @@ static void print_stats_legend(void) {
 
   int row = 0;
   
-  display_table_span(L, row, 0, 1, 'l', "Inferential statistics:");
+  display_table_span(L, row, 0, 1, 'l', "Parameter:");
   ASPRINTF(&tmp, "Settings: (modify with -%s)", optable_shortname(OPT_CONFIG));
   display_table_span(L, row, 2, 4, 'l', "%s", tmp);
   free(tmp);
-  row++;
-
-  display_table_set(L, row, 1, "Significance level, α");
-  display_table_span(L, row, 2, 3, 'l',  "  alpha    %4.2f", config.alpha);
-  row++;
-
-  display_table_set(L, row, 1, "Probability of superiority");
-  display_table_span(L, row, 2, 3, 'l',  "  super    %4.2f", config.super);
-  row++;
-
-  display_table_set(L, row, 1, "C.I. ± ε contains zero");
-  units = select_units(config.epsilon, time_units);
-  tmp = apply_units(config.epsilon, units, UNITS);
-  tmp2 = lefttrim(tmp);
-  display_table_span(L, row, 2, 3, 'l',  "  epsilon  %s", tmp2);
-  free(tmp); free(tmp2);
   row++;
 
   display_table_set(L, row, 1, "Minimum effect size (H.L. median shift)");
@@ -761,7 +744,23 @@ static void print_stats_legend(void) {
   free(tmp); free(tmp2);
   row++;
 
-  display_table(L, 2);
+  display_table_set(L, row, 1, "Significance level, α");
+  display_table_span(L, row, 2, 3, 'l',  "  alpha    %4.2f", config.alpha);
+  row++;
+
+  display_table_set(L, row, 1, "C.I. ± ε contains zero");
+  units = select_units(config.epsilon, time_units);
+  tmp = apply_units(config.epsilon, units, UNITS);
+  tmp2 = lefttrim(tmp);
+  display_table_span(L, row, 2, 3, 'l',  "  epsilon  %s", tmp2);
+  free(tmp); free(tmp2);
+  row++;
+
+  display_table_set(L, row, 1, "Probability of superiority");
+  display_table_span(L, row, 2, 3, 'l',  "  super    %4.2f", config.super);
+  row++;
+
+  display_table(L, indent);
   free_display_table(L);
 }
 
@@ -849,17 +848,24 @@ static void print_ranking(Ranking *rank) {
     display_table_fullspan(t, row++, 'l', "%.*s",
 			   utf8_width(DOUBLE_BAR, t->width), DOUBLE_BAR);
 
+  //
+  // Print all of it
+  //
+
+  const int indent = 2;
+
   if (option.explain) {
-    print_stats_legend();
+    printf("Best guess inferential statistics:\n");
+    print_stats_legend(indent);
     printf("\n");
   } 
 
-  const int indent = 2;
   if (same_count > 1) 
-    printf("%*sBest guess ranking: The top %d commands performed identically\n\n",
-	   indent, "", same_count);
+    printf("Best guess ranking: "
+	   "The top %d commands performed identically\n\n",
+	   same_count);
   else
-    printf("%*sBest guess ranking:\n\n", indent, "");
+    printf("Best guess ranking:\n\n");
 
   display_table(t, indent);
   fflush(stdout);
