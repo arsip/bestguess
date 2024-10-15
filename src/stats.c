@@ -698,37 +698,37 @@ void free_ranking(Ranking *rank) {
 Ranking *rank(Usage *usage) {
   if (!usage) return NULL;	// No data
   
-  Ranking *rank = make_ranking(usage, 0, usage->next);
-  if (!rank) return NULL;	// No data
-  if (rank->count == 0) {
-    free_ranking(rank);
+  Ranking *ranking = make_ranking(usage, 0, usage->next);
+  if (!ranking) return NULL;	// No data
+  if (ranking->count == 0) {
+    free_ranking(ranking);
     return NULL;		// No data
   }
 
   int start = 0;
-  int end = rank->count;
+  int end = ranking->count;
 
   // Compute the comparative statistics between each sample and the
   // fastest one.
-  int bestidx = rank->index[0];
+  int bestidx = ranking->index[0];
 
-  Summary **s = rank->summaries;
+  Summary **s = ranking->summaries;
 
   // Need a minimum of INFERENCE_N_THRESHOLD observations
   if (s[bestidx]->runs >= INFERENCE_N_THRESHOLD) {
     // Compare each sample to the best performer
     for (int k = start; k < end; k++) {
-      int i = rank->index[k];
+      int i = ranking->index[k];
       if (i == bestidx) continue;
       s[i]->infer =
 	compare_samples(usage,
 			config.alpha,
-			rank->usageidx[bestidx], rank->usageidx[bestidx+1],
-			rank->usageidx[i], rank->usageidx[i+1]);
+			ranking->usageidx[bestidx], ranking->usageidx[bestidx+1],
+			ranking->usageidx[i], ranking->usageidx[i+1]);
     }
   }
 
-  return rank;
+  return ranking;
 }
 
 // -----------------------------------------------------------------------------
@@ -1069,7 +1069,7 @@ static int compare_median_total_time(const void *idx_ptr1,
 }
 
 // Caller must free the returned array
-int *sort_by_totaltime(Summary *summaries[], int start, int end) {
+int *sort_by_totaltime(Summary **summaries, int start, int end) {
   if (!summaries) PANIC_NULL();
   int n = end - start;
   if (n < 1) return NULL;

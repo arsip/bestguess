@@ -271,6 +271,8 @@ __attribute__ ((format (printf, 4, 5)))
 void display_table_set(DisplayTable *dt, int row, int col, const char *fmt, ...) {
   va_list things;
   char *buf;
+  if (!fmt || !*fmt)
+    PANIC("Null or empty format string passed to display_table_set()");
   va_start(things, fmt);
   if (vasprintf(&buf, fmt, things) == -1) PANIC_OOM();
   va_end(things);
@@ -289,6 +291,8 @@ void display_table_span(DisplayTable *dt,
 			const char *fmt, ...) {
   va_list things;
   char *buf;
+  if (!fmt || !*fmt)
+    PANIC("Null or empty format string passed to display_table_span()");
   va_start(things, fmt);
   if (vasprintf(&buf, fmt, things) == -1) PANIC_OOM();
   va_end(things);
@@ -302,6 +306,8 @@ void display_table_fullspan(DisplayTable *dt,
 			    const char *fmt, ...) {
   va_list things;
   char *buf;
+  if (!fmt || !*fmt)
+    PANIC("Null or empty format string passed to display_table_fullspan()");
   va_start(things, fmt);
   if (vasprintf(&buf, fmt, things) == -1) PANIC_OOM();
   va_end(things);
