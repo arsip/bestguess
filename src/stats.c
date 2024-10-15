@@ -644,21 +644,21 @@ Summary *summarize(Usage *usage, int start, int end) {
 
 static Ranking *make_ranking(Usage *usage, int start, int end) {
   if (!usage) PANIC_NULL();
-  if ((start < 0) || (end < 0))
+  if ((start < 0) || (end < 0) || (end <= start))
     PANIC("Start or end index is invalid (%d, %d)", start, end);
 
   int maxsummaries = end - start;
-
   Ranking *rank = malloc(sizeof(Ranking));
   if (!rank) PANIC_OOM();
-
   rank->usage = usage;
   rank->usageidx = malloc((maxsummaries + 1) * sizeof(int));
   if (!rank->usageidx) PANIC_OOM();
-
+  //
   // Fill in the usageidx array:
-  // summary[i] is based on usage[j,k] where
+  //   summary[i] is based on usage[j,k] where
   //   j = usageidx[i] and k = usageidx[i+1]
+  //
+  // Note that the end index k is exclusive.
   //
   int count = 0;
   rank->usageidx[0] = 0;
@@ -696,10 +696,9 @@ void free_ranking(Ranking *rank) {
 }
 
 Ranking *rank(Usage *usage) {
-  if (!usage) return NULL;	// No data
+  if (!usage || (usage->next == 0)) return NULL; // No data
   
   Ranking *ranking = make_ranking(usage, 0, usage->next);
-  if (!ranking) return NULL;	// No data
   if (ranking->count == 0) {
     free_ranking(ranking);
     return NULL;		// No data
@@ -1070,7 +1069,7 @@ static int compare_median_total_time(const void *idx_ptr1,
 
 // Caller must free the returned array
 int *sort_by_totaltime(Summary **summaries, int start, int end) {
-  if (!summaries) PANIC_NULL();
+  if (!summaries || !*summaries) PANIC_NULL();
   int n = end - start;
   if (n < 1) return NULL;
   int *index = malloc(n * sizeof(int));

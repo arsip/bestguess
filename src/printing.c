@@ -339,7 +339,7 @@ static const char *bar(int side, int line) {
   "───────────────────────────────────────"
 
 void display_table_hline(DisplayTable *dt, int row) {
-  display_table_span(dt, row, 0, dt->cols, '-', "");
+  display_table_span(dt, row, 0, dt->cols, '-', "%s", "");
 }
 
 static bool all_null(char **items, int cols) {
