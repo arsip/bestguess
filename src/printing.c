@@ -149,6 +149,7 @@ void free_display_table(DisplayTable *dt) {
   free(dt->justifications);
   for (int i = 0; i < dt->rows * dt->cols; i++) free(dt->items[i]);
   free(dt->items);
+  free(dt->spans);
   free(dt);
 }
 
