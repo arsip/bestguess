@@ -560,7 +560,7 @@ Ranking *read_input_files(int argc, char **argv) {
 
 #define RANK_HEADER						\
   "══════ Command ═══════════════════════════ Total time "	\
-  "═══ Slower by ════════════════════════════════════════"
+  "═════ Slower by ══════════════════════════════════════"
 
 #define DOUBLE_BAR						 \
   "════════════════════════════════════════════════════════════" \
@@ -576,7 +576,6 @@ static void add_ranking(DisplayTable *t,
 			Summary *s,
 			int64_t best_time) {
   const char *mark = "✗";
-  //  const char *check = "✓";
   const char *cmd_fmt = "%4d: %s";
   const char *winner = "✻";
 
@@ -602,11 +601,11 @@ static void add_ranking(DisplayTable *t,
   if (infer) {
     pct = infer->shift / (double) best_time;
     shift_repr = apply_units(infer->shift, units, UNITS);
-    ASPRINTF(&info_line, "%s%-*s %10s %10s%5.1f%%",
+    ASPRINTF(&info_line, "%s%-*s  %10s %10s %7.1f%%",
 	     winnerp ? winner : " ",
 	     cmd_width, cmd, median_repr, shift_repr, pct * 100.0);
   } else {
-    ASPRINTF(&info_line, "%s%-*s %10s",
+    ASPRINTF(&info_line, "%s%-*s  %10s",
 	     winnerp ? winner : " ",
 	     cmd_width, cmd, median_repr);
   }
@@ -699,24 +698,6 @@ static void add_ranking(DisplayTable *t,
   }
   (*row)++;
 }
-
-
-/*
-  The table below is 80 cols wide, and it displays best when the
-  number of observations, N, is less than 10,000.
-
-╔══════ Command ══════════════════════════ Total time ═══ Slower by Δ ════════╗
-║✓   1. rosie match -o line 'find:{[0-9]{    32.05 ms    0.03 ms     0.1%     ║
-║                                                                             ║
-║    Timed observations         N = 100                                       ║
-║    Mann-Whitney               W = 9532                       Settings       ║
-║    Hodges-Lehmann (effect)    Δ = 0.03 ms                  effect = 0.500   ║
-║    p-value (adjusted)       ✗ p = 0.206  (0.206)           alpha = 0.050    ║
-║    Confidence interval      ✗ 95.33% (-0.01, 0.06) ms      epsilon = 0.250  ║
-║    Prob. of superiority     ✗ Â = 0.45                     super = 0.33     ║
-╚═════════════════════════════════════════════════════════════════════════════╝
-
-*/
 
 static void print_stats_legend(int indent) {
   Units *units;
