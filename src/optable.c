@@ -17,14 +17,14 @@ typedef struct optable_option {
   int numvals;
 } optable_option;
 
-// Option configuration:
+// Option configuration: (not thread safe!)
 static optable_option      *Tbl = NULL;
 static int             Tbl_size = 0;
 static int             Tbl_next = 0;
 static int              Tbl_err = 0;
 static const char        *Usage = NULL;
 
-// Parsing state:
+// Parsing state: (not thread safe!)
 static const char *ShortnamePtr = NULL;
 static int                 Argc = 0;
 static char              **Argv = NULL;

@@ -267,7 +267,7 @@ void process_common_options(int argc, char **argv) {
 
 #define HELP_WARMUP "Number of warmup runs"
 #define HELP_RUNS "Number of timed runs"
-#define HELP_NAME "Name to use in reports instead of full command"
+#define HELP_NAME "Name (per-command) to use in reports instead of full command"
 #define HELP_OUTPUT "Write timing data to CSV <FILE> (use - for stdout)"
 #define HELP_CMDFILE "Read commands from <FILE>"
 #define HELP_SHOWOUTPUT "Show output of commands as they run"
@@ -306,23 +306,40 @@ void process_exec_options(int argc, char **argv) {
   optable_reset();
   init_exec_options();
   int n, i;
+  int last_named_command;
   const char *val;
 
+  option.n_commands = 0;
+  last_named_command = 0;
   // 'i' steps through the args from 1 to argc-1
   i = optable_init(argc, argv);
   if (i < 0) PANIC("Failed to initialize option parser");
   while ((i = optable_next(&n, &val, i))) {
     if (n == OPTABLE_NONE) {
-      if (!val) PANIC("Expected cli argument value");
+      if (!val) PANIC("Expected cli argument (no value found?)");
       if (!option.first) option.first = i;
+      option.commands[option.n_commands++] = val;
+      if (option.n_commands == MAXCMDS)
+	USAGE("Too many commands (maximum is %d)", MAXCMDS);
       continue;
     }
     if (n == OPTABLE_ERR) {
       USAGE("Invalid option/switch '%s'", argv[i]);
     }
-    if (option.first) {
-      USAGE("Options found after first command '%s'",
-	    argv[option.first]);
+    // Special treatment for OPT_NAME, which can appear only after a
+    // command, and only once per command
+    if (n == OPT_NAME) {
+      if (!option.n_commands) {
+	USAGE("Name '%s' must follow a command", val);
+      } else if (last_named_command == option.n_commands) {
+	USAGE("Name '%s' must follow a command", val);
+      } else {
+	// Commands are added consecutively, so this name applies to
+	// the previous command, at index n - 1
+	option.names[option.n_commands - 1] = val;
+	last_named_command = option.n_commands;
+      }
+      continue;
     }
     switch (n) {
       case OPT_WARMUP:

@@ -12,7 +12,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-Ranking *run_all_commands(int argc, char **argv);
+Ranking *run_all_commands(void);
 
 #endif
 

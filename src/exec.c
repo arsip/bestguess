@@ -19,6 +19,47 @@
 #include "optable.h"
 #include "utils.h"
 
+static bool spacetab(char c) {
+  return (c == ' ') || (c == '\t');
+}
+
+static bool isblank(const char *str) {
+  while (spacetab(*str)) str++;
+  return (*str == '\0');
+}
+
+static bool startswith(const char *str, const char *prefix) {
+  while (*prefix) 
+    if (*str == *prefix) {
+      str++; prefix++;
+    } else {
+      return false;
+    }
+  return true;
+}
+
+static char *have_name_option(char *line) {
+  int i = -1;
+  if (*line != '-') return NULL;
+  line++;
+  if (optable_shortname(OPT_NAME)
+      && startswith(line, optable_shortname(OPT_NAME))) {
+    i = strlen(optable_shortname(OPT_NAME));
+  } else {
+    if (*line != '-') return NULL;
+    line++;
+    if (optable_longname(OPT_NAME)
+	&& startswith(line, optable_longname(OPT_NAME))) {
+      i = strlen(optable_longname(OPT_NAME));
+    }
+  }
+  if (i == -1) return NULL;
+  if (line[i] == '=') return &(line[i + 1]);
+  if (!spacetab(line[i])) return NULL;
+  while (spacetab(line[i])) i++;
+  return &(line[i]);
+}
+
 static void run_prep_command(void) {
   if (!option.prep_command) return;
   
@@ -156,14 +197,6 @@ static int run(const char *cmd, Usage *usage, int idx) {
 	      optable_shortname(OPT_SHELL), optable_longname(OPT_SHELL));
       fprintf(stderr, "      An empty command run in a shell will measure shell startup.\n");
     }
-
-//     if (option.input_filename) {
-//       fprintf(stderr, "\nHint: Commands are being read from file '%s'.  Blank lines\n",
-// 	      option.input_filename);
-//       fprintf(stderr, "      are read as empty commands unless option --%s is given.\n",
-// 	      optable_longname(OPT_GROUPS));
-//     }
-
     exit(ERR_RUNTIME);
   }
 
@@ -211,7 +244,7 @@ static int run(const char *cmd, Usage *usage, int idx) {
   return WEXITSTATUS(status);
 }
 
-static Usage *run_command(Usage *usage, int num, char *cmd, FILE *output) {
+static Usage *run_command(Usage *usage, int num, const char *cmd, FILE *output) {
 
   if (!option.output_to_stdout) {
     if ((option.report != REPORT_NONE) || option.graph) {
@@ -238,17 +271,64 @@ static Usage *run_command(Usage *usage, int num, char *cmd, FILE *output) {
   return usage;
 }
 
-Ranking *run_all_commands(int argc, char **argv) {
-  // 'n' is the number of commands executed
-  int n = 0;
+Ranking *run_all_commands(void) {
 
+  if (option.runs <= 0) 
+    USAGE("Number of runs is 0, nothing to do");
+
+  char *cmd, *name;
   char *buf = malloc(MAXCMDLEN);
   if (!buf) PANIC_OOM();
 
+  int lineno = 0;
+  int last_named_command = option.n_commands; // *maybe* named
   FILE *input = NULL, *output = NULL, *csv_output = NULL, *hf_output = NULL;
 
+  input = maybe_open(option.input_filename, "r");
+  if (input) {
+    while ((cmd = fgets(buf, MAXCMDLEN, input))) {
+      // fgets() guarantees a NUL-terminated string
+      lineno++;
+      size_t len = strlen(cmd);
+      if ((len > 0) && (cmd[len-1] == '\n')) {
+	cmd[len-1] = '\0';
+      } else {
+	ERROR("Input file line %d too long (max length is %d bytes)",
+	      lineno, MAXCMDLEN);
+      }
+      if (isblank(cmd)) continue;
+      // Have non-blank line from file
+      name = have_name_option(cmd);
+      if (name) {
+	if (last_named_command == option.n_commands) {
+	  USAGE("Name '%s' must follow a command", name);
+	} else {
+	  // Commands are added in order, with no blanks, so this name
+	  // is for command number n - 1
+	  option.names[option.n_commands - 1] = strdup(name);
+	  last_named_command = option.n_commands;
+	}
+      } else {
+	option.commands[option.n_commands++] = strdup(cmd);
+	if (option.n_commands == MAXCMDS) goto toomany;
+      }
+    } // while reading from file
+  } // if there is an input file of possibly-named commands
+
+  if (option.n_commands == 0) 
+    USAGE("No commands provided on command line or input file");
+
+  // TEMP!
+  {
+    printf("*** Number of commands = %d\n", option.n_commands);
+    for (int k = 0; k < MAXCMDS; k++)
+      if (option.commands[k])
+	printf("*** [%d] (%s) %s\n", k, option.names[k], option.commands[k]);
+  }
+
+
   // Best practice is to save the raw data (all the timing runs).
-  // Provide a reminder if that data is not being saved.
+  // We provide a reminder if that data is not being saved.
   if (!option.output_to_stdout && !option.output_filename) {
     printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n"
 	   "A single dash '-' instead of a file name prints to stdout.\n\n",
@@ -264,7 +344,6 @@ Ranking *run_all_commands(int argc, char **argv) {
     fflush(stdout);
   }
 
-  input = maybe_open(option.input_filename, "r");
   csv_output = maybe_open(option.csv_filename, "w");
   hf_output = maybe_open(option.hf_filename, "w");
 
@@ -280,46 +359,18 @@ Ranking *run_all_commands(int argc, char **argv) {
   Summary *s;
   Usage *usage = NULL;
 
-  if (option.runs <= 0) 
-    USAGE("Number of runs is 0, nothing to do");
+  // Usage array will expand as needed, but this size should be right
+  usage = new_usage_array(option.n_commands * option.runs);
 
-  usage = new_usage_array(2 * option.runs);
-
-  if (option.first > 0) {
-    for (int k = option.first; k < argc; k++) {
-      start = usage->next;
-      run_command(usage, n, argv[k], output);
-      s = summarize(usage, start, usage->next);
-      assert((option.runs <= 0) || s);
-      write_summary_stats(s, csv_output, hf_output);
-      report_one_command(s);
-      graph_one_command(s, usage, start, usage->next);
-      free_summary(s);
-      if (++n == MAXCMDS) goto toomany;
-    }
-  }
-
-  char *cmd = NULL;
-  if (input) {
-    while ((cmd = fgets(buf, MAXCMDLEN, input))) {
-      // fgets() guarantees a NUL-terminated string
-      size_t len = strlen(cmd);
-      if ((len > 0) && (cmd[len-1] == '\n')) {
-	cmd[len-1] = '\0';
-      } else {
-	ERROR("Read error on input file (max command length is %d bytes)", MAXCMDLEN);
-      }
-      // Command from file (may be blank)
-      start = usage->next;
-      run_command(usage, n, cmd, output);
-      s = summarize(usage, start, usage->next);
-      assert((option.runs <= 0) || s);
-      write_summary_stats(s, csv_output, hf_output);
-      report_one_command(s);
-      graph_one_command(s, usage, start, usage->next);
-      free_summary(s);
-      if (++n == MAXCMDS) goto toomany;
-    } // while
+  for (int k = 0; k < option.n_commands; k++) {
+    start = usage->next;
+    run_command(usage, k, option.commands[k], output);
+    s = summarize(usage, start, usage->next);
+    assert((option.runs <= 0) || s);
+    write_summary_stats(s, csv_output, hf_output);
+    report_one_command(s);
+    graph_one_command(s, usage, start, usage->next);
+    free_summary(s);
   }
 
   if (output) fclose(output);
@@ -328,10 +379,7 @@ Ranking *run_all_commands(int argc, char **argv) {
   if (input) fclose(input);
   free(buf);
 
-  if (n == 0) 
-    USAGE("No commands provided on command line or via input files");
-
-  // Usage array now will be owned by 'ranking' structure
+  // The 'ranking' structure takes ownership of the usage array
   return rank(usage);
 
  toomany:

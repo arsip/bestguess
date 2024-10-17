@@ -764,7 +764,9 @@ static void print_ranking(Ranking *rank) {
   Summary *s;
   int bestidx = rank->index[0];
   if (rank->summaries[bestidx]->runs < INFERENCE_N_THRESHOLD) {
-    printf("Minimum observations must be at least %d for this analysis.\n",
+    // TODO: Print the commands in order using lowest median total
+    // time, but do not make claims about significance.
+    printf("Minimum observations must be at least %d to produce a ranking.\n",
 	   INFERENCE_N_THRESHOLD);
     return;
   }

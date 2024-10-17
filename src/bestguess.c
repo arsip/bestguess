@@ -37,6 +37,9 @@ OptionValues option = {
   .hf_filename = NULL,
   .prep_command = NULL,
   .shell = "",
+  .n_commands = 0,
+  .commands = {NULL},
+  .names = {NULL},
   .report = REPORT_SUMMARY,
   .boxplot = false,
   .explain = false,
@@ -130,7 +133,7 @@ int main(int argc, char *argv[]) {
       case actionExecute:
 	optable_setusage("[options] <cmd1> ...");
 	process_exec_options(argc, argv);
-	ranking = run_all_commands(argc, argv);
+	ranking = run_all_commands();
 	report(ranking);
 	free_ranking(ranking);
 	break;
