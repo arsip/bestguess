@@ -856,7 +856,7 @@ static void print_ranking(Ranking *rank) {
   const int indent = 2;
 
   if (option.explain && can_rank) {
-    printf("Best guess inferential statistics:\n");
+    printf("Best guess inferential statistics:\n\n");
     print_stats_legend(indent);
     printf("\n");
   } 
@@ -895,6 +895,7 @@ void maybe_report(Summary *s) {
       print_summary(s, false);
       print_descriptive_stats(s);
       printf("\n");
+      break;
     default:
       PANIC("Unhandled report type (%d)", option.report);
   }
