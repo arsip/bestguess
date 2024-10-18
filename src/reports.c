@@ -479,6 +479,7 @@ void print_descriptive_stats(Summary *s) {
 // the array grows dynamically.
 #define ESTIMATED_DATA_POINTS 500
 
+// TODO: Write macros/funcs for extracting string fields
 Ranking *read_input_files(int argc, char **argv) {
 
   if ((option.first == 0) || (option.first == argc))
@@ -496,10 +497,13 @@ Ranking *read_input_files(int argc, char **argv) {
   int64_t value;
   int errfield;
   int lineno = 1;
+  int batchincr = 0;
+  int lastbatch = 0;
   
   for (int i = option.first; i < argc; i++) {
     input[i] = (strcmp(argv[i], "-") == 0) ? stdin : maybe_open(argv[i], "r");
     if (!input[i]) PANIC_NULL();
+    batchincr = lastbatch;
     // Skip CSV header
     errfield = read_CSVrow(input[i], &row, buf, buflen);
     free_CSVrow(row);
@@ -522,8 +526,19 @@ Ranking *read_input_files(int argc, char **argv) {
       str = unescape_csv(str);
       set_string(usage, idx, F_SHELL, str);
       free(str);
+      str = CSVfield(row, F_NAME);
+      if (!str)
+	csv_error(argv[i], lineno, "string", F_NAME+1, buf, buflen);
+      str = unescape_csv(str);
+      set_string(usage, idx, F_NAME, str);
+      free(str);
+      str = CSVfield(row, F_BATCH);
+      if (str && try_strtoint64(str, &value))
+	usage->data[idx].batch = value + batchincr;
+      else
+	csv_error(argv[i], lineno, "integer", F_BATCH+1, buf, buflen);
       // Set all the numeric fields that are measured directly
-      for (int fc = F_CODE; fc < F_TOTAL; fc++) {
+      for (int fc = F_STARTDATA; fc < F_ENDDATA; fc++) {
 	str = CSVfield(row, fc);
 	if (str && try_strtoint64(str, &value))
 	  set_int64(usage, idx, fc, value);
@@ -536,11 +551,13 @@ Ranking *read_input_files(int argc, char **argv) {
       set_int64(usage, idx, F_TCSW,
 		get_int64(usage, idx, F_ICSW) + get_int64(usage, idx, F_VCSW));
       free_CSVrow(row);
+      lastbatch = usage->data[idx].batch;
     }
     // Check for error reading this particular file (EOF is ok)
     if (errfield > 0)
       csv_error(argv[i], lineno + 1, "data", errfield, buf, buflen);
-  }
+  } // For each input file
+  
   free(buf);
   for (int i = option.first; i < argc; i++) fclose(input[i]);
   // Check for no data actually read from any of the files
@@ -862,36 +879,26 @@ static void print_ranking(Ranking *rank) {
   free(same);
 }
 
-void write_summary_stats(Summary *s, FILE *csv_output, FILE *hf_output) {
-  // If exporting CSV file of summary stats, write that line of data
-  if (option.csv_filename) write_summary_line(csv_output, s);
-  // If exporting in Hyperfine CSV format, write that line of data
-  if (option.hf_filename) write_hf_line(hf_output, s);
-}
-
-void report_one_command(Summary *s) {
+void maybe_report(Summary *s) {
   // If raw data is going to an output file, we print a summary on the
   // terminal (else raw data goes to terminal so that it can be piped
   // to another process).
-  if (!option.output_to_stdout) {
-    if (option.report != REPORT_NONE)
+  switch (option.report) {
+    case REPORT_NONE:
+      return;
+    case REPORT_BRIEF:
+    case REPORT_SUMMARY:
       print_summary(s, (option.report == REPORT_BRIEF));
-    if (option.report == REPORT_FULL)
-      print_descriptive_stats(s);
-    if ((option.report != REPORT_NONE) || (option.report == REPORT_FULL))
       printf("\n");
+      break;
+    case REPORT_FULL:
+      print_summary(s, false);
+      print_descriptive_stats(s);
+      printf("\n");
+    default:
+      PANIC("Unhandled report type (%d)", option.report);
   }
   fflush(stdout);
-}
-
-void graph_one_command(Summary *s, Usage *usage, int start, int end) {
-  if (!option.output_to_stdout) {
-    if (option.graph && usage) {
-      print_graph(s, usage, start, end);
-    }
-    if ((option.report != REPORT_NONE) || option.graph)
-      printf("\n");
-  }
 }
 
 // report() produces box plots and an overall ranking.  These are the
@@ -910,55 +917,42 @@ void report(Ranking *ranking) {
   Summary *s;
   FILE *csv_output = NULL, *hf_output = NULL;
 
-  if (option.csv_filename) 
-    csv_output = maybe_open(option.csv_filename, "w");
-  if (option.hf_filename)
-    hf_output = maybe_open(option.hf_filename, "w");
+  if (option.action == actionReport) {
 
-  if (csv_output)
-    write_summary_header(csv_output);
-  if (hf_output)
-    write_hf_header(hf_output);
+    if (option.csv_filename) 
+      csv_output = maybe_open(option.csv_filename, "w");
+    if (option.hf_filename)
+      hf_output = maybe_open(option.hf_filename, "w");
 
-  for (int i = 0; i < ranking->count; i++) {
-
-    s = ranking->summaries[i];
-
-    if (option.action != actionExecute) {
-      // If 'actionExecute' then a summary of each command was printed
-      // after each series of timed runs.  Otherwise, we need to print
-      // a summary, but only for report settings other than NONE.
-      if (option.report != REPORT_NONE) {
+    if (csv_output)
+      write_summary_header(csv_output);
+    if (hf_output)
+      write_hf_header(hf_output);
+    
+    for (int i = 0; i < ranking->count; i++) {
+      s = ranking->summaries[i];
+      if (option.report != REPORT_NONE)
 	announce_command(s->cmd, i);
-	printf("\n");
-      }
-      report_one_command(s);
-
-      // GRAPH
-      // If we have are not printing a report for each command, then we
-      // need to announce the current command for the graph.
+      maybe_report(s);
       if (option.graph) {
-	if (option.report == REPORT_NONE) {
+	if (option.report == REPORT_NONE)
 	  announce_command(s->cmd, i);
-	  printf("\n");
-	}
-	graph_one_command(s,
-			  ranking->usage,
-			  ranking->usageidx[i],
-			  ranking->usageidx[i+1]);
+	maybe_graph(s,
+		    ranking->usage,
+		    ranking->usageidx[i],
+		    ranking->usageidx[i+1]);
       }
-
-    } // If not executing an experiment
-    
-    if (option.action == actionReport) {
-      write_summary_stats(s, csv_output, hf_output);
+      // During reporting, user may want to save summary stats
+      write_summary_line(csv_output, s);
+      write_hf_line(hf_output, s);
+      // Reports are sent to stdout, which may be redirected.  If so,
+      // we should periodically flush stdout.
+      fflush(stdout);
     }
-    
-    fflush(stdout);
-  }
+    if (csv_output) fclose(csv_output);
+    if (hf_output) fclose(hf_output);
 
-  if (csv_output) fclose(csv_output);
-  if (hf_output) fclose(hf_output);
+  } // If action is reporting
 
   if (option.boxplot)
     print_boxplots(ranking->summaries, 0, ranking->count);

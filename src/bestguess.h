@@ -67,7 +67,6 @@ typedef struct OptionValues {
   int    first;
   bool   show_output;
   bool   ignore_failure;
-  bool   output_to_stdout;
   int    n_commands;
   const char *commands[MAXCMDS];
   const char *names[MAXCMDS];

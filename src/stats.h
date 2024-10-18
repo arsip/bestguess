@@ -67,6 +67,8 @@ enum InferenceFlags {
 typedef struct Summary {
   char      *cmd;		// Never NULL (can be epsilon)
   char      *shell;		// Never NULL (can be epsilon)
+  char      *name;		// Optional, can be NULL
+  int        batch;		// Unique (within a single CSV file) ID
   int        runs;
   int        fail_count;
   Measures   user;

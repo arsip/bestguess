@@ -19,7 +19,7 @@
    X(REPORT_BRIEF,   "brief",   "Brief report with wall clock and CPU time")    \
    X(REPORT_SUMMARY, "summary", "Summary as when data was collected (default)") \
    X(REPORT_FULL,    "full",    "Summary and distribution analysis)")           \
-  /* REPORT_ERROR must be last */                                               \
+  /* REPORT_ERROR must be last */					        \
    X(REPORT_ERROR,    NULL, "SENTINEL"    )    
 
 #define FIRST(a, b, c) a,
@@ -40,9 +40,7 @@ void print_summary(Summary *s, bool briefly);
 void print_overall_summary(Summary *summaries[], int start, int end);
 void print_descriptive_stats(Summary *s);
 
-// TODO: Find a home for these, and clean up the APIs
-void write_summary_stats(Summary *s, FILE *csv_output, FILE *hf_output);
-void report_one_command(Summary *s);
-void graph_one_command(Summary *s, Usage *usage, int start, int end);
+void maybe_report(Summary *s);
+void maybe_graph(Summary *s, Usage *usage, int start, int end);
 
 #endif

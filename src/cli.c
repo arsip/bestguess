@@ -356,12 +356,7 @@ void process_exec_options(int argc, char **argv) {
 	break;
       case OPT_OUTPUT:
 	check_option_value(val, n);
-	if (strcmp(val, "-") == 0) {
-	  option.output_to_stdout = true;
-	} else {
-	  option.output_filename = strdup(val);
-	  option.output_to_stdout = false;
-	}
+	option.output_filename = strdup(val);
 	break;
       case OPT_FILE:
 	check_option_value(val, n);

@@ -625,6 +625,9 @@ Summary *summarize(Usage *usage, int start, int end) {
   Summary *s = new_summary();
   s->cmd = strndup(get_string(usage, start, F_CMD), MAXCMDLEN);
   s->shell = strndup(get_string(usage, start, F_SHELL), MAXCMDLEN);
+  char *tmp = get_string(usage, start, F_NAME);
+  s->name = tmp ? strndup(tmp, MAXCMDLEN) : NULL;
+  s->batch = usage->data[start].batch;
 
   s->runs = end - start;
   for (int i = start; i < end; i++) 
@@ -664,10 +667,10 @@ static Ranking *make_ranking(Usage *usage, int start, int end) {
   rank->usageidx[0] = 0;
   int i = 0;
   while (i < end) {
-    // Find usage index with a different command than the one at 'start'
-    const char *cmd = get_string(usage, i, F_CMD);
+    // Find usage index with a different batch number than the one at 'start'
+    int batch = usage->data[i].batch;
     for (i++; i < end; i++) 
-      if (strncmp(cmd, get_string(usage, i, F_CMD), MAXCMDLEN) != 0) break;
+      if (usage->data[i].batch != batch) break;
     rank->usageidx[count+1] = i;
     count++;
   }

@@ -45,6 +45,14 @@ void print_graph(Summary *s, Usage *usage, int start, int end) {
   fflush(stdout);
 }
 
+void maybe_graph(Summary *s, Usage *usage, int start, int end) {
+  if (option.graph && usage) {
+    print_graph(s, usage, start, end);
+    printf("\n");
+    fflush(stdout);
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Box plots
 // -----------------------------------------------------------------------------
@@ -269,3 +277,9 @@ void print_boxplots(Summary *summaries[], int start, int end) {
   puts("");
   fflush(stdout);
 }
+
+void maybe_boxplots(Ranking *ranking) {
+  if (option.boxplot)
+    print_boxplots(ranking->summaries, 0, ranking->count);
+}
+

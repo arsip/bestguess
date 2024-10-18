@@ -159,21 +159,27 @@ void csv_error(char *input,
   } while (0)
 
 void write_header(FILE *f) {
-  for (FieldCode fc = 0; fc < F_RAWNUMEND; fc++)
-    WRITEHEADER(fc, Header[fc], F_RAWNUMEND);
+  for (FieldCode fc = 0; fc < F_LAST; fc++)
+    WRITEHEADER(fc, Header[fc], F_LAST);
   fflush(f);
 }
 
 #define GETFIELD(fc) (get_int64(usage, idx, (fc)))
 
+// NOTE: We do not write computed metrics to the raw data file.
+
 void write_line(FILE *f, Usage *usage, int idx) {
   char *escaped_cmd = escape_csv(get_string(usage, idx, F_CMD));
   char *shell_cmd = escape_csv(get_string(usage, idx, F_SHELL));
+  char *cmd_name = get_string(usage, idx, F_NAME);
+  if (cmd_name) cmd_name = escape_csv(cmd_name);
 
-  WRITEFIELD(F_CMD, "\"%s\"", escaped_cmd, F_RAWNUMEND);
-  WRITEFIELD(F_SHELL, "\"%s\"", shell_cmd, F_RAWNUMEND);
-  for (FieldCode fc = F_RAWNUMSTART; fc < F_RAWNUMEND; fc++) {
-    WRITEFIELD(fc, INT64FMT, GETFIELD(fc), F_RAWNUMEND);
+  WRITEFIELD(F_CMD, "\"%s\"", escaped_cmd, F_LAST);
+  WRITEFIELD(F_SHELL, "\"%s\"", shell_cmd, F_LAST);
+  WRITEFIELD(F_NAME, "\"%s\"", cmd_name ?: "", F_LAST);
+  WRITEFIELD(F_BATCH, "%d", usage->data[idx].batch, F_LAST);
+  for (FieldCode fc = F_STARTDATA; fc < F_ENDDATA; fc++) {
+    WRITEFIELD(fc, INT64FMT, GETFIELD(fc), F_ENDDATA);
   }
   
   // User time in microseconds
@@ -276,6 +282,8 @@ void write_line(FILE *f, Usage *usage, int idx) {
   X(S_WALLP95, "Wall p95 (μs)")		        \
   X(S_WALLP99, "Wall p99 (μs)")		        \
   X(S_WALLMAX, "Wall max (μs)")			\
+  X(S_NAME,    "Name")				\
+  X(S_BATCH,   "Batch")				\
   X(S_LAST,    "SENTINEL")
 
 #define FIRST(a, b) a,
@@ -299,8 +307,10 @@ void write_summary_header(FILE *f) {
   } while (0)
 
 void write_summary_line(FILE *f, Summary *s) {
+  if (!f) return;
   char *escaped_cmd = escape_csv(s->cmd);
   char *shell_cmd = escape_csv(option.shell);
+  char *cmd_name = s->name ? escape_csv(s->name) : NULL;
   WRITEFIELD(S_CMD, "%s", escaped_cmd, S_LAST);
   WRITEFIELD(S_SHELL, "%s", shell_cmd, S_LAST);
   WRITEFIELD(S_RUNS, "%d", s->runs, S_LAST);
@@ -369,9 +379,12 @@ void write_summary_line(FILE *f, Summary *s) {
   MAYBE(WRITEFIELD, S_WALLP95, INT64FMT, s->wall.pct95, S_LAST);
   MAYBE(WRITEFIELD, S_WALLP99, INT64FMT, s->wall.pct99, S_LAST);
   WRITEFIELD(S_WALLMAX, INT64FMT, s->wall.max, S_LAST);
+  WRITEFIELD(S_NAME, "%s", cmd_name ?: "", S_LAST);
+  WRITEFIELD(S_BATCH, "%d", s->batch, S_LAST);
   fflush(f);
   free(escaped_cmd);
   free(shell_cmd);
+  free(cmd_name);
 }
 
 // -----------------------------------------------------------------------------
@@ -395,6 +408,7 @@ void write_hf_header(FILE *f) {
 }
 
 void write_hf_line(FILE *f, Summary *s) {
+  if (!f) return;
   const int N = 8;
   const double million = MICROSECS;
   int i = 0;
@@ -416,7 +430,3 @@ void write_hf_line(FILE *f, Summary *s) {
   WRITEFIELD(i++, "%f", (double) s->total.max / million, N);
   fflush(f);
 }
-
-
-
-

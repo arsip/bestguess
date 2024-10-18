@@ -29,6 +29,9 @@ int64_t max64(int64_t a, int64_t b);
   /* -------- String fields ----------------- */ \
   X(F_CMD,      "Command"                      ) \
   X(F_SHELL,    "Shell"                        ) \
+  X(F_NAME,     "Name"                         ) \
+  /* -------- Accounting -------------------- */ \
+  X(F_BATCH,    "Batch"                        ) \
   /* -------- Numeric metrics from rusage --- */ \
   X(F_CODE,     "Exit code"                    ) \
   X(F_USER,     "User time (us)"               ) \
@@ -42,6 +45,7 @@ int64_t max64(int64_t a, int64_t b);
   /* -------- Computed metrics -------------- */ \
   X(F_TOTAL,    "Total time (us)"              ) \
   X(F_TCSW,     "Total Context Switches"       ) \
+  /* -------- Sentinel ---------------------- */ \
   X(F_LAST,     "SENTINEL"                     )
 
 #define FIRST(a, b) a,
@@ -50,15 +54,21 @@ typedef enum { XFields(FIRST) } FieldCode;
 extern const char *Header[];
 
 // IMPORTANT: Check/alter these if the table structure changes
-#define F_NUMSTART F_CODE
-#define F_NUMEND F_TOTAL
-#define F_RAWNUMSTART F_CODE
-#define F_RAWNUMEND F_TOTAL
+// IMPORTANT: Ranges include the start value, not the end value
 
-#define FSTRING(f) (((f) >= 0) || ((f) < F_NUMSTART))
-#define FRAWDATA(f) (((f) >= F_NUMSTART) && ((f) < F_NUMEND))
-#define FNUMERIC(f) (((f) >= F_NUMSTART) && ((f) < F_LAST))
-#define FTONUMERICIDX(f) ((f) - F_NUMSTART)
+// For CSV writing, we need to know where the measurements are,
+// because we write those but not the computed metrics.
+// For indexing into Usage arrays easily, we need to know which fields
+// have int64_t values.
+#define F_STARTDATA F_CODE
+#define F_ENDDATA F_TOTAL
+#define F_STARTNUM F_CODE
+#define F_ENDNUM F_LAST
+
+#define FSTRING(f) (((f) >= 0) || ((f) < F_STARTDATA))
+#define FRAWDATA(f) (((f) >= F_STARTDATA) && ((f) < F_ENDDATA))
+#define FNUMERIC(f) (((f) >= F_STARTNUM) && ((f) < F_ENDNUM))
+#define FTONUMERICIDX(f) ((f) - F_STARTNUM)
 
 #define INT64FMT "%" PRId64
 
@@ -69,7 +79,9 @@ extern const char *Header[];
 typedef struct UsageData {
   char         *cmd;
   char         *shell;
-  int64_t       metrics[F_LAST - F_NUMSTART];
+  char         *name;
+  int           batch;
+  int64_t       metrics[F_LAST - F_STARTDATA];
 } UsageData;
   
 typedef struct Usage {
@@ -203,6 +215,8 @@ char  *apply_units(int64_t value, Units *units, bool show_unit_names);
 
 char *command_announcement(const char *cmd, int index, const char *fmt, int len);
 void  announce_command(const char *cmd, int index);
+
+int64_t next_batch_number(void);
 
 /* ----------------------------------------------------------------------------- */
 /* Error handling for runtime errors                                             */

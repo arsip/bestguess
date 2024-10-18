@@ -120,11 +120,14 @@ static void run_prep_command(void) {
   }
 }
 
-static int run(const char *cmd, Usage *usage, int idx) {
+static int run(int num, Usage *usage, int idx, int64_t batch) {
   FILE *f;
   pid_t pid;
   int status;
   int64_t start, stop;
+
+  const char *cmd = option.commands[num];
+  const char *name = option.names[num];
 
   int show_output = option.show_output;
   int use_shell = *option.shell;
@@ -184,7 +187,9 @@ static int run(const char *cmd, Usage *usage, int idx) {
   set_int64(usage, idx, F_WALL, stop - start);
 
   set_string(usage, idx, F_CMD, cmd);
-  set_string(usage, idx, F_SHELL, option.shell);;
+  set_string(usage, idx, F_SHELL, option.shell);
+  set_string(usage, idx, F_NAME, name ?: "");
+  usage->data[idx].batch = batch;
 
   // Check to see if cmd/shell aborted or was killed
   if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
@@ -244,27 +249,26 @@ static int run(const char *cmd, Usage *usage, int idx) {
   return WEXITSTATUS(status);
 }
 
-static Usage *run_command(Usage *usage, int num, const char *cmd, FILE *output) {
+static Usage *run_command(Usage *usage, int num, FILE *output) {
 
-  if (!option.output_to_stdout) {
-    if ((option.report != REPORT_NONE) || option.graph) {
-      announce_command(cmd, num);
-      printf("\n");
-      fflush(stdout);
-    }
-  }
+  const char *cmd = option.commands[num];
+  const char *name = option.names[num];
+  int64_t batch = next_batch_number();
+
+  if ((option.report != REPORT_NONE) || option.graph) 
+    announce_command(name ?: cmd, num);
 
   Usage *dummy = new_usage_array(option.warmups);
   int idx;
   for (int i = 0; i < option.warmups; i++) {
     idx = usage_next(dummy);
-    run(cmd, dummy, idx);
+    run(num, dummy, idx, batch);
   }
   free_usage_array(dummy);
 
   for (int i = 0; i < option.runs; i++) {
     idx = usage_next(usage);
-    run(cmd, usage, idx);
+    run(num, usage, idx, batch);
     if (output) write_line(output, usage, idx);
   }
 
@@ -329,7 +333,7 @@ Ranking *run_all_commands(void) {
 
   // Best practice is to save the raw data (all the timing runs).
   // We provide a reminder if that data is not being saved.
-  if (!option.output_to_stdout && !option.output_filename) {
+  if (!option.output_filename) {
     printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n"
 	   "A single dash '-' instead of a file name prints to stdout.\n\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
@@ -346,14 +350,11 @@ Ranking *run_all_commands(void) {
 
   csv_output = maybe_open(option.csv_filename, "w");
   hf_output = maybe_open(option.hf_filename, "w");
+  output = maybe_open(option.output_filename, "w");
 
-  output = (option.output_to_stdout)
-    ? stdout
-    : maybe_open(option.output_filename, "w");
-
-  if (output) write_header(output);
   if (csv_output) write_summary_header(csv_output);
   if (hf_output) write_hf_header(hf_output);
+  if (output) write_header(output);
 
   int start;
   Summary *s;
@@ -364,12 +365,13 @@ Ranking *run_all_commands(void) {
 
   for (int k = 0; k < option.n_commands; k++) {
     start = usage->next;
-    run_command(usage, k, option.commands[k], output);
+    run_command(usage, k, output);
     s = summarize(usage, start, usage->next);
     assert((option.runs <= 0) || s);
-    write_summary_stats(s, csv_output, hf_output);
-    report_one_command(s);
-    graph_one_command(s, usage, start, usage->next);
+    write_summary_line(csv_output, s);
+    write_hf_line(hf_output, s);
+    maybe_report(s);
+    maybe_graph(s, usage, start, usage->next);
     free_summary(s);
   }
 

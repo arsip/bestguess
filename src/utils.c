@@ -15,6 +15,12 @@
 const char *Header[] = {XFields(SECOND) NULL};
 #undef SECOND
 
+// Does not need to be 64 bits, but less code to write this way
+int64_t next_batch_number(void) {
+  static int64_t previous = 0;
+  return ++previous;
+}
+
 // Used by the PANIC macro to report internal errors (bugs)
 void panic_report(const char *prelude,
 	     const char *filename, int lineno,
@@ -91,6 +97,7 @@ char *get_string(Usage *usage, int idx, FieldCode fc) {
     PANIC("Index %d out of range 0..%d", usage->next - 1);
   if (fc == F_CMD) return usage->data[idx].cmd;
   if (fc == F_SHELL) return usage->data[idx].shell;
+  if (fc == F_NAME) return usage->data[idx].name;
   PANIC("Non-string field code (%d)", fc);
 }
 
@@ -115,6 +122,9 @@ void set_string(Usage *usage, int idx, FieldCode fc, const char *str) {
       break;
     case F_SHELL:
       usage->data[idx].shell = dup;
+      break;
+    case F_NAME:
+      usage->data[idx].name = dup;
       break;
     default:
       free(dup);
@@ -711,6 +721,8 @@ void announce_command(const char *cmd, int index) {
   const char *fmt = "Command %d: %s";
   char *announcement = command_announcement(cmd, index, fmt, NOLIMIT); 
   printf("%s", announcement);
+  printf("\n");
+  fflush(stdout);
   free(announcement);
 }
 

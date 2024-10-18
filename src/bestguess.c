@@ -30,7 +30,6 @@ OptionValues option = {
   .first = 0,
   .show_output = false,
   .ignore_failure = false,
-  .output_to_stdout = false,
   .input_filename = NULL,
   .output_filename = NULL,
   .csv_filename = NULL,

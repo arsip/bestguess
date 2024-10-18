@@ -13,6 +13,9 @@
 void print_graph(Summary *s, Usage *usagedata, int start, int end);
 void print_boxplots(Summary *s[], int start, int end);
 
+void maybe_boxplots(Ranking *ranking);
+void maybe_graph(Summary *s, Usage *usage, int start, int end);
+
 #endif
 
 
