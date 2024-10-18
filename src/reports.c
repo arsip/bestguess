@@ -573,6 +573,7 @@ static void add_ranking(DisplayTable *t,
 			int *row,
 			int cmd_idx,
 			bool winnerp,
+			bool can_rank,
 			Summary *s,
 			int64_t best_time) {
   const char *mark = "✗";
@@ -586,7 +587,7 @@ static void add_ranking(DisplayTable *t,
   char *shift_repr = NULL;
   char *info_line = NULL;
 
-  if (option.explain) {
+  if (option.explain && can_rank) {
     display_table_fullspan(t, *row, 'l', "%s", RANK_HEADER);
     (*row)++;
   }
@@ -602,11 +603,11 @@ static void add_ranking(DisplayTable *t,
     pct = infer->shift / (double) best_time;
     shift_repr = apply_units(infer->shift, units, UNITS);
     ASPRINTF(&info_line, "%s%-*s  %10s %10s %7.1f%%",
-	     winnerp ? winner : " ",
+	     (winnerp && can_rank) ? winner : " ",
 	     cmd_width, cmd, median_repr, shift_repr, pct * 100.0);
   } else {
     ASPRINTF(&info_line, "%s%-*s  %10s",
-	     winnerp ? winner : " ",
+	     (winnerp && can_rank) ? winner : " ",
 	     cmd_width, cmd, median_repr);
   }
   display_table_fullspan(t, *row, 'l', "%s", info_line);
@@ -622,7 +623,7 @@ static void add_ranking(DisplayTable *t,
   //
   // And, if we are not printing explanations, there is nothing more.
 
-  if (!option.explain || !infer) return;
+  if (!option.explain || !infer || !can_rank) return;
 
   display_table_blankline(t, *row);
   (*row)++;
@@ -763,17 +764,15 @@ static void print_ranking(Ranking *rank) {
 
   Summary *s;
   int bestidx = rank->index[0];
-  if (rank->summaries[bestidx]->runs < INFERENCE_N_THRESHOLD) {
-    // TODO: Print the commands in order using lowest median total
-    // time, but do not make claims about significance.
-    printf("Minimum observations must be at least %d to produce a ranking.\n",
-	   INFERENCE_N_THRESHOLD);
-    return;
-  }
-
+  bool can_rank = 
+    (rank->summaries[bestidx]->runs >= INFERENCE_N_THRESHOLD);
+    
   // Take all the samples indistinguishable from the best performer
   // and group them (in rank order) in the 'same' array so they can be
-  // printed together.
+  // printed together.  If there were insufficient observations (too
+  // few runs) to produce a statistical ranking, we list them in order
+  // of median total time, but we do not claim that this list is a
+  // proper ranking.
   int *same = malloc(rank->count * sizeof(int));
   if (!same) PANIC_NULL();
 
@@ -781,7 +780,7 @@ static void print_ranking(Ranking *rank) {
   int same_count = 1;
   for (int i = 1; i < rank->count; i++) {
     s = rank->summaries[rank->index[i]];
-    if (s->infer->indistinct) {
+    if (can_rank && s->infer->indistinct) {
       same[i] = rank->index[i];
       same_count++;
     } else {
@@ -794,7 +793,7 @@ static void print_ranking(Ranking *rank) {
   int row = 0;
   DisplayTable *t = ranking_table();
 
-  if (!option.explain) {
+  if (!option.explain || !can_rank) {
     // Explanations have RANK_HEADER before each command.  If we are
     // not explaining, then RANK_HEADER appears once, so add it to 't':
     display_table_fullspan(t, row++, 'l', "%s", RANK_HEADER);
@@ -805,25 +804,27 @@ static void print_ranking(Ranking *rank) {
   for (int i = 0; i < rank->count; i++) {
     if (same[i] == -1) continue;
     s = rank->summaries[same[i]];
-    if (option.explain && s->infer)
+    if (option.explain && s->infer && can_rank)
       display_table_blankline(t, row++);
-    add_ranking(t, &row, same[i], true, s, best_time);
+    add_ranking(t, &row, same[i], true, can_rank, s, best_time);
   }
 
-  if (option.explain)
+  if (option.explain && can_rank) {
     display_table_blankline(t, row++);
-  else
-    display_table_fullspan(t, row++, 'l', "%.*s",
-			   utf8_width(DOUBLE_BAR, t->width), DOUBLE_BAR);
+  } else {
+    if (can_rank)
+      display_table_fullspan(t, row++, 'l', "%.*s",
+			     utf8_width(DOUBLE_BAR, t->width), DOUBLE_BAR);
+  }
 
   // Print the rest
   bool first_time = true;
   for (int i = 0; i < rank->count; i++)
     if ((same[i] == -1) && (rank->index[i] != bestidx)) {
       s = rank->summaries[rank->index[i]];
-      if (option.explain && !first_time)
+      if (option.explain && can_rank && !first_time)
 	display_table_blankline(t, row++);
-      add_ranking(t, &row, rank->index[i], false, s, best_time);
+      add_ranking(t, &row, rank->index[i], false, can_rank, s, best_time);
       first_time = false;
     }
 
@@ -837,18 +838,23 @@ static void print_ranking(Ranking *rank) {
 
   const int indent = 2;
 
-  if (option.explain) {
+  if (option.explain && can_rank) {
     printf("Best guess inferential statistics:\n");
     print_stats_legend(indent);
     printf("\n");
   } 
 
-  if (same_count > 1) 
+  if (!can_rank)  {
+    printf("Best guess ranking: "
+	   "(Lacking the %d timed runs to statistically rank)\n\n",
+	   INFERENCE_N_THRESHOLD);
+  } else if (same_count > 1) {
     printf("Best guess ranking: "
 	   "The top %d commands performed identically\n\n",
 	   same_count);
-  else
+  } else {
     printf("Best guess ranking:\n\n");
+  } 
 
   display_table(t, indent);
   fflush(stdout);

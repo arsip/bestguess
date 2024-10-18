@@ -496,8 +496,8 @@ static bool nonnormal_kurtosis(double kurtosis, int n) {
   return (Zabs > skew_kurtosis_Zcrit(n));
 }
 
-// TODO: How close to zero is too small a stddev (or variance) for
-// ADscore to be meaningful?
+// FUTURE: How should we set the threshold for a stddev (or variance)
+// too small for the ADscore to be meaningful?
 
 #define LOWMEAN_THRESHOLD 0.1	   // Good for integer number of microsecs
 #define LOWSTDDEV_THRESHOLD 0.1    // Somewhat arbitrary
