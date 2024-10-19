@@ -23,7 +23,9 @@ static bool spacetab(char c) {
   return (c == ' ') || (c == '\t');
 }
 
-static bool isblank(const char *str) {
+// Note: isblank() is a library function (see ctype.h) that does the
+// same thing, but is locale-sensitive.
+static bool ishorizws(const char *str) {
   while (spacetab(*str)) str++;
   return (*str == '\0');
 }
@@ -300,7 +302,7 @@ Ranking *run_all_commands(void) {
 	ERROR("Input file line %d too long (max length is %d bytes)",
 	      lineno, MAXCMDLEN);
       }
-      if (isblank(cmd)) continue;
+      if (ishorizws(cmd)) continue;
       // Have non-blank line from file
       name = have_name_option(cmd);
       if (name) {

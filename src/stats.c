@@ -591,6 +591,7 @@ void free_summary(Summary *s) {
   if (!s) return;
   free(s->cmd);
   free(s->shell);
+  free(s->name);
   if (s->infer) free(s->infer);
   free(s);
 }
