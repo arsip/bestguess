@@ -206,6 +206,7 @@ void write_line(FILE *f, Usage *usage, int idx) {
   fflush(f);
   free(escaped_cmd);
   free(shell_cmd);
+  free(cmd_name);
 }
 
 // -----------------------------------------------------------------------------
