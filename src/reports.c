@@ -385,6 +385,7 @@ void print_descriptive_stats(Summary *s) {
     ASPRINTF(&tmp, FMT " … " FMTL, ROUND1(m->min, div), ROUND1(m->max, div));
   display_table_set(t, row, 1, tmp);
   display_table_set(t, row, 2, sec ? "s" : "ms");
+  free(tmp);
   row++;
 
   display_table_set(t, row, 1, (sec ? FMTs : FMT), ROUND1(range, div));
@@ -400,6 +401,7 @@ void print_descriptive_stats(Summary *s) {
     ASPRINTF(&tmp, FMT " … " FMTL, ROUND1(m->Q1, div), ROUND1(m->Q3, div));
   display_table_set(t, row, 1, tmp);
   display_table_set(t, row, 2, sec ? "s" : "ms");
+  free(tmp);
   row++;
 
   display_table_set(t, row, 1, (sec ? FMTs : FMT), ROUND1(IQR, div));
