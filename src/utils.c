@@ -85,6 +85,7 @@ void free_usage_array(Usage *usage) {
     // These fields are strings owned by the usage struct
     free(usage->data[i].cmd);
     free(usage->data[i].shell);
+    free(usage->data[i].name);
   }
   free(usage->data);
   free(usage);

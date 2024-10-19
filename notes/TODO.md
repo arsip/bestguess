@@ -175,6 +175,18 @@ State_.
 
 ## BestGuess features
 
+- [ ] Could change from report types, e.g. `-R brief` to using single capital
+      letter flags.  We have these now:
+		`-G` graph
+		`-B` boxplot
+		`-E` explain statistic calculations
+	  And we could replace `-R` with:
+		`-N` no report
+		`-R` report (what we call "summary" today)
+	    `-S` summary (brief) report **Need to change shell option to `-s`**
+		`-T` tail report, in addition to regular or summary
+		`-D` distribution report, in addition to regular or summary
+
 - [ ] If we want to use Hyperfine terms for the various kinds of commands, we
       need to support:
 	  - Setup -s, --setup (runs before each batch)
@@ -187,21 +199,21 @@ State_.
 	  [ ] Post-cmd --post (runs after each timed run)
 	  [ ] Cleanup  --cleanup (runs after each batch)
 
-- [ ] Raw data files should have a "batch number" in every row.  That way, users
+- [X] Raw data files should have a "batch number" in every row.  That way, users
       can benchmark the same command more than once (or combine results files
       that include the same command) and the reporting can use the batch numbers
       to tell them apart.
 
-- [ ] The Hyperfine ability to let the user name their commands is another good
+- [X] The Hyperfine ability to let the user name their commands is another good
       one from that project.  It should make reports much easier to read.
 
-- [ ] We need a way to set parameters like terminal width, minimum effect size,
+- [X] We need a way to set parameters like terminal width, minimum effect size,
       and others from the command line.  Currently, we have `--width` but this
       should be unified with other settings so we don't have to have a unique
       flag for each.  Java uses `-XX:` for non-standard options, but that seems
       like the wrong vibe.
-	  - [ ] Maybe `-c` / `--config`?
-	  - [ ] Value would have the form _name=value_, e.g. `-c width=60`
+	  - [X] Using `-x` unless we can come up with something better
+	  - [X] Value would have the form _name=value_, e.g. `-c width=60`
 	  - [ ] Could allow environment variables, e.g. `-c width=$COLUMNS` if we
             can (1) find no security issues and (2) have a syntax that does not
             prevent a literal string that starts with `$` to be the value of a
