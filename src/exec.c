@@ -257,7 +257,7 @@ static Usage *run_command(Usage *usage, int num, FILE *output) {
   const char *name = option.names[num];
   int64_t batch = next_batch_number();
 
-  if ((option.report != REPORT_NONE) || option.graph) 
+  if (any_per_command_output())
     announce_command(name ?: cmd, num);
 
   Usage *dummy = new_usage_array(option.warmups);
@@ -324,20 +324,10 @@ Ranking *run_all_commands(void) {
   if (option.n_commands == 0) 
     USAGE("No commands provided on command line or input file");
 
-  // TEMP!
-  {
-    printf("*** Number of commands = %d\n", option.n_commands);
-    for (int k = 0; k < MAXCMDS; k++)
-      if (option.commands[k])
-	printf("*** [%d] (%s) %s\n", k, option.names[k], option.commands[k]);
-  }
-
-
   // Best practice is to save the raw data (all the timing runs).
   // We provide a reminder if that data is not being saved.
   if (!option.output_filename) {
-    printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n"
-	   "A single dash '-' instead of a file name prints to stdout.\n\n",
+    printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
     fflush(stdout);
   }
@@ -365,6 +355,9 @@ Ranking *run_all_commands(void) {
   // Usage array will expand as needed, but this size should be right
   usage = new_usage_array(option.n_commands * option.runs);
 
+  // FUTURE: We compute summaries twice.  Once in the loop below, as
+  // each command's executions finish, and then again during ranking.
+
   for (int k = 0; k < option.n_commands; k++) {
     start = usage->next;
     run_command(usage, k, output);
@@ -372,8 +365,7 @@ Ranking *run_all_commands(void) {
     assert((option.runs <= 0) || s);
     write_summary_line(csv_output, s);
     write_hf_line(hf_output, s);
-    maybe_report(s);
-    maybe_graph(s, usage, start, usage->next);
+    per_command_output(s, usage, start, usage->next);
     free_summary(s);
   }
 

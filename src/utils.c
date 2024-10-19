@@ -729,3 +729,8 @@ void announce_command(const char *cmd, int index) {
   free(announcement);
 }
 
+bool any_per_command_output(void) {
+  return (!option.nostats || option.ministats || option.graph ||
+	  option.diststats || option.tailstats);
+}
+

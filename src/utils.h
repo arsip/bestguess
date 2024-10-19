@@ -215,6 +215,7 @@ char  *apply_units(int64_t value, Units *units, bool show_unit_names);
 
 char *command_announcement(const char *cmd, int index, const char *fmt, int len);
 void  announce_command(const char *cmd, int index);
+bool  any_per_command_output(void);
 
 int64_t next_batch_number(void);
 

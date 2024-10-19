@@ -23,7 +23,10 @@ enum Options {
   OPT_FILE,			// Input file of commands
   OPT_BRIEF,
   OPT_GRAPH,
-  OPT_REPORT,
+  OPT_NOSTATS,
+  OPT_MINISTATS,
+  OPT_DISTSTATS,
+  OPT_TAILSTATS,
   OPT_BOXPLOT,
   OPT_EXPLAIN,			// Explain the inferential statistics
   OPT_ACTION,			// E.g. run, report

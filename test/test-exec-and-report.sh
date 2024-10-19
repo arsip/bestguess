@@ -12,28 +12,7 @@ printf "%s\n\n" '-------------------------------------------------'
 declare -a output
 allpassed=1
 
-function ok {
-    command="$*"
-    output=$(${@})
-    local status=$?
-    if [[ -n "$SHOWOUTPUT" ]]; then
-	printf "\n"
-	echo "$output"
-    fi
-    if [[ $status -ne 0 ]]; then
-	printf "Expected success. Failed with code %d: %s\n" $status "$command"
-	allpassed=0
-    fi
-}
-
-function contains {
-    for str in "$@"; do
-	if [[ "$output" != *"$str"* ]]; then
-	    printf "Output did not contain '%s': %s\n" "$str" "$command"
-	    allpassed=0
-	fi
-    done
-}
+source ./common.sh
 
 # ------------------------------------------------------------------
 # TERMINAL output options
@@ -41,57 +20,94 @@ function contains {
 
 # Default report is summary
 ok "$prog" /bin/bash
-contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
-ok "$prog" -R summary /bin/bash
-contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
+contains "Command 1" "/bin/bash"
+has_stats
+no_ranking
+no_graph
+no_boxplot
 
-# Brief report
-ok "$prog" -R brief /bin/bash
-contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
+# Mini report
+ok "$prog" -M /bin/bash
+contains "Command 1" "/bin/bash"
+has_mini_stats
+no_ranking
+no_graph
+no_boxplot
 
 # No report and only one program, so nothing to compare it with
-ok "$prog" -R none /bin/bash
+ok "$prog" -N /bin/bash
+missing "Command 1" "/bin/bash"
+no_stats
+no_ranking
+no_graph
+no_boxplot
 
 # No report but comparison is printed
-ok "$prog" -R none /bin/bash ls
-contains "Lacking" "statistically rank"
+ok "$prog" -N /bin/bash ls
+no_stats
+has_ranking
+no_statistical_ranking
+no_boxplot
 
 # Graph with default report
 ok "$prog" -G /bin/bash
-contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" "0     " "     max"
+contains "Command 1" "/bin/bash"
+has_stats
+has_graph
+no_boxplot
+no_ranking
 
 # Graph with no report
-ok "$prog" -R none -G /bin/bash
-contains "Command 1" "/bin/bash"
-contains "│▭▭▭▭▭▭▭▭" "0" "max"
+ok "$prog" -N -G /bin/bash
+no_stats
+has_graph
+no_boxplot
+no_ranking
 
 # Boxplot
 ok "$prog" -B /bin/bash
 contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" 
-contains "├────" "─┼─"
+has_stats
+no_graph
+has_boxplot
+no_ranking
 
 # Boxplot with no report
-ok "$prog" -R none -B /bin/bash
-contains "├────" "─┼─"
+ok "$prog" -N -B /bin/bash
+no_stats
+has_boxplot
+no_graph
+no_ranking
 
 for warmups in $(seq 0 5); do
     for runs in $(seq 1 5); do
 	# Default report
 	ok "$prog" -w $warmups -r $runs /bin/bash
-	contains "Command 1" "/bin/bash" "Total CPU time" "Mode" "Median" "Context"
+	has_stats
+	no_graph
+	no_boxplot
+	no_ranking
 
 	# Brief report
-	ok "$prog" -w $warmups -r $runs -R brief /bin/bash
-	contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
-
+	ok "$prog" -w $warmups -r $runs -M /bin/bash
+	has_mini_stats
+	no_graph
+	no_boxplot
+	no_ranking
+	
 	# Graph
-	ok "$prog" -w $warmups -r $runs -R=brief -G /bin/bash
-	contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median"
-	contains "0     "  "     max"
+	ok "$prog" -w $warmups -r $runs -N -G /bin/bash
+	no_stats
+	has_graph
+	no_boxplot
+	no_ranking
 
 	# Boxplot
-	ok "$prog" -w $warmups -r $runs -R=none -B /bin/bash
-	contains "├────" "─┼─"
+	ok "$prog" -w $warmups -r $runs -N -B /bin/bash
+	no_stats
+	has_boxplot
+	no_graph
+	no_ranking
     done
 done
 

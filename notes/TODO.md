@@ -175,15 +175,14 @@ State_.
 
 ## BestGuess features
 
-- [ ] Could change from report types, e.g. `-R brief` to using single capital
+- [X] Could change from report types, e.g. `-R brief` to using single capital
       letter flags.  We have these now:
 		`-G` graph
 		`-B` boxplot
 		`-E` explain statistic calculations
 	  And we could replace `-R` with:
-		`-N` no report
-		`-R` report (what we call "summary" today)
-	    `-S` summary (brief) report **Need to change shell option to `-s`**
+		`-N` no statistical summary
+	    `-M` mini summary ("-R brief" today)
 		`-T` tail report, in addition to regular or summary
 		`-D` distribution report, in addition to regular or summary
 

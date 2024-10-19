@@ -61,7 +61,6 @@ typedef enum Action {
 typedef struct OptionValues {
   int    action;
   int    helpversion;
-  bool   graph;
   int    runs;
   int    warmups;
   int    first;
@@ -76,7 +75,11 @@ typedef struct OptionValues {
   char  *csv_filename;
   char  *hf_filename;
   char  *prep_command;
-  int    report;
+  bool   graph;
+  bool   nostats;
+  bool   ministats;
+  bool   diststats;
+  bool   tailstats;
   bool   boxplot;
   bool   explain;
 } OptionValues;

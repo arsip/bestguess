@@ -72,10 +72,10 @@ ok      "$prog" -v
 ok      "$prog" -h
 
 # Bad shell programs '-fasdkl' and foobarbaz
-usage   "$prog" -S -fasdkl ls -l
-runtime "$prog" -S -fasdkl "ls -l"
-runtime "$prog" -S foobarbaz 'ls -l'
-runtime "$prog" -S foobarbaz 'ls -l'
+usage   "$prog" -s -fasdkl ls -l
+runtime "$prog" -s -fasdkl "ls -l"
+runtime "$prog" -s foobarbaz 'ls -l'
+runtime "$prog" -s foobarbaz 'ls -l'
 
 # Command cannot be executed
 runtime "$prog" thisprogramshouldnotexist

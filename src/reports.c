@@ -18,41 +18,6 @@
 #include <string.h>
 #include <math.h>
 
-#define SECOND(a, b, c) b,
-const char *ReportOptionName[] = {XReports(SECOND)};
-#undef SECOND
-#define THIRD(a, b, c) c,
-const char *ReportOptionDesc[] = {XReports(THIRD)};
-#undef THIRD
-
-static char *report_help_string = NULL;
-
-// For printing program help.  Caller must free the returned string.
-char *report_help(void) {
-  if (report_help_string) return report_help_string;
-  size_t bufsize = 1000;
-  char *buf = malloc(bufsize);
-  if (!buf) PANIC_OOM();
-  int len = snprintf(buf, bufsize, "Valid report types are");
-  for (ReportCode i = REPORT_NONE; i < REPORT_ERROR; i++) {
-    bufsize -= len;
-    len += snprintf(buf + len, bufsize, "\n  %-8s %s",
-		    ReportOptionName[i], ReportOptionDesc[i]);
-  }
-  report_help_string = buf;
-  return report_help_string;
-}
-
-void free_report_help(void) {
-  free(report_help_string);
-}
-
-ReportCode interpret_report_option(const char *op) {
-  for (ReportCode i = REPORT_NONE; i < REPORT_ERROR; i++)
-    if (strcmp(op, ReportOptionName[i]) == 0) return i;
-  return REPORT_ERROR;
-}
-
 #define FMT "%6.1f"
 #define FMTL "%-.1f"
 #define FMTs "%6.2f"
@@ -340,7 +305,7 @@ static const char *kurtosis_description(Measures *m) {
   } 
 }
 
-void print_descriptive_stats(Summary *s) {
+void print_distribution_stats(Summary *s) {
   if (!s || (s->runs == 0)) return; // No data
 
   char *tmp = NULL;
@@ -432,13 +397,24 @@ void print_descriptive_stats(Summary *s) {
 
   display_table(t, 2);
   free_display_table(t);
+}
+
+void print_tail_stats(Summary *s) {
+  if (!s || (s->runs == 0)) return; // No data
+
+  DisplayTable *t;
+  char *tmp = NULL;
+  Measures *m = &(s->total);
+  
+  // Decide on which time unit to use for printing
+  Units *units = select_units(s->total.max, time_units);
 
   t = new_display_table(78,
 			8,
 			(int []){10,7,7,7,7,7,7,7,END},
 			(int []){2,1,1,1,1,1,1,1,END},
 			"|rrrrrrrr|", true, true);
-  row = 0;
+  int row = 0;
   display_table_fullspan(t, row, 'c', "Total CPU Time Distribution Tail");
   row++;
   display_table_blankline(t, row);
@@ -454,20 +430,36 @@ void print_descriptive_stats(Summary *s) {
   display_table_set(t, row, 7, "Q₄ ");
   row++;
 
-  display_table_set(t, row, 0, sec ? "(sec)" : "(ms)");
-  display_table_set(t, row, 1, sec ? FMTs : FMT, ROUND1(m->min, div));
-  display_table_set(t, row, 2, sec ? FMTs : FMT, ROUND1(m->Q1, div));
-  display_table_set(t, row, 3, sec ? FMTs : FMT, ROUND1(m->median, div));
-  display_table_set(t, row, 4, sec ? FMTs : FMT, ROUND1(m->Q3, div));
+  display_table_set(t, row, 0, "(%s)", units->unitname);
+  tmp = apply_units(m->min, units, NOUNITS);
+  display_table_set(t, row, 1, "%s", tmp);
+  free(tmp);
+  tmp = apply_units(m->Q1, units, NOUNITS);
+  display_table_set(t, row, 2, "%s", tmp);
+  free(tmp);
+  tmp = apply_units(m->median, units, NOUNITS);
+  display_table_set(t, row, 3, "%s", tmp);
+  free(tmp);
+  tmp = apply_units(m->Q3, units, NOUNITS);
+  display_table_set(t, row, 4, "%s", tmp);
+  free(tmp);
   if (m->pct95 < 0)
     display_table_set(t, row, 5,  "-- ");
-  else 
-    display_table_set(t, row, 5, sec ? FMTs : FMT, ROUND1(m->pct95, div));
+  else {
+    tmp = apply_units(m->pct95, units, NOUNITS);
+    display_table_set(t, row, 5, "%s", tmp);
+    free(tmp);
+  }
   if (m->pct99 < 0)
     display_table_set(t, row, 6,  "-- ");
-  else 
-    display_table_set(t, row, 6, sec ? FMTs : FMT, ROUND1(m->pct99, div));
-  display_table_set(t, row, 7, sec ? FMTs : FMT, ROUND1(m->max, div));
+  else {
+    tmp = apply_units(m->pct99, units, NOUNITS);
+    display_table_set(t, row, 6, "%s", tmp);
+    free(tmp);
+  }
+  tmp = apply_units(m->max, units, NOUNITS);
+  display_table_set(t, row, 7, tmp);
+  free(tmp);
 
   display_table(t, 2);
   free_display_table(t);
@@ -655,21 +647,6 @@ static void add_ranking(DisplayTable *t,
   display_table_set(t, *row, 1, "W = %-8.0f", infer->W);
   (*row)++;
 
-  display_table_set(t, *row, 0, "Hodges-Lehmann");
-  tmp = apply_units(infer->shift, units, UNITS);
-  tmp2 = lefttrim(tmp);
-  display_table_set(t, *row, 1, "Δ = " NUMFMT_LEFT, tmp2);
-  free(tmp); free(tmp2);
-  if (HAS(infer->indistinct, INF_NOEFFECT)) {
-    display_table_set(t, *row, 2, mark);
-    units = select_units(config.effect, time_units);
-    tmp = apply_units(config.effect, units, UNITS);
-    tmp2 = lefttrim(tmp);
-    display_table_set(t, *row, 3, "Effect size < %s", tmp2);
-    free(tmp); free(tmp2);
-  }
-  (*row)++;
-
   // p-values, both adjusted for ties and the unadjusted value
   // (which is more conservative than adjusted value)
   const char *pfmts[4] =
@@ -685,6 +662,21 @@ static void add_ranking(DisplayTable *t,
   if (HAS(infer->indistinct, INF_NONSIG)) {
     display_table_set(t, *row, 2, mark);
     display_table_set(t, *row, 3, "Non-signif. (α = %4.2f)", config.alpha);
+  }
+  (*row)++;
+
+  display_table_set(t, *row, 0, "Hodges-Lehmann");
+  tmp = apply_units(infer->shift, units, UNITS);
+  tmp2 = lefttrim(tmp);
+  display_table_set(t, *row, 1, "Δ = " NUMFMT_LEFT, tmp2);
+  free(tmp); free(tmp2);
+  if (HAS(infer->indistinct, INF_NOEFFECT)) {
+    display_table_set(t, *row, 2, mark);
+    units = select_units(config.effect, time_units);
+    tmp = apply_units(config.effect, units, UNITS);
+    tmp2 = lefttrim(tmp);
+    display_table_set(t, *row, 3, "Effect size < %s", tmp2);
+    free(tmp); free(tmp2);
   }
   (*row)++;
 
@@ -881,25 +873,23 @@ static void print_ranking(Ranking *rank) {
   free(same);
 }
 
-void maybe_report(Summary *s) {
-  // If raw data is going to an output file, we print a summary on the
-  // terminal (else raw data goes to terminal so that it can be piped
-  // to another process).
-  switch (option.report) {
-    case REPORT_NONE:
-      return;
-    case REPORT_BRIEF:
-    case REPORT_SUMMARY:
-      print_summary(s, (option.report == REPORT_BRIEF));
-      printf("\n");
-      break;
-    case REPORT_FULL:
-      print_summary(s, false);
-      print_descriptive_stats(s);
-      printf("\n");
-      break;
-    default:
-      PANIC("Unhandled report type (%d)", option.report);
+void per_command_output(Summary *s, Usage *usage, int start, int end) {
+  if (!s) PANIC_NULL();
+  if (!option.nostats || option.ministats) {
+    print_summary(s, option.ministats);
+    printf("\n");
+  }
+  if (option.graph) {
+    print_graph(s, usage, start, end);
+    printf("\n");
+  }
+  if (option.diststats) {
+    print_distribution_stats(s);
+    printf("\n");
+  }
+  if (option.tailstats) {
+    print_tail_stats(s);
+    printf("\n");
   }
   fflush(stdout);
 }
@@ -934,17 +924,11 @@ void report(Ranking *ranking) {
     
     for (int i = 0; i < ranking->count; i++) {
       s = ranking->summaries[i];
-      if (option.report != REPORT_NONE)
-	announce_command(s->cmd, i);
-      maybe_report(s);
-      if (option.graph) {
-	if (option.report == REPORT_NONE)
-	  announce_command(s->cmd, i);
-	maybe_graph(s,
-		    ranking->usage,
-		    ranking->usageidx[i],
-		    ranking->usageidx[i+1]);
-      }
+      if (any_per_command_output()) announce_command(s->cmd, i);
+      per_command_output(s, 
+			 ranking->usage,
+			 ranking->usageidx[i],
+			 ranking->usageidx[i+1]);
       // During reporting, user may want to save summary stats
       write_summary_line(csv_output, s);
       write_hf_line(hf_output, s);

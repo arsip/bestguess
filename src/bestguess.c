@@ -7,7 +7,7 @@
 
 #include "bestguess.h"
 
-const char *progversion = "0.6.7-beta";
+const char *progversion = "0.6.7";
 const char *progname = "bestguess";
 
 #include "csv.h"
@@ -39,7 +39,10 @@ OptionValues option = {
   .n_commands = 0,
   .commands = {NULL},
   .names = {NULL},
-  .report = REPORT_SUMMARY,
+  .nostats = false,
+  .ministats = false,
+  .diststats = false,
+  .tailstats = false,
   .boxplot = false,
   .explain = false,
 };
@@ -148,7 +151,6 @@ int main(int argc, char *argv[]) {
     }
   }
   optable_free();
-  free_report_help();
   free_config_help();
   return 0;
 }

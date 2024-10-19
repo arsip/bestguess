@@ -167,24 +167,33 @@ void show_config_settings(void) {
   show_setting(CONFIG_SUPER);
 }
 
+#define HELP_NOSTATS "Do not report summary statistics for each command"
+#define HELP_MINISTATS "Show minimal summary statistics for each command"
+#define HELP_DISTSTATS "Report the analysis of each sample distribution"
+#define HELP_TAILSTATS "Report on the tail of each sample distribution"
 #define HELP_EXPLAIN "Show an explanation of the inferential statistics"
-#define HELP_GRAPH "Show graph of total time for each iteration"
-#define HELP_BOXPLOT "Show box plots of timing data"
+#define HELP_GRAPH "Show graph of total time for each command execution"
+#define HELP_BOXPLOT "Show box plot of timing data comparing all commands"
 #define HELP_ACTION							\
   "In rare circumstances, the Bestguess executables\n"			\
   "are installed under custom names.  In that case, the\n"		\
   "<ACTION> option is required.  See the manual for more." 
 
+// TODO: Eliminate redundancy across the init_*_options() functions.
+
 static void init_action_options(void) {
-  optable_add(OPT_REPORT,     "R",  "report",  1, report_help());
-  optable_add(OPT_GRAPH,      "G",  "graph",   0, HELP_GRAPH);
-  optable_add(OPT_BOXPLOT,    "B",  "boxplot", 0, HELP_BOXPLOT);
-  optable_add(OPT_EXPLAIN,    "E",  "explain", 0, HELP_EXPLAIN);
-  optable_add(OPT_ACTION,     "A",  "action",  1, HELP_ACTION);
-  optable_add(OPT_CONFIG,     "x",   NULL,     1, config_help());
-  optable_add(OPT_SHOWCONFIG, NULL, "config",  0, "Show configuration settings");
-  optable_add(OPT_VERSION,    "v",  "version", 0, "Show version");
-  optable_add(OPT_HELP,       "h",  "help",    0, "Show help");
+  optable_add(OPT_NOSTATS,    "N",  "no-stats",    0, HELP_NOSTATS);
+  optable_add(OPT_MINISTATS,  "M",  "mini-stats",  0, HELP_MINISTATS);
+  optable_add(OPT_DISTSTATS,  "D",  "dist-stats",  0, HELP_DISTSTATS);
+  optable_add(OPT_TAILSTATS,  "T",  "tail-stats",  0, HELP_TAILSTATS);
+  optable_add(OPT_GRAPH,      "G",  "graph",       0, HELP_GRAPH);
+  optable_add(OPT_BOXPLOT,    "B",  "boxplot",     0, HELP_BOXPLOT);
+  optable_add(OPT_EXPLAIN,    "E",  "explain",     0, HELP_EXPLAIN);
+  optable_add(OPT_ACTION,     "A",  "action",      1, HELP_ACTION);
+  optable_add(OPT_CONFIG,     "x",   NULL,         1, config_help());
+  optable_add(OPT_SHOWCONFIG, NULL, "config",      0, "Show configuration settings");
+  optable_add(OPT_VERSION,    "v",  "version",     0, "Show version");
+  optable_add(OPT_HELP,       "h",  "help",        0, "Show help");
   if (optable_error())
     PANIC("Failed to configure command-line option parser");
 }
@@ -239,21 +248,31 @@ void process_common_options(int argc, char **argv) {
 	check_option_value(val, n);
 	option.boxplot = true;
 	break;
-      case OPT_REPORT:
+      case OPT_GRAPH:
 	check_option_value(val, n);
-	option.report = interpret_report_option(val);
-	if (option.report == REPORT_ERROR)
-	  USAGE(report_help());
+	option.graph = true;
+	break;
+      case OPT_NOSTATS:
+	check_option_value(val, n);
+	option.nostats = true;
+	break;
+      case OPT_MINISTATS:
+	check_option_value(val, n);
+	option.ministats = true;
+	break;
+      case OPT_DISTSTATS:
+	check_option_value(val, n);
+	option.diststats = true;
+	break;
+      case OPT_TAILSTATS:
+	check_option_value(val, n);
+	option.tailstats = true;
 	break;
       case OPT_CONFIG:
 	check_option_value(val, n);
 	const char *err = process_config_setting(val);
 	if (err)
 	  USAGE("Invalid configuration setting '%s'", err);
-	break;
-      case OPT_GRAPH:
-	check_option_value(val, n);
-	option.graph = true;
 	break;
       default:
 	PANIC("Invalid option index %d\n", n);
@@ -286,11 +305,14 @@ static void init_exec_options(void) {
   optable_add(OPT_NAME,       "n",  "name",           1, HELP_NAME);
   optable_add(OPT_SHOWOUTPUT, NULL, "show-output",    0, HELP_SHOWOUTPUT);
   optable_add(OPT_IGNORE,     "i",  "ignore-failure", 0, HELP_IGNORE);
-  optable_add(OPT_SHELL,      "S",  "shell",          1, HELP_SHELL);
+  optable_add(OPT_SHELL,      "s",  "shell",          1, HELP_SHELL);
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
+  optable_add(OPT_NOSTATS,    "N",  "no-stats",       0, HELP_NOSTATS);
+  optable_add(OPT_MINISTATS,  "M",  "mini-stats",     0, HELP_MINISTATS);
+  optable_add(OPT_DISTSTATS,  "D",  "dist-stats",     0, HELP_DISTSTATS);
+  optable_add(OPT_TAILSTATS,  "T",  "tail-stats",     0, HELP_TAILSTATS);
   optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
-  optable_add(OPT_REPORT,     "R",  "report",         1, report_help());
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain",        0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
@@ -397,10 +419,13 @@ void process_exec_options(int argc, char **argv) {
 // -----------------------------------------------------------------------------
 
 static void init_report_options(void) {
-  optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
-  optable_add(OPT_REPORT,     "R",  "report",         1, report_help());
+  optable_add(OPT_NOSTATS,    "N",  "no-stats",       0, HELP_NOSTATS);
+  optable_add(OPT_MINISTATS,  "M",  "mini-stats",     0, HELP_MINISTATS);
+  optable_add(OPT_DISTSTATS,  "D",  "dist-stats",     0, HELP_DISTSTATS);
+  optable_add(OPT_TAILSTATS,  "T",  "tail-stats",     0, HELP_TAILSTATS);
+  optable_add(OPT_GRAPH,      "G",  "graph",          0, HELP_GRAPH);
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain",        0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);

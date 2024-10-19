@@ -2,13 +2,22 @@
 
 ## Description
 
-The goal, in short, is to improve on Hyperfine (a popular benchmarking tool).  I
-believe that Hyperfine's measurements are inaccurate and its statistics are
-unsound. (See [my still-preliminary analysis](notes/hyperfine.md) here.)
+The goal, in short, is to replace Hyperfine (a popular benchmarking tool) in my
+work.  I built BestGuess to provide more accurate measurements and well-founded
+statistical calculations.
+
+* Use `bestguess` to conduct experiments (measure run times, memory usage, and more).
+* Use `bestreport` to produce a variety of statistical analyses and also cheap
+  plots on the terminal.
+
+BestGuess is a single executable, and all of the reports can be obtained at the
+time an experiment is run.  I recommend using the `-o` (output) option of
+`bestguess` to save the raw data to a CSV file.  Later, reports can be re-run as
+needed using `bestreport`.
 
 ## Build and run
 
-To build `bestguess` and `bestreport` in release mode:
+To build BestGuess in release mode:
 
 ```
 make
@@ -51,7 +60,7 @@ make DESTDIR=/some/path install
   - A distribution of performance measurements, even if it contains a large
     number of data points, is not likely to produce a normal distribution.
   - The mean and standard deviation are not useful statistics
-    here.  The median and inter-quartile range are more appropriate measures of
+    here.  The median and interquartile range are more appropriate measures of
     central tendency and spread.
   - The best guess for what is a "typical" run time is the mode, at least for
     unimodal distributions.
@@ -65,26 +74,29 @@ make DESTDIR=/some/path install
 BestGuess does not support all of the options that Hyperfine does.  And
 BestGuess is currently tested only on Unix (macos) and Linux (several distros).
 
-If you use Hyperfine like we used to, it's almost a drop-in replacement.  We
+If you use Hyperfine like we used to, it's nearly a drop-in replacement.  We
 most often used the warmup, runs, shell, and CSV export options.  BestGuess can
 produce a Hyperfine-compatible CSV file containing summary statistics, as
-follows.
+well as its own format.
 
 The BestGuess `--hyperfine-csv <FILE>` option is used wherever you would use
 `--export-csv <FILE>` with Hyperfine to get essentially the same summary
 statistics in CSV form.  Two important differences:
   1. BestGuess does not calculate arithmetic mean.  In the summary file, the
-     `mean` column has been replaced by `mode`.  The mode value of total time
-     is more representative than mean for skewed distributions.
-  2. BestGuess does not calculate standard deviation because we do observe
-     normal distributions.  Until we decide on a replacement measure of
-     variation, the summary file will contain zero in this field.
+     `mean` column has been replaced by `mode`.  The median and mode values of
+     total CPU time are each more representative than mean for skewed and
+     heavy-tailed distributions.
+  2. BestGuess does not calculate standard deviation because we can show that
+     performance distributions are rarely normal.  Instead, the file produced by
+     `--hyperfine-csv` contains the interquartile range instead.
 
 These Hyperfine options are effectively the same in BestGuess:
   * `-w`, `--warmup`
   * `-r`, `--runs`
   * `-i`, `--ignore-failure`
-  * `-S`, `--shell` (see caveat below)
+  * `-s`, `--shell` (Note the change to lower-case `s`, and see the caveat below.)
+  * `-n`, `--name`
+  * `-p`, `--prepare` (The long name will be changing to `--pre`.)
   * `--show-output`
 
 Key changes from Hyperfine:
@@ -93,39 +105,42 @@ Key changes from Hyperfine:
     save the raw timing data as a CSV file.  While running the experiment, you
     can get a variety of reports, but you can also run `bestreport` later,
     providing one or more files of raw timing data as input.
-  * Many Hyperfine options are _not_ supported.
-    * Some are planned, like _conclude_ and also the ability to randomize the
-      environment size.
-	* Others, like the ones that automate parameter generations, are not in
-      plan.  BestGuess can read commands from a file, and we think it's easier
-      to generate a command file with the desired parameters.
+  * Many Hyperfine options are _not_ supported in BestGuess.
+    * Some are planned, like _setup_, _conclude_ and _cleanup_, as is the
+      ability to randomize the environment size.
+	* Other options, like the ones that automate parameter generations, are not
+      planned.  BestGuess can read commands from a file, and we think it's
+      easier to generate a command file with the desired parameters.
   * One option works a little differently.
-	* `-S`, `--shell <CMD>` For BestGuess, the default is none.  And when used,
-	  it must be the entire shell command, e.g. `/bin/bash -c`.
+	* `-s`, `--shell <CMD>` For BestGuess, the default is no shell.  And when
+	  this option is used, you must provide the entire shell command,
+	  e.g. `/bin/bash -c`.
   * Many options are _new_ because they support unique BestGuess features.  Here
     are a few:
-    * `-o`, `--output <FILE>` (save data for individual executions)
+    * `-o`, `--output <FILE>` (save raw data for individual executions)
     * `-f`, `--file <FILE>` (read commands, or _more_ commands, from a file)
     * `-G`, `--graph` (show graph of one command's total CPU time)
-    * `-R`, `--report <STYLE>` (report style `none`, `brief`, `summary`, or `full`)
     * `-B`, `--boxplot` (show rough boxplots of total CPU time on terminal)
+	* `-D`, `--dist-stats` (describes a distribution's relation to normal)
+	* `-T`, `--tail-stats` (describes tail of a distribution)
+    * `-M`, `--mini-stats` (show key time stats only)
+    * `-N`, `--no-stats` (do not show summary stats for each command)
 
 **Reports:** Best practice is to save raw measurement data (which includes CPU
 times, max RSS, page faults, and context switch counts).  Once saved via `-o
 <FILE>`, you can later do any of the following:
     - Reproduce the summary statistics that were printed on the terminal when
       the experiment was conducted: `bestreport <INFILE> ...`
-	- Note that many input files can be given, so results of separate
-      experiments can be compared.
-	- See a `brief` or `full` report instead of the default `summary`: For example
-      `bestreport -R full <INFILE> ...`
-	- The `full` report includes information about the distribution of CPU
-      times, such as whether we can confidently rule out that this is a normal
-      distribution.  A measure of skew is also computed.
-	- Examine a rough boxplot comparing the various commands: `bestreport -B
-      <INFILE> ...`
-	- A CSV file of summary statistics can be generated: `bestreport
-      --export-csv <OUTFILE> <INFILE> ...`
+	  - Note that many input files can be given, so results of separate
+        experiments can be compared.
+	- See an analysis of the distribution of total run times recorded for each
+      command: `bestreport -D <INFILE> ...`
+	  - The distribution analysis provides evidence for confidently ruling out
+        that a distribution is normal, using various statistical measures.
+	- Examine a rough boxplot on the terminal comparing the various commands:
+      `bestreport -B <INFILE> ...`
+	- Generate a CSV file of summary statistics: `bestreport --export-csv
+      <OUTFILE> <INFILE> ...`
 
 **Shell usage:** For BestGuess, the default is to _not_ use a shell at all.  If
 you supply a shell, you will need to give the entire command including the `-c`
@@ -155,7 +170,9 @@ future.
 
 Note that Hyperfine will export the raw timing data only in JSON format.  We
 find that many more tools, from command line tools to spreadsheets, are able to
-process CSV data, so we prefer it.
+process CSV data, so we prefer it.  Also, the Hyperfine JSON output contains the
+total time for each run, but not the user and system times.  BestGuess saves all
+of the measured data from `rusage`, plus the wall clock time.
 
 **Summary statistics:** BestGuess prints summary statistics to the terminal,
 provided the raw data output is not directed there.  BestGuess estimates the
@@ -165,14 +182,19 @@ and are often skewed, so we do not show a mean or standard deviation.  The
 summary statistics provided are mode, min, mean, 95th and 99th percentiles, and
 max. 
 
-**Descriptive statistics:** The `full` report option displays the statistical
-summary (mode, min, mean, 95th and 99th percentiles, and max) for each measured
-quantity, but also analyzes the distribution of total CPU times (user + system).
-A statistical test for normality is performed, and if the result is significant,
-we can rule out the hypothesis that the total time is normally distributed.  A
-simple test of skew is also performed.  Of course, the usual descriptive
-statistics are displayed (Q0 or min, Q1, Q2 or median, Q3, Q4 or max), along
-with the number of data points and an interpretation of the inter-quartile range.
+**Descriptive statistics:** The "distribution statistics" option provides an
+overview of the distribution of total CPU times for a single command.  (Total
+CPU time is the sum of user time and system time.)  A statistical test for
+normality is performed.  When the result is significant, we can rule out the
+hypothesis that the total time is normally distributed.  A simple measure of
+skew is also performed, and a measure of excess kurtosis.  Of course, the usual
+descriptive statistics are displayed (Q0 or min, Q1, Q2 or median, Q3, Q4 or
+max), along with the number of data points and an interpretation of the
+interquartile range.
+
+**Tail statistics:** The "tail statistics" option displays the
+statistical summary (mode, min, mean, 95th and 99th percentiles, and max) for
+each measured quantity, but also analyzes the distribution of total CPU times. 
 
 **Measurements:** Hyperfine measures user and system time.  BestGuess measures
 these plus the maximum RSS size, the number of Page Reclaims and Faults, and the
@@ -181,6 +203,15 @@ correlation between context switches and run time.  It seems likely that each
 context switch is polluting the CPU caches and its branch predictor, and maybe
 some other things.  The more often this happens during a single run of the timed
 command, the worse it performs.
+
+**Ranking:** When there are at least two commands, BestGuess will rank them from
+fastest to slowest.  When the number of runs is less than 5, the ranking is
+simply a sort by median total CPU time.  With more runs, several statistical
+measures are used to produce the ranking.  Sometimes, several commands'
+performance will not be distinguishable.  These will be grouped at the top, and
+all of them marked as the fastest.  The `-E` (explain) option shows the
+statistical measures and highlights the ones that make a command not
+distinguishable from the fastest.
 
 ## Examples
 
@@ -193,133 +224,118 @@ percentile numbers.  These are of interest because they summarize statistically
 what the "long tail" of high run times looks like.
 
 Note that the Mode value may be the most relevant, as it is the "typical"
-run time.  The figures to the right represent the range from minimum (0th
+run time.  However, Median is also a good indication of central tendency for
+performance data.  The figures to the right represent the range from minimum (0th
 percentile) through median (50th percentile) to the 95th, 99th, and maximum
 measurements.
 
 ```shell
-
-$ bestguess -r=10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+$ bestguess -r=10 -s "/bin/bash -c" "" "ls -l" "ps Aux"
 Use -o <FILE> or --output <FILE> to write raw data to a file.
-A single dash '-' instead of a file name prints to stdout.
 
 Command 1: (empty)
-                   Mode     ┌    Min    Median    95th     99th      Max   ┐
-    Total time    1.7 ms    │    1.6      1.7       -        -       2.0   │
-     User time    0.5 ms    │    0.5      0.5       -        -       0.5   │
-   System time    1.2 ms    │    1.1      1.2       -        -       1.4   │
-       Max RSS    1.7 MiB   │    1.7      1.7       -        -       1.7   │
-    Context sw      3 ct    └      2        3       -        -         6   ┘
+                      Mode    ┌     Min      Q₁    Median      Q₃       Max   ┐
+   Total CPU time    1.16 ms  │    1.15     1.18     1.48     1.94     2.80   │
+        User time    0.43 ms  │    0.43     0.44     0.54     0.71     0.72   │
+      System time    0.74 ms  │    0.73     0.74     0.93     1.23     2.08   │
+       Wall clock    1.64 ms  │    1.63     1.66     2.06     2.66     5.17   │
+          Max RSS    1.67 MB  │    1.67     1.67     1.67     1.67     1.67   │
+       Context sw       2 ct  └       2        2        2        2       15   ┘
 
 Command 2: ls -l
-                   Mode     ┌    Min    Median    95th     99th      Max   ┐
-    Total time    2.9 ms    │    2.9      3.0       -        -       3.1   │
-     User time    0.9 ms    │    0.9      0.9       -        -       1.0   │
-   System time    2.0 ms    │    2.0      2.0       -        -       2.1   │
-       Max RSS    1.8 MiB   │    1.8      1.9       -        -       2.0   │
-    Context sw     16 ct    └     15       16       -        -        16   ┘
+                      Mode    ┌     Min      Q₁    Median      Q₃       Max   ┐
+   Total CPU time    2.83 ms  │    2.14     2.39     2.72     2.97     4.09   │
+        User time    0.91 ms  │    0.79     0.89     0.97     1.08     1.17   │
+      System time    1.89 ms  │    1.35     1.49     1.73     1.90     2.94   │
+       Wall clock    4.19 ms  │    3.39     3.70     4.19     4.42     7.57   │
+          Max RSS    1.77 MB  │    1.59     1.77     1.77     1.84     1.88   │
+       Context sw      15 ct  └      15       15       15       15       30   ┘
 
 Command 3: ps Aux
-                   Mode     ┌    Min    Median    95th     99th      Max   ┐
-    Total time   41.5 ms    │   41.4     41.5       -        -      42.4   │
-     User time   10.3 ms    │   10.3     10.3       -        -      10.4   │
-   System time   31.2 ms    │   31.0     31.2       -        -      31.9   │
-       Max RSS    3.0 MiB   │    3.0      3.0       -        -       3.2   │
-    Context sw     15 ct    └     15       15       -        -        15   ┘
+                      Mode    ┌     Min      Q₁    Median      Q₃       Max   ┐
+   Total CPU time   35.05 ms  │   32.33    32.60    33.84    34.99    36.20   │
+        User time    8.13 ms  │    7.68     7.76     7.93     8.09     8.14   │
+      System time   26.92 ms  │   24.65    24.84    25.92    26.86    28.18   │
+       Wall clock   36.70 ms  │   34.02    34.25    35.49    36.62    38.02   │
+          Max RSS    2.75 MB  │    2.66     2.75     2.77     2.81     3.58   │
+       Context sw      14 ct  └      14       14       14       14       18   ┘
 
-Best guess is
-  (empty) ran
-    1.75 times faster than ls -l
-   24.61 times faster than ps Aux
+Best guess ranking:
+
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   1: (empty)                                1.48 ms
+  ══════════════════════════════════════════════════════════════════════════════
+      2: ls -l                                  2.72 ms    1.22 ms    82.8% 
+      3: ps Aux                                33.84 ms   32.23 ms  2185.1% 
+  ══════════════════════════════════════════════════════════════════════════════
 $ 
 ```
 
-### Brief output to terminal
+If the summary statistics printed in the example above are more than you want to
+see, use the "mini stats" option (see below).
+
+### Mini stats
 
 ```shell
-$ bestguess -R brief -r 10 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+$ bestguess -M -r 10 -s "/bin/bash -c" "" "ls -l" "ps Aux"
 Use -o <FILE> or --output <FILE> to write raw data to a file.
-A single dash '-' instead of a file name prints to stdout.
 
 Command 1: (empty)
-                     Mode          Min    Median     Max
-  Total CPU time    2.2 ms         1.7      2.3      3.4
-      Wall clock    2.6 ms         2.6      2.9      5.2
+                      Mode    ┌     Min   Median      Max   ┐
+   Total CPU time    1.75 ms  │    1.72     1.97     4.95   │
+       Wall clock    2.91 ms  └    2.40     2.75     9.14   ┘
 
 Command 2: ls -l
-                     Mode          Min    Median     Max
-  Total CPU time    3.1 ms         2.8      3.2      5.7
-      Wall clock    5.2 ms         4.3      5.3     11.5
+                      Mode    ┌     Min   Median      Max   ┐
+   Total CPU time    2.90 ms  │    2.76     3.03     5.76   │
+       Wall clock    4.29 ms  └    4.15     4.57    11.01   ┘
 
 Command 3: ps Aux
-                     Mode          Min    Median     Max
-  Total CPU time   35.7 ms        35.1     35.9     39.5
-      Wall clock   37.0 ms        37.0     37.8     41.9
+                      Mode    ┌     Min   Median      Max   ┐
+   Total CPU time   32.28 ms  │   32.28    33.10    36.14   │
+       Wall clock   34.02 ms  └   33.87    34.79    37.96   ┘
 
-Best guess is:
-  (empty) ran
-    1.44 times faster than ls -l
-   16.42 times faster than ps Aux
-$ 
-```
+Best guess ranking:
 
-### Raw data output to terminal
-
-Run 3 commands without using a shell, with 2 warmup runs and 3 timed runs.  The
-first command is blank, and gives a measure of shell startup time.  The
-measurements for each individual timed run, in CSV format, are printed to the
-terminal because the output filename was given as `-`:
-
-```shell
-$ bestguess -o - -w=2 -r=3 -S "/bin/bash -c" "" "ls -l" "ps Aux"
-Command,Exit code,Shell,User time (us),System time (us),Total time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches,Total Context Switches
-"",0,"/bin/bash -c",542,1167,1769472,484,3,0,3
-"",0,"/bin/bash -c",499,1147,1769472,486,3,0,3
-"",0,"/bin/bash -c",518,1247,1769472,486,3,0,3
-"ls -l",0,"/bin/bash -c",968,1990,1933312,655,3,0,16
-"ls -l",0,"/bin/bash -c",924,2005,1916928,654,3,0,16
-"ls -l",0,"/bin/bash -c",979,2062,1933312,656,3,0,16
-"ps Aux",0,"/bin/bash -c",10220,30905,3145728,1364,4,0,15
-"ps Aux",0,"/bin/bash -c",10250,31378,3178496,1366,4,0,15
-"ps Aux",0,"/bin/bash -c",10319,32026,3178496,1366,4,0,15
-$ 
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   1: (empty)                                1.97 ms 
+  ══════════════════════════════════════════════════════════════════════════════
+      2: ls -l                                  3.03 ms    1.11 ms    56.3% 
+      3: ps Aux                                33.10 ms   31.15 ms  1585.3% 
+  ══════════════════════════════════════════════════════════════════════════════
+$
 ```
 
 ### Raw data output to file
 
-Change to using `-o <FILE>` and you'll see summary statistics printed on the
-terminal, and the raw timing data saved to the named file:
+Use `-o <FILE>` to save the raw timing data.  This silences the pedantic
+admonition to use this option "to write raw data to a file".
 
 ```shell
-$ bestguess -o /tmp/data.csv -w=2 -r=3 -S "/bin/bash -c" "" "ls -l" "ps Aux"
+$ bestguess -o /tmp/data.csv -M -w=2 -r=5 -s "/bin/bash -c" "" "ls -l" "ps Aux"
 Command 1: (empty)
-                   Mode     ┌    Min    Median    95th     99th      Max   ┐
-    Total time    1.7 ms    │    1.6      1.7       -        -       1.7   │
-     User time    0.5 ms    │    0.5      0.5       -        -       0.5   │
-   System time    1.1 ms    │    1.1      1.2       -        -       1.2   │
-       Max RSS    1.7 MiB   │    1.7      1.7       -        -       1.7   │
-    Context sw      2 ct    └      2        2       -        -         3   ┘
+                      Mode    ┌     Min   Median      Max   ┐
+   Total CPU time    1.04 ms  │    1.02     1.15     1.98   │
+       Wall clock    1.51 ms  └    1.49     1.65     2.78   ┘
 
 Command 2: ls -l
-                   Mode     ┌    Min    Median    95th     99th      Max   ┐
-    Total time    2.9 ms    │    2.9      3.0       -        -       3.0   │
-     User time    1.0 ms    │    0.9      0.9       -        -       1.0   │
-   System time    2.0 ms    │    2.0      2.0       -        -       2.1   │
-       Max RSS    1.8 MiB   │    1.8      1.8       -        -       1.8   │
-    Context sw     16 ct    └     15       16       -        -        16   ┘
+                      Mode    ┌     Min   Median      Max   ┐
+   Total CPU time    3.71 ms  │    2.59     3.67     3.77   │
+       Wall clock    5.44 ms  └    4.05     5.33     5.65   ┘
 
 Command 3: ps Aux
-                   Mode     ┌    Min    Median    95th     99th      Max   ┐
-    Total time   41.7 ms    │   41.7     41.8       -        -      42.1   │
-     User time   10.4 ms    │   10.4     10.4       -        -      10.4   │
-   System time   31.4 ms    │   31.3     31.4       -        -      31.7   │
-       Max RSS    3.0 MiB   │    3.0      3.0       -        -       3.2   │
-    Context sw     15 ct    └     14       15       -        -        15   ┘
+                      Mode    ┌     Min   Median      Max   ┐
+   Total CPU time   33.76 ms  │   31.14    33.33    34.57   │
+       Wall clock   35.76 ms  └   32.73    35.40    36.45   ┘
 
-Best guess is
-  (empty) ran
-    1.71 times faster than ls -l
-   24.22 times faster than ps Aux
+Best guess ranking:
+
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   1: (empty)                                1.15 ms 
+  ══════════════════════════════════════════════════════════════════════════════
+      2: ls -l                                  3.67 ms    2.11 ms   182.7% 
+      3: ps Aux                                33.33 ms   32.17 ms  2790.4% 
+  ══════════════════════════════════════════════════════════════════════════════
 $ 
 ```
 
@@ -352,11 +368,11 @@ statistics to a CSV file in the same format used by Hyperfine, but with more
 relevant information.  Note these differences in the file contents:
 
 1. In the second column, Hyperfine reports the mean total CPU time, which is not
-   a good measure.  BestGuess substitutes the estimated mode and the header is
+   a useful measure.  BestGuess substitutes the estimated mode and the header is
    changed accordingly.
-2. The standard deviation figure is replaced by the inter-quartile range and the
-   header is changed accordingly.  IQR is considered a better measure of spread
-   for non-normal distributions.
+2. The standard deviation figure is replaced by the interquartile range and the
+   header is changed accordingly.  IQR is considered a better measure of
+   dispersion for non-normal distributions.
 3. After the `median` total time column, Hyperfine writes mean values of user
    and system times.  BestGuess reports the `median` user and system times
    instead.  Medians are considered more representative in arbitrary (and
@@ -368,66 +384,64 @@ relevant information.  Note these differences in the file contents:
 ### Know what you are measuring
 
 As with Hyperfine, you can give BestGuess an ordinary command like `ls -l`.  The
-_execvp()_ system call can run this command without a shell by searching the
+`execvp()` system call can run this command without a shell by searching the
 PATH for the executable.  That cost is included in the system time measured.
 
 For example, on my laptop, Hyperfine reports these times comparing `ls` with
 `/bin/ls`:
 
 ```shell
+
 $ hyperfine --style=basic -w=3 -r=10 -S none "ls -l" "/bin/ls -l"
 Benchmark 1: ls -l
-  Time (mean ± σ):       6.2 ms ±   0.8 ms    [User: 2.1 ms, System: 1.7 ms]
-  Range (min … max):     5.5 ms …   7.8 ms    10 runs
+  Time (mean ± σ):       7.6 ms ±   0.7 ms    [User: 2.7 ms, System: 2.1 ms]
+  Range (min … max):     6.6 ms …   9.4 ms    10 runs
  
 Benchmark 2: /bin/ls -l
-  Time (mean ± σ):       5.0 ms ±   0.2 ms    [User: 1.9 ms, System: 1.5 ms]
-  Range (min … max):     4.9 ms …   5.5 ms    10 runs
+  Time (mean ± σ):       6.6 ms ±   0.5 ms    [User: 2.7 ms, System: 1.9 ms]
+  Range (min … max):     5.8 ms …   7.3 ms    10 runs
  
 Summary
   /bin/ls -l ran
-    1.22 ± 0.16 times faster than ls -l
+    1.14 ± 0.14 times faster than ls -l
 $ 
 ```
 
-As expected, `ls` is slower to execute, presumably due to the extra cost of
-finding `ls` in the PATH.
+As expected, `ls` is slower to execute than `/bin/ls`, presumably due to the
+extra cost of finding `ls` in the PATH.
 
-The BestGuess measurements confirm that indeed `ls` is slower than `/bin/ls`,
-though we see a somewhat larger difference between the two commands.
+The BestGuess measurements below confirm that indeed `ls` is slower than
+`/bin/ls`, though we see a somewhat larger difference between the two commands.
+The BestGuess numbers state that `ls` ran 1.44 times faster (2.99/2.07) with
+good confidence.  (Use the `-E` option to see an explanation of the measures
+used.)
 
 Especially when measuring short duration commands, specifying the full
-executable path for all commands will level the playing field.  (However,
-configuring programs to run much longer than 1ms would seem to be a good
-practice.)
+executable path for all commands will help level the playing field.  (However,
+configuring programs to run longer than 1ms would seem to be a good practice.)
 
 Interestingly, the absolute run times reported by BestGuess are smaller than
 those reported by Hyperfine:
 
-```
-$ bestguess -w=3 -r=10 "ls -l" "/bin/ls -l"
-Use -o <FILE> or --output <FILE> to write raw data to a file.
-A single dash '-' instead of a file name prints to stdout.
-
+```shell
+$ bestguess -M -w=3 -r=10 "ls -l" "/bin/ls -l"
 Command 1: ls -l
-                   Mode     ┌    Min    Median    95th     99th      Max   ┐
-    Total time    4.6 ms    │    2.7      4.6       -        -       4.7   │
-     User time    0.6 ms    │    0.6      0.6       -        -       0.7   │
-   System time    4.0 ms    │    2.1      3.9       -        -       4.0   │
-       Max RSS    1.8 MiB   │    1.6      1.8       -        -       2.0   │
-    Context sw     19 ct    └     19       20       -        -        22   ┘
+                      Mode    ┌     Min   Median      Max   ┐
+   Total CPU time    2.98 ms  │    2.49     2.99     4.62   │
+       Wall clock    5.00 ms  └    3.83     5.00    12.83   ┘
 
 Command 2: /bin/ls -l
-                   Mode     ┌    Min    Median    95th     99th      Max   ┐
-    Total time    2.1 ms    │    2.0      2.1       -        -       2.4   │
-     User time    0.6 ms    │    0.6      0.6       -        -       0.7   │
-   System time    1.5 ms    │    1.4      1.5       -        -       1.7   │
-       Max RSS    2.0 MiB   │    1.6      1.8       -        -       2.0   │
-    Context sw     15 ct    └     15       15       -        -        15   ┘
+                      Mode    ┌     Min   Median      Max   ┐
+   Total CPU time    1.97 ms  │    1.97     2.07     2.77   │
+       Wall clock    3.40 ms  └    3.32     3.47     4.94   ┘
 
-Best guess is
-  /bin/ls -l ran
-    2.20 times faster than ls -l
+Best guess ranking:
+
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   2: /bin/ls -l                             2.07 ms                         
+  ══════════════════════════════════════════════════════════════════════════════
+      1: ls -l                                  2.99 ms    0.93 ms    44.9%     
+  ══════════════════════════════════════════════════════════════════════════════
 $ 
 ```
 
@@ -465,7 +479,7 @@ calling `exec()`.  That work would accrue resources to the child process.  See
 
 ### You can measure the shell startup time
 
-If you are using a shell (`-S <shell>` in BestGuess) to run your commands, then
+If you are using a shell (`-s <shell>` in BestGuess) to run your commands, then
 you might want to separately measure the shell startup time.  You can do this by
 specifying an empty command string.  BestGuess in this case is timing `/bin/bash
 -c ""`, i.e. launching a shell exactly the same way it does to run each command,
@@ -479,19 +493,25 @@ command), in general we might subtract the bash startup time from the run time o
 the other commands to obtain an estimate of the net run time.
 
 ```shell
+$ bestguess -M -w 3 -r 3 -s "/bin/bash -c" "" "ls -l"
+Use -o <FILE> or --output <FILE> to write raw data to a file.
 
-$ bestguess -b -w 3 -r 3 -S "/bin/bash -c" "" "ls -l"
 Command 1: (empty)
-                   Mode          Min    Median     Max
-    Total time    1.7 ms         1.7      1.7      1.7
+                      Mode    ┌     Min   Median      Max   ┐
+   Total CPU time    2.11 ms  │    1.99     2.09     2.14   │
+       Wall clock    2.92 ms  └    2.78     2.92     2.92   ┘
 
 Command 2: ls -l
-                   Mode          Min    Median     Max
-    Total time    3.0 ms         2.9      3.0      3.0
+                      Mode    ┌     Min   Median      Max   ┐
+   Total CPU time    2.97 ms  │    2.95     2.99     3.59   │
+       Wall clock    4.42 ms  └    4.39     4.46     5.40   ┘
 
-Best guess is
-  (empty) ran
-    1.75 times faster than ls -l
+Best guess ranking: (Lacking the 5 timed runs to statistically rank)
+
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+      1: (empty)                                2.09 ms 
+      2: ls -l                                  2.99 ms 
+  ══════════════════════════════════════════════════════════════════════════════
 $ 
 ```
 
@@ -511,125 +531,216 @@ into a steady state or oscillates.
 ### Using the graph to assess needed warmups
 
 The contrived example below measures shell startup time against the time to run
-`ls` without a shell.  It looks like the first execution of `bash` takes much
-longer than subsequent ones, and that `ls` may benefit from more than one warmup
-run.
+`ls` without a shell.  It looks like `bash` would could use a few warmup runs,
+and so could `ls`.  Interestingly, the performance of `ls` got worse again after
+a few runs.  Longer-running commands and more runs are recommended, of course.
+This is an example of how to use BestGuess, not a guideline.
 
 ```shell 
-$ ./bestguess -R none -G -r 5 /bin/bash ls
+$ bestguess -N -G -r 10 /bin/bash ls
 Use -o <FILE> or --output <FILE> to write raw data to a file.
-A single dash '-' instead of a file name prints to stdout.
 
 Command 1: /bin/bash
-0                                                                             max
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+0                                                                               max
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
 │▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
 
 Command 2: ls
-0                                                                             max
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+0                                                                               max
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
 │▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
 │▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
 
-Best guess is:
-  ls ran
-    1.80 times faster than /bin/bash
+Best guess ranking:
+
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   2: ls                                     1.31 ms                         
+  ══════════════════════════════════════════════════════════════════════════════
+      1: /bin/bash                              1.98 ms    0.58 ms    44.3%     
+  ══════════════════════════════════════════════════════════════════════════════
 $ 
 ```
 
-### Another graph example
+### Cheap box plots on the terminal
 
-In the example below, we see modest variation in the execution times of `ls`,
-and we get a sense of how many warmup runs would be useful -- at least one, but
-perhaps a few more.
+Box plots are a convenient way to get a sense of how two distributions compare.
+We found, when using BestGuess (and before that, Hyperfine) that we didn't want
+to wait to do statistical analysis of our raw data using a separate program.  To
+get a sense of what the data looked like as we collected it, I implemented a box
+plot feature.
 
-The variation in execution times of `find` is quite small.  And the first
-iteration is no slower than the others.
+The edges of the box are the interquartile range, and the median is shown inside
+the box.  The whiskers reach out to the minimum and maximum values.
+
+In the example below, although `bash` (launching the shell with no command to
+run) appears faster than `ls`, we can see that their distributions overlap
+considerably.  The BestGuess ranking analysis concludes that these two commands,
+at least in this particular experiment, did not perform statically differently.
+
+```shell 
+
+$ bestguess -N -B -r 100 /bin/bash ls
+Use -o <FILE> or --output <FILE> to write raw data to a file.
+
+ 1.0       1.4       1.8       2.2       2.6       3.0       3.4       3.8 
+   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼──────
+       ┌──┬──────┐
+ 1:├┄┄┄┤  │      ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤
+       └──┴──────┘
+             ╓─────┐
+ 2:        ├┄╢     ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤
+             ╙─────┘
+   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼──────
+ 1.0       1.4       1.8       2.2       2.6       3.0       3.4       3.8 
+
+Box plot legend:
+  1: /bin/bash
+  2: ls
+
+Best guess ranking: The top 2 commands performed identically
+
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   1: /bin/bash                              1.14 ms 
+  ✻   2: ls                                     1.29 ms    0.21 ms    18.6% 
+  ══════════════════════════════════════════════════════════════════════════════
+$ 
+```
+
+### Explanations of statistical measures
+
+Re-running the box plot example above, we get quite different results, with `ls`
+coming out on top.  This is unsurprising for programs that take very little time
+to complete.  Unlike before, here we asked for an explanation (`-E`), and we can
+see that the reason these two commands were judged indistinguishable was
+twofold:
+
+  1. The statistically significant median shift, Δ, was only 0.12 ms, and thus
+     less than the configured minimum needed, 500 μs = 0.50 ms.  The minimum
+     effect size threshold exists because when the median difference is very
+     small, we suspect we could get a different ranking in a new experiment.  In
+     fact, that happened between the previous experiment, above, and the one
+     whose output is below.
+  2. The confidence interval for the median difference is 95.07%, which looks
+     good, except that the interval itself is (68, 159) μs.  68 micro-seconds is
+     very close to zero.  Experience suggests that we evaluate whether a
+     confidence interval contains zero using an epsilon parameter.  Ours
+     defaults to 250 μs.  Applying it gives an expanded interval of (-182, 409),
+     which includes zero.
+	 
+Note that the calculated probability of superiority was just about high enough
+to become a third reason to consider these commands indistinguishable.
 
 ```shell
-$ bestguess -G -i -r=10 -S "/bin/bash -c" "ls -lh" "find /usr/local \"*.dylib\""
+$ bestguess -N -BE -r 100 /bin/bash ls
 Use -o <FILE> or --output <FILE> to write raw data to a file.
-A single dash '-' instead of a file name prints to stdout.
 
-Command 1: ls -lh
-                   Mode     ┌    Min    Median    95th     99th      Max   ┐
-    Total time    3.0 ms    │    2.9      3.0       -        -       3.8   │
-     User time    0.9 ms    │    0.9      1.0       -        -       1.1   │
-   System time    2.0 ms    │    1.9      2.0       -        -       2.8   │
-       Max RSS    1.8 MiB   │    1.8      1.8       -        -       2.0   │
-    Context sw     16 ct    └     15       16       -        -        37   ┘
-0                                                                             max
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+ 1.0       1.3       1.5       1.8       2.1       2.3       2.6       2.8      
+   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼──────
+             ┌──┬──────┐
+ 1:├┄┄┄┄┄┄┄┄┄┤  │      ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤
+             └──┴──────┘
+        ┌──┬───────┐
+ 2:   ├┄┤  │       ├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┤
+        └──┴───────┘
+   ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼──────
+ 1.0       1.3       1.5       1.8       2.1       2.3       2.6       2.8      
 
-Command 2: find /usr/local "*.dylib"
-                   Mode     ┌    Min    Median    95th     99th      Max   ┐
-    Total time   2.34 s     │   2.32     2.34       -        -      2.36   │
-     User time   0.11 s     │   0.11     0.11       -        -      0.11   │
-   System time   2.23 s     │   2.21     2.23       -        -      2.24   │
-       Max RSS   3.27 MiB   │   3.22     3.28       -        -      3.47   │
-    Context sw  40.44 Kct   └  40.38    40.45       -        -     40.59   ┘
-0                                                                             max
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
-│▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
+Box plot legend:
+  1: /bin/bash
+  2: ls
 
-Best guess is
-  ls -lh ran
-  782.41 times faster than find /usr/local "*.dylib"
-$ 
+Best guess inferential statistics:
+
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │  Parameter:                                    Settings: (modify with -x)  │
+  │    Minimum effect size (H.L. median shift)       effect   500 μs           │
+  │    Significance level, α                         alpha    0.05             │
+  │    C.I. ± ε contains zero                        epsilon  250 μs           │
+  │    Probability of superiority                    super    0.33             │
+  └────────────────────────────────────────────────────────────────────────────┘
+
+Best guess ranking: The top 2 commands performed identically
+
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   2: ls                                     1.29 ms 
+                                                                                
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   1: /bin/bash                              1.42 ms    0.12 ms     9.0% 
+                                                                                
+      Timed observations      N = 100 
+      Mann-Whitney            W = 8344 
+      p-value (adjusted)      p < 0.001  (< 0.001) 
+      Hodges-Lehmann          Δ = 0.12 ms              ✗ Effect size < 500 μs 
+      Confidence interval     95.07% (68, 159) μs      ✗ CI ± 250 μs contains 0 
+      Prob. of superiority    Â = 0.33 
+                                                                                
+$
 ```
+
+BestGuess considers the performance of two commands to be indistinguishable if
+_any of the following_ occur:
+
+  1. The Mann-Whitney W value has an associated p-value larger than the
+     configured alpha parameter.
+  2. The Hodges-Lehmann median shift estimate is smaller than the configured
+     minimum effect size.
+  3. The confidence interval for the median shift, give or take epsilon,
+     contains zero.
+  4. The probability that a random observation (total CPU time) from a command
+     will be smaller (faster) than a random observation from the fastest command
+     is high.  This is the probability of superiority.
+
+A discussion of these statistical calculations is outside the scope of this
+README.  Importantly, the BestGuess statistics are not a substitute for using
+other tools to analyze the raw data.  Numerical calculations are fraught when
+implemented in a language like C, and they are provided for convenience, as are
+the distribution plots and box plots. 
 
 ## Bug reports
 
-Bug reports are welcome!  BestGuess is implemented in C in order to control at a
-low-level how we use fork, exec, and wait.  Segfaults and errant memory accesses
-are always a possibility, though we have attempted to implement a controlled
-_panic_ when we can detect a violation of intended behavior.
+Bug reports are welcome!  BestGuess is implemented in C because we need
+low-level control over the details of how processes are launched and measured.
+We use fork, exec, and wait carefully in order to obtain the best measurements
+we can.
 
-Please open an issue with instructions on how to reproduce the bug.  It may be
-helpful to build BestGuess in debug mode before reproducing the error, which
-causes assertions to run as well as ASAN/UBSAN checks.
+But with C, segfaults and errant memory accesses are always a possibility.  We
+have attempted to implement a controlled _panic_ when we can detect a violation
+of intended behavior.  If you see any kind of bug, including any output labeled
+"panic", please let us know.
 
-To build in debug/development mode (ASAN, UBSAN, assert):
+Open an issue with instructions on how we can reproduce the bug.  
 
-```
-make debug
-```
-
+Note: `make debug` builds BestGuess in debug mode, enabling assertions as well
+as ASAN/UBSAN checks.  If you are curious about the root cause and want to
+supply a patch, a debug build can provide helpful information.
 
 ## Contributing
 
 If you are interested in contributing, get in touch!  My [personal
 blog](https://jamiejennings.com) shows several ways to reach me.  (Don't use
-Twitter, though, as I'm no longer there.)
+Twitter/X, though, as I'm no longer there.)
 
 
 ## Authors and acknowledgment
 
 It was me and I acted alone.  I did it because it needed to be done.  If it
-works for you, then you're welcome.  And if it's broken, that's on me as well
-(let me know).
+works for you, then you're welcome.  And if it's broken, that's on me (let me
+know).
 
 Performance benchmarking is fraught.  We know that timing data is not normally
 distributed, so why do commonly used tools produce statistics on the flawed

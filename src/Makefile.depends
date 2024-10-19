@@ -5,13 +5,13 @@ cdf.o: cdf.c
 cli.o: cli.c bestguess.h cli.h utils.h reports.h stats.h optable.h
 clock_precision.o: clock_precision.c
 csv.o: csv.c csv.h bestguess.h stats.h utils.h
-exec.o: exec.c exec.h bestguess.h utils.h cli.h csv.h stats.h reports.h \
+exec.o: exec.c exec.h bestguess.h stats.h utils.h cli.h csv.h reports.h \
   optable.h
 graphs.o: graphs.c bestguess.h graphs.h stats.h utils.h
 log.o: log.c bestguess.h log.h utils.h csv.h stats.h
 optable.o: optable.c optable.h
 printing.o: printing.c printing.h bestguess.h utils.h
 reports.o: reports.c bestguess.h reports.h stats.h utils.h csv.h graphs.h \
-  printing.h
+  printing.h cli.h optable.h
 stats.o: stats.c bestguess.h utils.h stats.h
 utils.o: utils.c utils.h bestguess.h
