@@ -606,6 +606,7 @@ void free_summaries(Summary **ss, int n) {
     Summary *s = ss[i];
     free(s->cmd);
     free(s->shell);
+    free(s->name);
     if (s->infer) free(s->infer);
     free(s);
   }
@@ -626,10 +627,8 @@ Summary *summarize(Usage *usage, int start, int end) {
   Summary *s = new_summary();
   s->cmd = strndup(get_string(usage, start, F_CMD), MAXCMDLEN);
   s->shell = strndup(get_string(usage, start, F_SHELL), MAXCMDLEN);
-  char *tmp = get_string(usage, start, F_NAME);
-  s->name = tmp ? strndup(tmp, MAXCMDLEN) : NULL;
+  s->name = strndup(get_string(usage, start, F_NAME), MAXCMDLEN);
   s->batch = usage->data[start].batch;
-
   s->runs = end - start;
   for (int i = start; i < end; i++) 
     s->fail_count += (get_int64(usage, i, F_CODE) != 0);

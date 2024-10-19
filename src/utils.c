@@ -115,7 +115,7 @@ void set_string(Usage *usage, int idx, FieldCode fc, const char *str) {
   if (!usage) PANIC_NULL();
   if ((idx < 0) || (idx >= usage->next))
     PANIC("Index %d out of range 0..%d", usage->next - 1);
-  char *dup = str ? strndup(str, MAXCMDLEN) : NULL;
+  char *dup = strndup(str, MAXCMDLEN);
   if (!dup) PANIC_OOM();
   switch (fc) {
     case F_CMD:
