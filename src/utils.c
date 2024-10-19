@@ -518,10 +518,12 @@ static char *escape_using(const char *str, char quote_esc) {
   return result;
 }
 
+// Caller owns the returned string
 char *escape_csv(const char *str) {
   return escape_using(str, '"');
 }
 
+// Caller owns the returned string
 char *escape(const char *str) {
   return escape_using(str, '\\');
 }
