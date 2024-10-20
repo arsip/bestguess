@@ -155,10 +155,11 @@ typedef struct arglist {
   char **args;
 } arglist;
 
-arglist *new_arglist(size_t limit);
-int      add_arg(arglist *args, char *newarg);
-void     free_arglist(arglist *args);
-void     print_arglist(arglist *args);
+arglist    *new_arglist(size_t limit);
+int         add_arg(arglist *args, char *newarg);
+void        free_arglist(arglist *args);
+void        print_arglist(arglist *args);
+const char *read_arg(const char *p);
 
 // -----------------------------------------------------------------------------
 // String operations
@@ -213,8 +214,8 @@ extern Units count_units[];
 Units *select_units(int64_t maxvalue, Units *options);
 char  *apply_units(int64_t value, Units *units, bool show_unit_names);
 
-char *command_announcement(const char *cmd, int index, const char *fmt, int len);
-void  announce_command(const char *cmd, int index);
+char *command_announcement(const char *name, const char *cmd, int index, const char *fmt, int len);
+void  announce_command(const char *name, const char *cmd, int index);
 bool  any_per_command_output(void);
 
 int64_t next_batch_number(void);

@@ -175,6 +175,11 @@ State_.
 
 ## BestGuess features
 
+- [ ] Use command name in ranking, graphs, box plots
+
+- [ ] Save raw data automatically to `.bestguess/data.csv` and note this in the
+      warning about not using `-o`
+
 - [X] Could change from report types, e.g. `-R brief` to using single capital
       letter flags.  We have these now:
 		`-G` graph

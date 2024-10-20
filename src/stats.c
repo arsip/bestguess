@@ -627,7 +627,8 @@ Summary *summarize(Usage *usage, int start, int end) {
   Summary *s = new_summary();
   s->cmd = strndup(get_string(usage, start, F_CMD), MAXCMDLEN);
   s->shell = strndup(get_string(usage, start, F_SHELL), MAXCMDLEN);
-  s->name = strndup(get_string(usage, start, F_NAME), MAXCMDLEN);
+  char *tmp = get_string(usage, start, F_NAME);
+  s->name = tmp ? strndup(tmp, MAXCMDLEN) : NULL;
   s->batch = usage->data[start].batch;
   s->runs = end - start;
   for (int i = start; i < end; i++) 

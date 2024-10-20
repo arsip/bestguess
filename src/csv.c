@@ -310,7 +310,7 @@ void write_summary_line(FILE *f, Summary *s) {
   if (!f) return;
   char *escaped_cmd = escape_csv(s->cmd);
   char *shell_cmd = escape_csv(option.shell);
-  char *cmd_name = escape_csv(s->name);
+  char *cmd_name = s->name ? escape_csv(s->name) : NULL;
   WRITEFIELD(S_CMD, "%s", escaped_cmd, S_LAST);
   WRITEFIELD(S_SHELL, "%s", shell_cmd, S_LAST);
   WRITEFIELD(S_RUNS, "%d", s->runs, S_LAST);
@@ -379,7 +379,7 @@ void write_summary_line(FILE *f, Summary *s) {
   MAYBE(WRITEFIELD, S_WALLP95, INT64FMT, s->wall.pct95, S_LAST);
   MAYBE(WRITEFIELD, S_WALLP99, INT64FMT, s->wall.pct99, S_LAST);
   WRITEFIELD(S_WALLMAX, INT64FMT, s->wall.max, S_LAST);
-  WRITEFIELD(S_NAME, "%s", cmd_name, S_LAST);
+  WRITEFIELD(S_NAME, "%s", cmd_name ?: "", S_LAST);
   WRITEFIELD(S_BATCH, "%d", s->batch, S_LAST);
   fflush(f);
   free(escaped_cmd);

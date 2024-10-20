@@ -270,7 +270,9 @@ void print_boxplots(Summary *summaries[], int start, int end) {
   for (int i = start; i < end; i++) {
     printf("  ");
     // Maybe limit announcement length to width - 2 ?
-    char *tmp = command_announcement(summaries[i]->cmd, i, "%d: %s", NOLIMIT);
+    char *tmp = command_announcement(summaries[i]->name,
+				     summaries[i]->cmd,
+				     i, "%d: %s", NOLIMIT);
     printf("%s\n", tmp);
     free(tmp);
   }

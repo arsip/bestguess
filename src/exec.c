@@ -40,7 +40,7 @@ static bool startswith(const char *str, const char *prefix) {
   return true;
 }
 
-static char *have_name_option(char *line) {
+static const char *have_name_option(char *line) {
   int i = -1;
   if (*line != '-') return NULL;
   line++;
@@ -56,10 +56,15 @@ static char *have_name_option(char *line) {
     }
   }
   if (i == -1) return NULL;
-  if (line[i] == '=') return &(line[i + 1]);
-  if (!spacetab(line[i])) return NULL;
-  while (spacetab(line[i])) i++;
-  return &(line[i]);
+  switch (line[i]) {
+    case '=':
+      return read_arg(&line[i + 1]);
+    case ' ':
+    case '\t':
+      return read_arg(&(line[++i]));
+    default:
+      return NULL;
+  }
 }
 
 static void run_prep_command(void) {
@@ -258,7 +263,7 @@ static Usage *run_command(Usage *usage, int num, FILE *output) {
   int64_t batch = next_batch_number();
 
   if (any_per_command_output())
-    announce_command(name ?: cmd, num);
+    announce_command(name, cmd, num);
 
   Usage *dummy = new_usage_array(option.warmups);
   int idx;
@@ -282,7 +287,7 @@ Ranking *run_all_commands(void) {
   if (option.runs <= 0) 
     USAGE("Number of runs is 0, nothing to do");
 
-  char *cmd, *name;
+  char *cmd;
   char *buf = malloc(MAXCMDLEN);
   if (!buf) PANIC_OOM();
 
@@ -304,7 +309,7 @@ Ranking *run_all_commands(void) {
       }
       if (ishorizws(cmd)) continue;
       // Have non-blank line from file
-      name = have_name_option(cmd);
+      const char *name = have_name_option(cmd);
       if (name) {
 	if (last_named_command == option.n_commands) {
 	  USAGE("Name '%s' must follow a command", name);

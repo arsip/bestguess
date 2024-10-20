@@ -505,27 +505,35 @@ Ranking *read_input_files(int argc, char **argv) {
       csv_error(argv[i], lineno, "data", errfield, buf, buflen);
     // Read all the rows
     lineno = 1;
+
     while (!(errfield = read_CSVrow(input[i], &row, buf, buflen))) {
+
       lineno++;
       int idx = usage_next(usage);
+
       str = CSVfield(row, F_CMD);
       if (!str)
 	csv_error(argv[i], lineno, "string", F_CMD+1, buf, buflen);
       str = unescape_csv(str);
       set_string(usage, idx, F_CMD, str);
       free(str);
+
       str = CSVfield(row, F_SHELL);
       if (!str)
 	csv_error(argv[i], lineno, "string", F_SHELL+1, buf, buflen);
       str = unescape_csv(str);
       set_string(usage, idx, F_SHELL, str);
       free(str);
+
+      // 'name' is NULL if not set, unlike 'cmd' and 'shell' which are
+      // never NULL
       str = CSVfield(row, F_NAME);
       if (!str)
 	csv_error(argv[i], lineno, "string", F_NAME+1, buf, buflen);
       str = unescape_csv(str);
-      set_string(usage, idx, F_NAME, str);
+      set_string(usage, idx, F_NAME, *str ? str : NULL);
       free(str);
+
       str = CSVfield(row, F_BATCH);
       if (str && try_strtoint64(str, &value))
 	usage->data[idx].batch = value + batchincr;
@@ -539,17 +547,20 @@ Ranking *read_input_files(int argc, char **argv) {
 	else
 	  csv_error(argv[i], lineno, "integer", fc+1, buf, buflen);
       }
-      // Set the fields we calculate for the user
+
+      // Set the fields we calculate from the raw data
       set_int64(usage, idx, F_TOTAL,
 		get_int64(usage, idx, F_USER) + get_int64(usage, idx, F_SYSTEM));
       set_int64(usage, idx, F_TCSW,
 		get_int64(usage, idx, F_ICSW) + get_int64(usage, idx, F_VCSW));
       free_CSVrow(row);
       lastbatch = usage->data[idx].batch;
+
     }
     // Check for error reading this particular file (EOF is ok)
     if (errfield > 0)
       csv_error(argv[i], lineno + 1, "data", errfield, buf, buflen);
+
   } // For each input file
   
   free(buf);
@@ -606,7 +617,7 @@ static void add_ranking(DisplayTable *t,
   Units *units = select_units(s->total.median, time_units);
   char *median_repr = apply_units(s->total.median, units, UNITS);
   const int cmd_width = 40;
-  char *cmd = command_announcement(s->cmd, cmd_idx, cmd_fmt, cmd_width);
+  char *cmd = command_announcement(s->name, s->cmd, cmd_idx, cmd_fmt, cmd_width);
 
   // For the fastest command, 'infer' will be NULL and there is
   // only the median total run time to print.
@@ -924,7 +935,8 @@ void report(Ranking *ranking) {
     
     for (int i = 0; i < ranking->count; i++) {
       s = ranking->summaries[i];
-      if (any_per_command_output()) announce_command(s->cmd, i);
+      if (any_per_command_output())
+	announce_command(s->name, s->cmd, i);
       per_command_output(s, 
 			 ranking->usage,
 			 ranking->usageidx[i],

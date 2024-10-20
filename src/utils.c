@@ -115,8 +115,8 @@ void set_string(Usage *usage, int idx, FieldCode fc, const char *str) {
   if (!usage) PANIC_NULL();
   if ((idx < 0) || (idx >= usage->next))
     PANIC("Index %d out of range 0..%d", usage->next - 1);
-  char *dup = strndup(str, MAXCMDLEN);
-  if (!dup) PANIC_OOM();
+  char *dup = str ? strndup(str, MAXCMDLEN) : NULL;
+  if (str && !dup) PANIC_OOM();
   switch (fc) {
     case F_CMD:
       usage->data[idx].cmd = dup;
@@ -226,53 +226,82 @@ void sort(void *base, size_t nel, size_t width,
 // Parsing utilities
 // -----------------------------------------------------------------------------
 
+
 static int whitespacep(const char c) {
   return ((c == ' ') || (c == '\t') ||
 	  (c == '\n') || (c == '\r'));
 }
 
-static const char *skip_whitespace(const char *str) {
+static const char *until(const char *str, int stop(const char c)) {
   if (!str) return NULL;
-  while ((*str != '\0') && whitespacep(*str)) str++;
+  while ((*str != '\0') && !stop(*str)) str++;
   return str;
 }
 
-static const char *until_whitespace(const char *str) {
+static const char *skip(const char *str, int match(const char c)) {
   if (!str) return NULL;
-  while ((*str != '\0') && !whitespacep(*str)) str++;
+  while ((*str != '\0') && match(*str)) str++;
   return str;
 }
 
-static const char *until_doublequote(const char *str) {
-  if (!str) return NULL;
-  while ((*str != '\0') && (*str != '\"')) str++;
-  return str;
-}
+// static const char *skip_whitespace(const char *str) {
+//   if (!str) return NULL;
+//   while ((*str != '\0') && whitespacep(*str)) str++;
+//   return str;
+// }
 
-static const char *until_singlequote(const char *str) {
-  if (!str) return NULL;
-  while ((*str != '\0') && (*str != '\'')) str++;
-  return str;
-}
+// static const char *until_whitespace(const char *str) {
+//   if (!str) return NULL;
+//   while ((*str != '\0') && !whitespacep(*str)) str++;
+//   return str;
+// }
+
+// static const char *until_doublequote(const char *str) {
+//   if (!str) return NULL;
+//   while ((*str != '\0') && (*str != '\"')) str++;
+//   return str;
+// }
+
+// static const char *until_singlequote(const char *str) {
+//   if (!str) return NULL;
+//   while ((*str != '\0') && (*str != '\'')) str++;
+//   return str;
+// }
 
 static int is_quote(const char *p) {
   return p && ((*p == '\'') || (*p == '\"'));
 }
 
-// FUTURE: There's a version of this in optable that we may want to
-// copy, called read_value().  It handles escaped quotes within a
-// quoted string.
-static const char *read_arg(const char *p) {
-  if (*p == '\"') {
-    p = until_doublequote(++p);
-    if (!*p) p = NULL;
-  } else if (*p == '\'') {
-    p = until_singlequote(++p);
-    if (!*p) p = NULL;
-  } else {
-    p = until_whitespace(p);
+
+// Find a char that matches 'c', returning a pointer to one byte
+// beyond it.  Ignore 'c' if it appears escaped with backslash.
+// Returns NULL if 'c' never appears un-escaped.
+// From optable.c
+static const char *match(const char *str, char c) {
+  if (!str) return NULL;
+  while (*str != '\0') {
+    if (*str == c) return str + 1;
+    if ((*str == '\\') && (*(str+1) == c)) str++;
+    str++;
   }
-  return p;
+  return NULL;
+}
+
+// Return ptr to one byte beyond the last byte of a value.  The value
+// starts at 'p' and may be bare or quoted (single or double).
+// From optable.c
+static const char *read_value(const char *p, int stop(const char c)) {
+  if (*p == '\"') {
+    return match(++p, '\"');
+  } else if (*p == '\'') {
+    return match(++p, '\'');
+  } else {
+    return until(p, stop);
+  }
+}
+
+const char *read_arg(const char *p) {
+  return read_value(p, whitespacep);
 }
 
 void free_arglist(arglist *args) {
@@ -404,7 +433,7 @@ int split(const char *in, arglist *args) {
 
   p = start;
   while (*p != '\0') {
-    p = skip_whitespace(p);
+    p = skip(p, whitespacep);
     if (*p == '\0') break;
     // Read an argument, which might be quoted
     start = p;
@@ -710,19 +739,25 @@ size_t utf8_width(const char *str, int count) {
 // Printing utilities, for consistent presentation
 // -----------------------------------------------------------------------------
 
-// Note: 'len' is the maximum length of the printed string.  Caller
-// must free the returned string.
-char *command_announcement(const char *cmd, int index, const char *fmt, int len) {
+// Note: 'maxlen' is the maximum length of the returned string.
+// Caller must free the returned string.
+char *command_announcement(const char *name,
+			   const char *cmd,
+			   int index,
+			   const char *fmt,
+			   int maxlen) {
   char *tmp;
-  ASPRINTF(&tmp, fmt, index + 1, *cmd ? cmd : "(empty)");
-  if ((len != NOLIMIT) && ((int) strlen(tmp) > len))
-    tmp[len] = '\0';
+  // 'name' can be NULL but 'cmd' cannot
+  const char *display = name ?: (*cmd ? cmd : "(empty)");
+  ASPRINTF(&tmp, fmt, index + 1, display);
+  if ((maxlen != NOLIMIT) && ((int) strlen(tmp) > maxlen))
+    tmp[maxlen] = '\0';
   return tmp;
 }
 
-void announce_command(const char *cmd, int index) {
+void announce_command(const char *name, const char *cmd, int index) {
   const char *fmt = "Command %d: %s";
-  char *announcement = command_announcement(cmd, index, fmt, NOLIMIT); 
+  char *announcement = command_announcement(name, cmd, index, fmt, NOLIMIT); 
   printf("%s", announcement);
   printf("\n");
   fflush(stdout);
