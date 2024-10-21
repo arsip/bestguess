@@ -1,0 +1,10 @@
+bc -le "scale=2000;4*a(1)" >/dev/null
+-n "pi to 2000 digits"
+bc -le "scale=2500;4*a(1)" >/dev/null
+-n "pi to 2500 digits"
+bc -le "scale=3000;4*a(1)" >/dev/null
+-n "pi to 3000 digits"
+bc -le "scale=3500;4*a(1)" >/dev/null
+-n "pi to 3500 digits"
+bc -le "scale=4000;4*a(1)" >/dev/null
+-n "pi to 4000 digits"
