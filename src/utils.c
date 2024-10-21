@@ -244,30 +244,6 @@ static const char *skip(const char *str, int match(const char c)) {
   return str;
 }
 
-// static const char *skip_whitespace(const char *str) {
-//   if (!str) return NULL;
-//   while ((*str != '\0') && whitespacep(*str)) str++;
-//   return str;
-// }
-
-// static const char *until_whitespace(const char *str) {
-//   if (!str) return NULL;
-//   while ((*str != '\0') && !whitespacep(*str)) str++;
-//   return str;
-// }
-
-// static const char *until_doublequote(const char *str) {
-//   if (!str) return NULL;
-//   while ((*str != '\0') && (*str != '\"')) str++;
-//   return str;
-// }
-
-// static const char *until_singlequote(const char *str) {
-//   if (!str) return NULL;
-//   while ((*str != '\0') && (*str != '\'')) str++;
-//   return str;
-// }
-
 static int is_quote(const char *p) {
   return p && ((*p == '\'') || (*p == '\"'));
 }

@@ -33,10 +33,11 @@
 #define MIDLINE    1
 #define BOTTOMLINE 2
 
+// Sharp angle alternative: └ ┘ ┌ ┐
 static const char *bar(int side, int line) {
-  const char *decor[6] = { "┌", "┐",
+  const char *decor[6] = { "╭", "╮",
 			   "│", "│",
-			   "└", "┘" };
+			   "╰", "╯" };
   if ((side != LEFT) && (side != RIGHT))
     return ":";
   if ((line < TOPLINE) || (line > BOTTOMLINE))
@@ -526,7 +527,7 @@ Ranking *read_input_files(int argc, char **argv) {
       free(str);
 
       // 'name' is NULL if not set, unlike 'cmd' and 'shell' which are
-      // never NULL
+      // never NULL (no shell is indicated with an empty string)
       str = CSVfield(row, F_NAME);
       if (!str)
 	csv_error(argv[i], lineno, "string", F_NAME+1, buf, buflen);
@@ -771,8 +772,8 @@ static void print_stats_legend(int indent) {
 static DisplayTable *ranking_table(void) {
   return new_display_table(78,
 			   4,
-			   (int []){  22, 24, 1, 23, END},
-			   (int []){4,   2,  1, 1, END},
+			   (int []){  22,  24,  1,  23, END},
+			   (int []){4,   2,   1,  1, END},
 			   "llcl", false, false);
 }
 

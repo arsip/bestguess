@@ -318,10 +318,10 @@ void display_table_fullspan(DisplayTable *dt,
 }
 
 static const char *bar(int side, int line) {
-  const char *decor[8] = { "┌", "┐",
+  const char *decor[8] = { "╭", "╮",
 			   "│", "│",
 			   "├", "┤",
-			   "└", "┘" };
+			   "╰", "╯" };
   if ((side != LEFT) && (side != RIGHT))
     return ":";
   if ((line < TOPLINE) || (line > BOTTOMLINE))

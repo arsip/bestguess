@@ -5,6 +5,7 @@
 	  - Hyperfine (https://github.com/sharkdp/hyperfine)
 	  - bash built-in time command
 	  - /usr/bin/time
+	  - What else?
 
 - [ ] Is there a correlation between the number of data points collected and the
       long tail (as typified, perhaps, by the 95th or 99th percentile value)?
@@ -175,10 +176,21 @@ State_.
 
 ## BestGuess features
 
-- [ ] Use command name in ranking, graphs, box plots
+- [X] Use command name in ranking, graphs, box plots
 
 - [ ] Save raw data automatically to `.bestguess/data.csv` and note this in the
       warning about not using `-o`
+
+- [ ] Would be easy to allow user to select something other than total time for
+      the subject of analysis.  Any of these measurements could be selected:
+      - user
+	  - system
+	  - total  (currently the only one)
+	  - maxrss
+      - vcsw
+	  - icsw
+	  - tcsw
+	  - wall
 
 - [X] Could change from report types, e.g. `-R brief` to using single capital
       letter flags.  We have these now:
@@ -333,4 +345,37 @@ State_.
 
 	0
 
+Maybe put the table title into a raised "tab":
 
+  ╭────────────────────────────────────╮
+  │  Total CPU Time Distribution Tail  ╰───────────────────────────────────────╮
+  │                                                                            │
+  │  Tail shape     Q₀      Q₁      Q₂      Q₃      95      99      Q₄         │
+  │        (ms)   41.98   42.99   44.01   44.74     --      --    46.62        │
+  ╰────────────────────────────────────────────────────────────────────────────╯
+
+Best guess ranking:
+
+ ╒══════ Command ═══════════════════════════ Total time ═════ Slower by ═══════╕
+ │✻   1: ls -l                                  4.93 ms                        │
+ ╞═════════════════════════════════════════════════════════════════════════════╡
+ │    2: ps Aux                                44.01 ms   39.34 ms   797.6%    │
+ ╘═════════════════════════════════════════════════════════════════════════════╛
+
+Best guess ranking:
+
+  ╒═════ Command ═══════════════════════════ Total time ═════ Slower by ═══════╕
+  │✻   1: ls -l                                  4.93 ms                       │
+  │                                                                            │
+  ╞═════ Command ═══════════════════════════ Total time ═════ Slower by ═══════╡
+  │    2: ps Aux                                44.01 ms   39.34 ms   797.6%   │
+  │                                                                            │
+  │    Timed observations      N = 5                                           │
+  │    Mann-Whitney            W = 15                                          │
+  │    p-value (adjusted)      p = 0.012  (0.013)                              │
+  │    Hodges-Lehmann          Δ = 39.34 ms                                    │
+  │    Confidence interval     93.99% (37.32, 41.52) ms                        │
+  │    Prob. of superiority    Â = 0.00                                        │
+  ╘════════════════════════════════════════════════════════════════════════════╛
+  
+  

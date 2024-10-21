@@ -2,6 +2,7 @@
 #  -*- Mode: Shell-script; -*-                                            
 
 prog="../bestguess"
+report="../bestreport"
 
 printf "%s\n"   '--------------------------------------'
 printf "%s\n"   "$0"
@@ -70,6 +71,10 @@ usage   "$prog" -w 1048576
 
 ok      "$prog" -v
 ok      "$prog" -h
+
+ok      "$report" -v
+ok      "$report" -h
+ok      "$report" pi1.csv
 
 # Bad shell programs '-fasdkl' and foobarbaz
 usage   "$prog" -s -fasdkl ls -l

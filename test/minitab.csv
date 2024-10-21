@@ -1,10 +1,10 @@
-https://support.minitab.com/en-us/minitab/help-and-how-to/statistics/nonparametrics/supporting-topics/calculating-mann-whitney-statistics/,Shell,Exit code,User time (us),System time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches,Wall clock (us)
-cmd1,,0,22000,0,1818624,231,0,1,14,9549
-cmd1,,0,24000,0,1933312,239,0,0,14,6191
-cmd1,,0,25000,0,1835008,233,0,0,14,5541
-cmd1,,0,29000,0,1884160,236,0,0,14,5460
-cmd1,,0,30000,0,1753088,228,0,0,14,5698
-cmd2,,0,16000,0,1818624,231,0,1,14,9549
-cmd2,,0,21000,0,1933312,239,0,0,14,6191
-cmd2,,0,22000,0,1835008,233,0,0,14,5541
-cmd2,,0,23000,0,1884160,236,0,0,14,5460
+https://support.minitab.com/en-us/minitab/help-and-how-to/statistics/nonparametrics/supporting-topics/calculating-mann-whitney-statistics/,Shell,name,batch,Exit code,User time (us),System time (us),Max RSS (Bytes),Page Reclaims,Page Faults,Voluntary Context Switches,Involuntary Context Switches,Wall clock (us)
+cmd1,,,14,0,22000,0,1818624,231,0,1,14,9549
+cmd1,,,14,0,24000,0,1933312,239,0,0,14,6191
+cmd1,,,14,0,25000,0,1835008,233,0,0,14,5541
+cmd1,,,14,0,29000,0,1884160,236,0,0,14,5460
+cmd1,,,14,0,30000,0,1753088,228,0,0,14,5698
+cmd2,,,55,0,16000,0,1818624,231,0,1,14,9549
+cmd2,,,55,0,21000,0,1933312,239,0,0,14,6191
+cmd2,,,55,0,22000,0,1835008,233,0,0,14,5541
+cmd2,,,55,0,23000,0,1884160,236,0,0,14,5460

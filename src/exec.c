@@ -58,10 +58,13 @@ static const char *have_name_option(char *line) {
   if (i == -1) return NULL;
   switch (line[i]) {
     case '=':
-      return read_arg(&line[i + 1]);
     case ' ':
-    case '\t':
-      return read_arg(&(line[++i]));
+    case '\t': {
+      while (line[i] && ((line[i]==' ') || (line[i]=='\t'))) i++;
+      const char *start = &(line[i]);
+      const char *end = read_arg(start);
+      return strndup(start, (end - start));
+    }
     default:
       return NULL;
   }
@@ -195,7 +198,7 @@ static int run(int num, Usage *usage, int idx, int64_t batch) {
 
   set_string(usage, idx, F_CMD, cmd);
   set_string(usage, idx, F_SHELL, option.shell);
-  set_string(usage, idx, F_NAME, name ?: "");
+  set_string(usage, idx, F_NAME, name);
   usage->data[idx].batch = batch;
 
   // Check to see if cmd/shell aborted or was killed
@@ -316,7 +319,7 @@ Ranking *run_all_commands(void) {
 	} else {
 	  // Commands are added in order, with no blanks, so this name
 	  // is for command number n - 1
-	  option.names[option.n_commands - 1] = strdup(name);
+	  option.names[option.n_commands - 1] = name;
 	  last_named_command = option.n_commands;
 	}
       } else {

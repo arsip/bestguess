@@ -171,7 +171,8 @@ void write_header(FILE *f) {
 void write_line(FILE *f, Usage *usage, int idx) {
   char *escaped_cmd = escape_csv(get_string(usage, idx, F_CMD));
   char *shell_cmd = escape_csv(get_string(usage, idx, F_SHELL));
-  char *cmd_name = escape_csv(get_string(usage, idx, F_NAME));
+  char *tmp = get_string(usage, idx, F_NAME);
+  char *cmd_name = tmp ? escape_csv(tmp) : NULL;
 
   WRITEFIELD(F_CMD, "\"%s\"", escaped_cmd, F_LAST);
   WRITEFIELD(F_SHELL, "\"%s\"", shell_cmd, F_LAST);

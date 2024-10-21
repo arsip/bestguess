@@ -81,14 +81,16 @@ well as its own format.
 
 The BestGuess `--hyperfine-csv <FILE>` option is used wherever you would use
 `--export-csv <FILE>` with Hyperfine to get essentially the same summary
-statistics in CSV form.  Two important differences:
-  1. BestGuess does not calculate arithmetic mean.  In the summary file, the
-     `mean` column has been replaced by `mode`.  The median and mode values of
-     total CPU time are each more representative than mean for skewed and
-     heavy-tailed distributions.
-  2. BestGuess does not calculate standard deviation because we can show that
-     performance distributions are rarely normal.  Instead, the file produced by
-     `--hyperfine-csv` contains the interquartile range instead.
+statistics in CSV form.  There are two important differences, due to the fact
+that performance distributions are rarely normal.  (BestGuess will analyze the
+empirical distributions of total CPU time to indicate when this is the case.)
+Without a normal distribution, the mean is not a very useful measure of central
+tendency, and the standard deviation is not a good measure of spread.  These
+fields in the Hyperfine-compatible summary statistics file are replaced:
+  1. In the file produced by `--hyperfine-csv`, the `mean` column has been
+     replaced by `mode`.  The median and mode values of total CPU time are more
+     representative than mean for skewed and heavy-tailed distributions.
+  2. Instead of the standard deviation, the interquartile range is used.
 
 These Hyperfine options are effectively the same in BestGuess:
   * `-w`, `--warmup`
@@ -182,15 +184,15 @@ and are often skewed, so we do not show a mean or standard deviation.  The
 summary statistics provided are mode, min, mean, 95th and 99th percentiles, and
 max. 
 
-**Descriptive statistics:** The "distribution statistics" option provides an
+**Distribution statistics:** The "distribution statistics" option provides an
 overview of the distribution of total CPU times for a single command.  (Total
-CPU time is the sum of user time and system time.)  A statistical test for
-normality is performed.  When the result is significant, we can rule out the
-hypothesis that the total time is normally distributed.  A simple measure of
-skew is also performed, and a measure of excess kurtosis.  Of course, the usual
-descriptive statistics are displayed (Q0 or min, Q1, Q2 or median, Q3, Q4 or
-max), along with the number of data points and an interpretation of the
-interquartile range.
+CPU time is the sum of user time and system time.)  These are descriptive
+statistics.  A test for normality is performed.  When the result is significant,
+we can rule out the hypothesis that the total time is normally distributed.  A
+simple measure of skew is also performed, and a measure of excess kurtosis.  Of
+course, the usual descriptive statistics are displayed (Q0 or min, Q1, Q2 or
+median, Q3, Q4 or max), along with the number of data points and an
+interpretation of the interquartile range.
 
 **Tail statistics:** The "tail statistics" option displays the
 statistical summary (mode, min, mean, 95th and 99th percentiles, and max) for
@@ -217,17 +219,11 @@ distinguishable from the fastest.
 
 ### Summary to terminal, no raw data output
 
-Here, the empty command provides a good measure of shell startup time.  The 95th
-and 99th percentile figures are not available because the number of runs is too
-small.  You need at least 20 runs to get 95th and at least 100 runs to get 99th
-percentile numbers.  These are of interest because they summarize statistically
-what the "long tail" of high run times looks like.
-
-Note that the Mode value may be the most relevant, as it is the "typical"
-run time.  However, Median is also a good indication of central tendency for
-performance data.  The figures to the right represent the range from minimum (0th
-percentile) through median (50th percentile) to the 95th, 99th, and maximum
-measurements.
+Here, the empty command provides a good measure of shell startup time.
+Note that the mode may be the most relevant, as it is the "typical" value.
+However, the median is also a good indication of central tendency for
+performance data.  The figures to the right show the conventional 5 quartile
+figures, from the minimum up to the maximum observation.
 
 ```shell
 $ bestguess -r=10 -s "/bin/bash -c" "" "ls -l" "ps Aux"
@@ -515,7 +511,7 @@ Best guess ranking: (Lacking the 5 timed runs to statistically rank)
 $ 
 ```
 
-## Bar graph
+## Bar graphs and box plots
 
 There's a "cheap" but useful bar graph feature in BestGuess (`-G` or `--graph`)
 that shows the total time taken for each iteration as a horizontal bar.
@@ -621,7 +617,7 @@ Best guess ranking: The top 2 commands performed identically
 $ 
 ```
 
-### Explanations of statistical measures
+## Explanations of statistical measures
 
 Re-running the box plot example above, we get quite different results, with `ls`
 coming out on top.  This is unsurprising for programs that take very little time
@@ -710,6 +706,135 @@ README.  Importantly, the BestGuess statistics are not a substitute for using
 other tools to analyze the raw data.  Numerical calculations are fraught when
 implemented in a language like C, and they are provided for convenience, as are
 the distribution plots and box plots. 
+
+## Tail statistics
+
+When investigating performance issues in a production system, we want to know
+whether long latencies occur.  We find out by examining the (right) tail of the
+sample distribution.  The "tail statistics report" summarizes statistically what
+the (possibly) "long tail" of high run times looks like.
+
+BestGuess provides a (modest) description of the tail by showing the 95th and
+99th percentile figures in the context of the quartile figures: minimum (Q₀, 0th
+percentile), first quartile (Q₁, 25th percentile), median (Q₂, 50th percentile),
+third quartile (Q₃, 75th percentile), and maximum (Q₄, 100th percentile).
+
+You need at least 20 runs to get 95th and at least 100 runs to get 99th
+percentile numbers.
+
+```shell
+$ bestreport -M -T test/raw100.csv
+Command 1: ls -l
+                      Mode    ╭     Min   Median      Max   ╮
+   Total CPU time    4.22 ms  │    2.54     4.09    10.21   │
+       Wall clock   24.29 ms  ╰   23.70    24.32    41.82   ╯
+
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │                      Total CPU Time Distribution Tail                      │
+  │                                                                            │
+  │  Tail shape     Q₀      Q₁      Q₂      Q₃      95      99      Q₄         │
+  │        (ms)    2.54    2.68    4.09    4.25    7.37   10.21   10.21        │
+  └────────────────────────────────────────────────────────────────────────────┘
+
+Command 2: ps Aux
+                      Mode    ╭     Min   Median      Max   ╮
+   Total CPU time   37.66 ms  │   35.72    38.39    49.41   │
+       Wall clock   58.98 ms  ╰   56.06    58.71    77.47   ╯
+
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │                      Total CPU Time Distribution Tail                      │
+  │                                                                            │
+  │  Tail shape     Q₀      Q₁      Q₂      Q₃      95      99      Q₄         │
+  │        (ms)   35.72   37.58   38.39   39.74   45.66   49.41   49.41        │
+  └────────────────────────────────────────────────────────────────────────────┘
+
+Best guess ranking:
+
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   1: ls -l                                  4.09 ms                         
+  ══════════════════════════════════════════════════════════════════════════════
+      2: ps Aux                                38.39 ms   34.91 ms   852.6%     
+  ══════════════════════════════════════════════════════════════════════════════
+$
+```
+
+## Distribution statistics
+
+Our experience suggests that most of the time, the distribution of total CPU
+time is not normal.  This may not be your experience, and BestGuess can
+illuminate the issue by calculating several descriptive statistics on each
+sample.  The "distribution statistics report" contains a summary including the
+number of observations (timed command executions), the full range, and
+interquartile range.  Following this summary are several statistics that can be
+used to compare the distribution shape to a normal distribution.
+
+The "AD normality" figure is the Anderson-Darling test for normality.  Higher
+values indicate that the distribution looks more different from normal.  The
+p-value (significance) for the calculation is shown.
+
+Skew is a measure of asymmetry.  Normal distributions are symmetric, so a high
+skew value suggests a substantial deviation from normal.
+
+Excess kurtosis is a measure of distribution shape.  It can indicate that the
+distribution has much "fatter tails" or much "thinner tails" than would a normal
+distribution. 
+
+BestGuess does not use these measures in other calculations.  They are presented
+to allow the user to see, statistically, how close or far are their empirical
+distributions of total CPU time from normal.
+
+
+```shell
+$ bestreport -M -D test/raw100.csv
+Command 1: ls -l
+                      Mode    ╭     Min   Median      Max   ╮
+   Total CPU time    4.22 ms  │    2.54     4.09    10.21   │
+       Wall clock   24.29 ms  ╰   23.70    24.32    41.82   ╯
+
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │                        Total CPU Time Distribution                         │
+  │                                                                            │
+  │  N (observations)             100 ct                                       │
+  │            Median             4.1 ms                                       │
+  │             Range      2.5 … 10.2 ms                                       │
+  │                               7.7 ms                                       │
+  │               IQR       2.7 … 4.2 ms                                       │
+  │                               1.6 ms (20.8% of range)                      │
+  │                                                                            │
+  │      AD normality            8.76 p < 0.001 (signif., α = 0.05) Not normal │
+  │              Skew            2.47 Substantial deviation from normal        │
+  │   Excess kurtosis            7.80 Substantial deviation from normal        │
+  └────────────────────────────────────────────────────────────────────────────┘
+
+Command 2: ps Aux
+                      Mode    ╭     Min   Median      Max   ╮
+   Total CPU time   37.66 ms  │   35.72    38.39    49.41   │
+       Wall clock   58.98 ms  ╰   56.06    58.71    77.47   ╯
+
+  ┌────────────────────────────────────────────────────────────────────────────┐
+  │                        Total CPU Time Distribution                         │
+  │                                                                            │
+  │  N (observations)             100 ct                                       │
+  │            Median            38.4 ms                                       │
+  │             Range     35.7 … 49.4 ms                                       │
+  │                              13.7 ms                                       │
+  │               IQR     37.6 … 39.7 ms                                       │
+  │                               2.2 ms (16.1% of range)                      │
+  │                                                                            │
+  │      AD normality            5.58 p < 0.001 (signif., α = 0.05) Not normal │
+  │              Skew            2.11 Substantial deviation from normal        │
+  │   Excess kurtosis            4.73 Substantial deviation from normal        │
+  └────────────────────────────────────────────────────────────────────────────┘
+
+Best guess ranking:
+
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   1: ls -l                                  4.09 ms                         
+  ══════════════════════════════════════════════════════════════════════════════
+      2: ps Aux                                38.39 ms   34.91 ms   852.6%     
+  ══════════════════════════════════════════════════════════════════════════════
+$
+```
 
 ## Bug reports
 
