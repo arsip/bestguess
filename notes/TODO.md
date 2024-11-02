@@ -139,7 +139,37 @@
         Internals by Solomon, Russinovich, et al._ is cited by 
 		https://superuser.com/questions/1326252/changing-windows-thread-sheduler-timeslice
 	  - A post on Medium claims the Windows Server quantum is fixed at 120ms,
-        which is entirely believable, though I cannot readily find a source.
+        which is entirely believable, though I cannot readily find a source.  It
+        is believable because server workloads are not interactive like those of
+        personal computers, and a longer quantum is thought to produce higher
+        utilization. 
+
+- [ ] The ASA and others have been advising against the current fixation on
+      p-values in general and on findings of p < 0.05 in particular.  In a 2019
+      issue of The American Statistician, several ways to move beyond p-values
+      are proposed in a collection of articles.  An editorial recommendation is
+      to avoid thresholds like the alpha often used to discriminate significant
+      from not significant results.  Instead, we can present the p-value as a
+      continuous descriptive statistic which the reader can interpret.  A
+      compelling idea is to convert to a "How surprising is this?" figure by
+      computing s = -log2(p).  This is the Shannon "information content" of an
+      event with probability p.
+	  - [X] BestGuess already shows p-values, independent of alpha.
+	  - [ ] We currently use p < α as one of several indications that we should
+            reject the null hypothesis which states that two distributions are
+            the same.  Without a threshold, how can we use the Mann-Whitney p-value?
+	  - [ ] The same issue is found in the confidence interval around the
+            Hodges-Lehmann median shift estimate.
+	  - [ ] Another ASA editorial suggestion is to avoid using the term
+            _significant_ at all.  Converting the calculation to one of
+            _surprise_ is one way to do that.  We could instead change only the
+            terminology, adopting something like _compatibility_, i.e. stating
+            that the p-value measures how compatible is the data with the
+            hypothesis. 
+	  - [X] ASA editors also recommend using a collection of statistical
+            techniques to avoid relying on some "critical p-value".  We do this
+            with our use of MWW (p-value), HL (confidence interval), and
+            probability of superiority.
 
 
 REFERENCES
@@ -150,6 +180,10 @@ Machine Warmup Blows Hot and Cold_.
 [2] T. Kalibera, L. Bulej, P. Tuma, _Benchmark Precision and Random Initial
 State_.
 
+[3] Wasserstein, R. L., Schirm, A. L., & Lazar, N. A. (2019). Moving to a World
+Beyond “p < 0.05.” The American Statistician, 73(sup1), 1–19.
+https://doi.org/10.1080/00031305.2019.1583913
+https://www.tandfonline.com/doi/full/10.1080/00031305.2019.1583913#d1e143
 
 
 ## Measurement and analysis techniques
@@ -166,12 +200,18 @@ State_.
       that yields 300 observations each of program A and program B.  If we had
       run 30 experiments of 10 observations each, the 30 sample medians for A
       should be normally distributed (same for B).  We can use a t-test to gauge
-      whether A is faster than B.  Given the nature of a typical experimental
-      setup (ad hoc perhaps, with other processes running, network and user
-      activity), would we get the same results from the one large experiment?
-      What if we sliced up the 300 observations into 30 samples of 10 each, and
-      pretended they were separate experiments?  What makes them NOT separate,
-      i.e. what is different about 30 sets of 10?
+      whether A is faster than B.
+	  - Given the nature of a typical experimental setup (ad hoc perhaps, with
+        other processes running, network and user activity), would we get the
+        same results from the one large experiment?
+	  - What if we sliced up the 300 observations into 30 samples of 10 each,
+        and pretended they were separate experiments?  What makes them NOT
+        separate, i.e. what is different about 30 sets of 10?
+	  - Bootstrap statistics are indicators (e.g. the median) calculated by
+        re-sampling.  E.g. we run an experiment that gathers 100 observations,
+        then we randomly choose 100 observations with replacement to generate a
+        derived sample.  Do this a bunch of times, then analyze the distribution
+        of some statistic like the median across the re-samples.
 
 
 ## BestGuess features
