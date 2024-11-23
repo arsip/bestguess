@@ -605,9 +605,7 @@ static void add_ranking(DisplayTable *t,
 
   Inference *infer = s->infer;
 
-  double pct;
   char *tmp, *tmp2, *tmp3;
-  char *shift_repr = NULL;
   char *info_line = NULL;
 
   if (option.explain && can_rank) {
@@ -623,11 +621,12 @@ static void add_ranking(DisplayTable *t,
   // For the fastest command, 'infer' will be NULL and there is
   // only the median total run time to print.
   if (infer) {
-    pct = infer->shift / (double) best_time;
-    shift_repr = apply_units(infer->shift, units, UNITS);
-    ASPRINTF(&info_line, "%s%-*s  %10s %10s %7.1f%%",
+    double factor = ((double) s->total.median) / (double) best_time;
+    char *shift_repr = apply_units((double) (s->total.median - best_time), units, UNITS);
+    ASPRINTF(&info_line, "%s%-*s  %10s %10s %6.2fx",
 	     (winnerp && can_rank) ? winner : " ",
-	     cmd_width, cmd, median_repr, shift_repr, pct * 100.0);
+	     cmd_width, cmd, median_repr, shift_repr, factor);
+    free(shift_repr);
   } else {
     ASPRINTF(&info_line, "%s%-*s  %10s",
 	     (winnerp && can_rank) ? winner : " ",
@@ -638,7 +637,6 @@ static void add_ranking(DisplayTable *t,
 
   free(cmd);
   free(median_repr);
-  free(shift_repr);
   free(info_line);
 
   // The fastest command has no comparative stats, so 'infer' will be

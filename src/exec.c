@@ -12,6 +12,8 @@
 #include <unistd.h> 
 #include <assert.h>
 #include <sys/time.h>
+#include <spawn.h>
+#include <fcntl.h> 
 
 #include "csv.h"
 #include "stats.h"
@@ -131,10 +133,10 @@ static void run_prep_command(void) {
 }
 
 static int run(int num, Usage *usage, int idx, int64_t batch) {
-  FILE *f;
-  pid_t pid;
+  pid_t pid, err;
   int status;
   int64_t start, stop;
+  struct rusage from_os;
 
   const char *cmd = option.commands[num];
   const char *name = option.names[num];
@@ -148,12 +150,15 @@ static int run(int num, Usage *usage, int idx, int64_t batch) {
 
   arglist *args = new_arglist(MAXARGS);
 
+  status = 0;
   if (use_shell) {
-    split_unescape(option.shell, args);
-    add_arg(args, strdup(cmd));
+    status |= split_unescape(option.shell, args);
+    status |= add_arg(args, strdup(cmd));
   } else {
-    split_unescape(cmd, args);
+    status |= split_unescape(cmd, args);
   }
+  if (status)
+    PANIC("Error preparing command and arguments for exec: '%s'", cmd);
 
   if (DEBUG) {
     printf("Arguments to pass to exec:\n");
@@ -161,31 +166,36 @@ static int run(int num, Usage *usage, int idx, int64_t batch) {
     fflush(NULL);
   }
 
+  if (!args->args[0]) {
+    fprintf(stderr, "Error: Cannot execute null command\n");
+    fprintf(stderr, "\n"
+	    "Hint: An empty command that is run in a shell will measure the shell startup\n"
+	    "      time.  Use  -%s or --%s to specify a shell.\n",
+	      optable_shortname(OPT_SHELL), optable_longname(OPT_SHELL));
+
+    exit(ERR_USAGE);
+  }
+
   if (gettimeofday(&wall_clock_start, NULL)) {
     perror("could not get wall clock time");
     PANIC("Exiting...");
   }
 
-  // Goin' for a ride!
-  pid = fork();
-
-  if (pid == 0) {
-    if (!show_output) {
-      f = freopen("/dev/null", "r", stdin);
-      if (!f) PANIC("freopen failed on stdin");
-      f = freopen("/dev/null", "w", stderr);
-      if (!f) PANIC("freopen failed on stderr");
-      f = freopen("/dev/null", "w", stdout);
-      if (!f) PANIC("freopen failed on stdout");
-    }
-    execvp(args->args[0], args->args);
-    // The exec() functions return only if an error occurs, i.e. it
-    // could not launch args[0] (a command or the shell to run it)
-    PANIC("Exec failed");
+  posix_spawn_file_actions_t file_actions = NULL;
+  posix_spawnattr_t attr = NULL;
+  // TODO: char *const env[] = ...;
+  if (!show_output) {
+    posix_spawn_file_actions_init(&file_actions);
+    posix_spawn_file_actions_addopen(&file_actions, 0, "/dev/null", O_RDONLY, 0);
+    posix_spawn_file_actions_addopen(&file_actions, 1, "/dev/null", O_WRONLY, 0);
+    posix_spawn_file_actions_addopen(&file_actions, 2, "/dev/null", O_WRONLY, 0);
   }
-  
-  struct rusage from_os;
-  pid_t err = wait4(pid, &status, 0, &from_os);
+
+  status = posix_spawnp(&pid, args->args[0], &file_actions, &attr, args->args, NULL);
+  err = wait4(pid, &status, 0, &from_os);
+    
+  if (!show_output)
+    posix_spawn_file_actions_destroy(&file_actions);
 
   if (gettimeofday(&wall_clock_stop, NULL)) {
     perror("could not get wall clock time");
@@ -203,14 +213,15 @@ static int run(int num, Usage *usage, int idx, int64_t batch) {
 
   // Check to see if cmd/shell aborted or was killed
   if ((err == -1) || !WIFEXITED(status) || WIFSIGNALED(status)) {
-    fprintf(stderr, "Error: Could not execute %s '%s'.\n",
+    fprintf(stderr, "Error: Failed to execute %s '%s'.\n",
 	    use_shell ? "shell" : "command",
 	    use_shell ? option.shell : cmd);
 
     if (!*option.shell) {
-      fprintf(stderr, "\nHint: No shell option specified.  Use -%s or --%s to specify a shell.\n",
+      fprintf(stderr, "\n"
+	      "Hint: If this command needs to run in a shell, use -%s or --%s.\n"
+	      "      An empty command run in a shell will measure shell startup time.\n",
 	      optable_shortname(OPT_SHELL), optable_longname(OPT_SHELL));
-      fprintf(stderr, "      An empty command run in a shell will measure shell startup.\n");
     }
     exit(ERR_RUNTIME);
   }

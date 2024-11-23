@@ -33,7 +33,7 @@ no_dist_stats
 no_tail_stats
 no_explanation
 has_ranking
-contains "Best guess ranking" "Slower by" "797.6%"
+contains "Best guess ranking" "Slower by" "8.92x"
 ok diff "$outfile" "$expectfile"
 
 # Write summary stats and print mini stats
@@ -47,7 +47,7 @@ no_dist_stats
 no_tail_stats
 no_explanation
 has_ranking
-contains "Best guess ranking" "Slower by" "797.6%"
+contains "Best guess ranking" "Slower by" "8.92x"
 ok diff "$outfile" "$expectfile"
 
 # Write summary stats (and get no stats on terminal)
@@ -61,7 +61,7 @@ no_dist_stats
 no_tail_stats
 no_explanation
 has_ranking
-contains "Best guess ranking" "Slower by" "797.6%"
+contains "Best guess ranking" "Slower by" "8.92x"
 ok diff "$outfile" "$expectfile"
 
 # ------------------------------------------------------------------
@@ -83,7 +83,7 @@ no_dist_stats
 no_tail_stats
 no_explanation
 has_ranking
-contains "Best guess ranking" "Slower by" "797.6%"
+contains "Best guess ranking" "Slower by" "8.92x"
 
 ok diff "$outfile" "$expectfile"
 
@@ -98,7 +98,7 @@ no_dist_stats
 no_tail_stats
 no_explanation
 has_ranking
-contains "Best guess ranking" "Slower by" "797.6%"
+contains "Best guess ranking" "Slower by" "8.92x"
 ok diff "$outfile" "$expectfile"
 
 # Write summary stats (and get no report on terminal)
@@ -112,7 +112,7 @@ no_dist_stats
 no_tail_stats
 no_explanation
 has_ranking
-contains "Best guess ranking" "Slower by" "797.6%"
+contains "Best guess ranking" "Slower by" "8.92x"
 ok diff "$outfile" "$expectfile"
 
 #

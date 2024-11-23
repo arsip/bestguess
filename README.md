@@ -1,39 +1,65 @@
 # Best Guess
 
-## Description
+BestGuess is a tool for command-line benchmarking, a type sometimes called
+"macro-benchmarking" because entire programs are measured.
 
-The goal, in short, is to replace Hyperfine (a popular benchmarking tool) in my
-work.  I built BestGuess to provide more accurate measurements and well-founded
-statistical calculations.
+BestGuess does these things:
 
-* Use `bestguess` to conduct experiments (measure run times, memory usage, and more).
-* Use `bestreport` to produce a variety of statistical analyses and also cheap
-  plots on the terminal.
+1. Runs commands and captures run times, memory usage, and more data about their execution.
+2. Saves the raw data, for record-keeping or for later analysis.
+3. Optionally reports on various properties of the data distribution.
+4. Ranks the benchmarked commands from fastest to slowest.
 
-BestGuess is a single executable, and all of the reports can be obtained at the
-time an experiment is run.  I recommend using the `-o` (output) option of
-`bestguess` to save the raw data to a CSV file.  Later, reports can be re-run as
-needed using `bestreport`.
+The implementation is C99 and runs on many Linux and BSD platforms, including macOS.
 
-## Build and run
+``` 
+$ bestguess -M -r 20 "ls -lR" "ls -l" "ps Aux"
+Use -o <FILE> or --output <FILE> to write raw data to a file.
 
-To build BestGuess in release mode:
+Command 1: ls -lR
+                      Mode    ╭     Min   Median      Max   ╮
+   Total CPU time    7.14 ms  │    7.08     7.14    14.83   │
+       Wall clock    8.52 ms  ╰    8.40     8.51    29.68   ╯
 
+Command 2: ls -l
+                      Mode    ╭     Min   Median      Max   ╮
+   Total CPU time    3.02 ms  │    2.98     3.08     3.78   │
+       Wall clock    4.25 ms  ╰    4.17     4.27     5.44   ╯
+
+Command 3: ps Aux
+                      Mode    ╭     Min   Median      Max   ╮
+   Total CPU time   33.90 ms  │   33.38    33.90    35.23   │
+       Wall clock   44.11 ms  ╰   43.93    44.50    47.41   ╯
+
+Best guess ranking:
+
+  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
+  ✻   2: ls -l                                  3.08 ms 
+  ══════════════════════════════════════════════════════════════════════════════
+      1: ls -lR                                 7.14 ms    4.08 ms   132.3% 
+      3: ps Aux                                33.90 ms   30.81 ms  1000.0% 
+  ══════════════════════════════════════════════════════════════════════════════
+$ 
 ```
-make
-```
 
-To install to default location:
 
-```
-make install
-```
+## Installing
 
-To install to custom location `/some/path/bin`:
+Requires a C compiler and `make`.  Clone the repository, and in the top level
+directory, run `make`.
 
-```
-make DESTDIR=/some/path install
-```
+BestGuess is now executable as `./bestguess`.  To re-analyze saved data, use `./bestreport`.
+
+
+You can optionally install BestGuess system-wide.  The default installation
+location is `/usr/local`.  Use `make install` to install `bestguess` and
+`bestreport` there.
+
+
+To install to custom location, e.g. `/some/path/bin`, run `make`
+`DESTDIR=/some/path install`.  Note that the Makefile appends `bin`
+automatically. 
+
 
 ## Philosphy
 
