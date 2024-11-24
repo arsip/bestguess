@@ -64,16 +64,17 @@ static double Phi(double x) {
 }
 
 static double cPhi(double x) {
-  int j= 0.5 * (fabs(x) + 1.0);
-  long double R[9]= { 1.25331413731550025L,
-		      0.421369229288054473L,
-		      0.236652382913560671L,
-		      0.162377660896867462L,
-		      0.123131963257932296L,
-		      0.0990285964717319214L,
-		      0.0827662865013691773L,
-		      0.0710695805388521071L,
-		      0.0622586659950261958L };
+  int j = 0.5 * (fabs(x) + 1.0);
+  if (j > 9) return 0.0;
+  long double R[9] = { 1.25331413731550025L,
+		       0.421369229288054473L,
+		       0.236652382913560671L,
+		       0.162377660896867462L,
+		       0.123131963257932296L,
+		       0.0990285964717319214L,
+		       0.0827662865013691773L,
+		       0.0710695805388521071L,
+		       0.0622586659950261958L };
   long double pwr = 1.0, a = R[j], z = 2*j, b = a*z - 1;
   long double h = fabs(x) - z, s = a + h*b, t = a, q = h * h;
   for (int i = 2; s != t; i += 2){
@@ -933,16 +934,17 @@ static double tie_correction(RankedCombinedSample RCS) {
 static double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp) {
   int n1 = RCS.n1;
   int n2 = RCS.n2;
-  double K = fmin(W, n1 * (n1 + n2 + 1) - W);
+  double n1_times_sum = (int64_t) n1 * (int64_t) (n1 + n2 + 1);
+  double K = fmin(W, n1_times_sum - W);
   // Mean and std dev for W assumes W is normally distributed, which
   // it will be according to the theory
-  double meanW = 0.5 * (double)(n1 * (n1 + n2 + 1));
+  double meanW = 0.5 * n1_times_sum;
   // Continuity correction is 0.5, accounting for the fact that our
   // samples are not real numbered values of a function (which would
   // never produce a tie).
   double cc = 0.5;
   double mean_distanceK = fabs(K - meanW);
-  double stddev = sqrt((double) (n1 * n2 * (n1 + n2 + 1)) / 12.0);
+  double stddev = sqrt((double) n2 * n1_times_sum / 12.0);
    // p-value for hypothesis that η₁ ≠ η₂
   double Zne = (mean_distanceK - cc) / stddev;
   double p = 2 * cPhi(Zne);
