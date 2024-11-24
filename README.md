@@ -1,6 +1,6 @@
 # BestGuess
 
-BestGuess is a tool for command-line benchmarking, a type sometimes called
+BestGuess is a tool for command-line benchmarking, sometimes called
 "macro-benchmarking" because entire programs are measured.
 
 BestGuess does these things:
@@ -65,18 +65,22 @@ The implementation is C99 and runs on many Linux and BSD platforms, including ma
 
 Dependencies: 
   * C compiler
-  * `make`
+  * make
 
-Clone the repository, and in the top level directory, run `make`.  BestGuess is
-now executable as `./bestguess`.  To re-analyze saved data, use `./bestreport`.
+Clone the repository, and in the top level directory, run `make`.  A successful
+build results in two executables: `./bestguess` for running benchmarks, and
+`./bestreport` to re-analyze saved data.
 
 You can optionally install BestGuess system-wide.  The default installation
 location is `/usr/local`.  Use `make install` to install `bestguess` and
 `bestreport` there.
 
-To install to custom location, e.g. `/some/path/bin`, run `make`
-`DESTDIR=/some/path install`.  Note that the Makefile appends `bin`
-automatically. 
+To install to custom location, e.g. `/some/path`, 
+run `make DESTDIR=/some/path install`, 
+which will put the executables in `/some/path/bin`.
+Note that the Makefile appends `bin` automatically, per Unix tradition.  In the
+future, the man page will be installed to `/some/path/man`, other content to
+`/some/path/share`, and so on.
 
 
 ## Examples
@@ -200,7 +204,7 @@ $
 ### Save summary statistics
 
 The BestGuess option `--export-csv <FILE>` writes detailed summary statistics to
-`<FILE>`.  Important measurements include: 
+`<FILE>`, including: 
 
   * total time (microseconds)
   * user time (microseconds)
@@ -217,23 +221,9 @@ For each of the measures above, there is a column for:
   * Q1
   * median (Q2)
   * Q3
-  * 95th percentile, provided there were at least 20 runs
-  * 99th percentile, provided there were at least 100 runs
+  * 95th percentile (empty if less than 20 runs)
+  * 99th percentile (empty if less than 100 runs)
   * maximum (Q4)
-
-The BestGuess option `--hyperfine-csv <FILE>` writes summary statistics to a CSV
-file in the same format used by Hyperfine, but with these key changes:
-
-1. In the second column, Hyperfine reports the mean total CPU time, which is not
-   a useful measure.  BestGuess substitutes the estimated mode and the header is
-   changed accordingly.
-2. The standard deviation figure is replaced by the interquartile range and the
-   header is changed accordingly.  IQR is considered a better measure of
-   dispersion for non-normal distributions.
-3. After the `median` total time column, Hyperfine writes mean values of user
-   and system times.  BestGuess reports the `median` user and system times
-   instead.  Medians are considered more representative in arbitrary (and
-   particularly skewed) distributions.
 
 ```
 $ bestguess --export-csv /tmp/summary.csv -N -r=20 "ls -l" "ps Aux"
@@ -262,6 +252,22 @@ There are 3 lines in the file, one for the header and one for each of the two
 commands. 
 
 
+### Save summary statistics in Hyperfine format
+
+The BestGuess option `--hyperfine-csv <FILE>` writes summary statistics to a CSV
+file in the same format used by Hyperfine, but with these key changes:
+
+1. In the second column, Hyperfine reports the mean total CPU time, which is not
+   a useful measure when a distribution is far from normal.  BestGuess
+   substitutes the estimated mode.  The header is changed accordingly.
+2. The standard deviation figure is replaced by the interquartile range and the
+   header is changed accordingly.  IQR is considered a better measure of
+   dispersion for non-normal distributions.
+3. After the `median` total time column, Hyperfine writes mean values of user
+   and system times.  BestGuess reports the `median` user and system times
+   instead.
+
+
 ### Measure shell startup time
 
 When running a command via a shell or other command runner, you may want to
@@ -270,16 +276,13 @@ measure the overhead of starting the shell.  Supplying an empty command string,
 the time it takes to launch the shell.
 
 **Rationale\:** BestGuess does not compute shell startup time because it doesn't
-know whether you want it measured or how.  (How many runs and warmups, for
-instance.)  The worst thing that a tool like BestGuess could do is to estimate
-shell startup time and subtract it from the measurements it reports.  Hidden
-measurements and silent data manipulation are bad science.  If you want to
-measure something, do so explicitly.
+know how you want it measured, if at all.  (Which shell? How to invoke it? How
+many runs and warmup runs?)
 
 On my machine, as shown below, about 2.4ms is spent in the shell, out of the
 5.2ms needed to run `ls -l`.
 
-When reporting experimental results, we might want to subtract the bash startup
+When reporting experimental results, we might want to subtract the shell startup
 time from the run time of the other commands to estimate the net run time.
 
 ```
@@ -305,63 +308,6 @@ Best guess ranking:
   ══════════════════════════════════════════════════════════════════════════════
 $ 
 ```
-
-## About measurement quality
-
-There is no good definition of accuracy for benchmarking tools.  Runtimes vary
-for many reasons, ranging from low-level architectural effects (like the
-behavior of instruction caches and branch prediction) to the high level (and
-easily observed) makeup of other running processes.  A high system load and lots
-of i/o are both known to interfere with the subject program, extending runtimes.
-
-Putting aside accuracy, it is not clear how to explain that different tools
-produce sometimes markedly different results for the same experiment run on the
-same machine under the same conditions.
-
-Here, BestGuess reports 2.7ms, while Hyperfine reports 9.3ms (the sum of user
-and system times).  Neither is using a shell, both send command output to
-`/dev/null`, and both are running 5 warmup runs.  It is not clear why the
-difference is so large.
-
-BestGuess uses times obtained via `wait4()`.  In other words, it has direct
-access to the process accounting done by the OS.  And BestGuess does no extra
-work after forking a new process to run each command, before executing the
-command.  Hyperfine, which uses a Rust process management crate, may do
-significant work in that gap between `fork` and `exec` -- work that will accrue
-time to the measured command.
-
-```
-$ bestguess -M -w 5 -r 100 "/bin/ls -l"
-Use -o <FILE> or --output <FILE> to write raw data to a file.
-
-Command 1: /bin/ls -l
-                      Mode    ╭     Min   Median      Max   ╮
-   Total CPU time    2.72 ms  │    2.66     2.72     2.94   │
-       Wall clock    3.57 ms  ╰    3.53     3.61     4.13   ╯
-
-$ hyperfine --style basic -S "none" --output /dev/null -w 5 -r 100 "/bin/ls -l"
-Benchmark 1: /bin/ls -l
-  Time (mean ± σ):      11.6 ms ±   0.1 ms    [User: 6.0 ms, System: 3.3 ms]
-  Range (min … max):    11.1 ms …  12.1 ms    100 runs
- 
-$ multitime -s 0 -n 100 /bin/ls -l >/dev/null
-===> multitime results
-1: /bin/ls -l
-            Mean        Std.Dev.    Min         Median      Max
-real        0.005       0.001       0.004       0.004       0.009 
-user        0.001       0.000       0.001       0.001       0.002 
-sys         0.002       0.000       0.002       0.002       0.004 
-$ 
-```
-
-The multitime utility reports a median of 0.003s (3ms) as the sum of user and
-system times for the same experiment.  Multitime uses `wait4()`, like BestGuess,
-and reports a comparable result.
-
-A rigorous comparison of these and other benchmarking tools is in order,
-accompanied by a deep dive into why they differ.  This example is _not_ that,
-though the results below are easy to replicate, and we have done so dozens of
-times.
 
 
 ## Reporting options
@@ -401,7 +347,7 @@ Best guess ranking:
 $
 ```
 
-### Bar graphs and box plots
+### Bar graph of performance
 
 There's a cheap (limited) but useful bar graph feature in BestGuess (`-G` or
 `--graph`) that shows the total time taken for each iteration as a horizontal
@@ -415,12 +361,10 @@ The bar graph is meant to provide an easy way to estimate how many warmup runs
 may be needed, but can also give some insight about whether performance settles
 into a steady state or oscillates.
 
-#### Use the graph to assess the performance pattern
-
 The contrived example below measures shell startup time against the time to run
 `ls` without a shell.  It looks like `bash` would could use a few warmup runs.
-Interestingly, the performance of `ls` got better and then worse again.
-Longer-running commands and more runs are recommended, of course.
+Interestingly, the performance of `ls` got better and then worse again in this
+(very) small experiment.
 
 ```
 $ bestguess -NG -r 10 /bin/bash ls
@@ -461,22 +405,21 @@ Best guess ranking: The top 2 commands performed identically
 $ 
 ```
 
-#### Cheap box plots on the terminal
+### Box plots for comparisons
 
 Box plots are a convenient way to get a sense of how two distributions compare.
 We found, when using BestGuess (and before that, Hyperfine) that we didn't want
 to wait to do statistical analysis of our raw data using a separate program.  To
-get a sense of what the data looked like as we collected it, I implemented a box
-plot feature.
+get a sense of what the data looked like as we collected it, I implemented a
+(limited resolution) box plot feature.
 
 The edges of the box are the interquartile range, and the median is shown inside
 the box.  The whiskers reach out to the minimum and maximum values.
 
 In the example below, although `bash` (launching the shell with no command to
 run) appears faster than `ls`, we can see that their distributions overlap
-considerably.  The BestGuess ranking analysis concludes that these two commands,
-at least in this particular experiment, did not perform statistically
-differently.
+considerably.  The BestGuess ranking analysis concludes that these two commands
+performed statistically identically.
 
 ```
 $ bestguess -NB -r 100 /bin/bash ls
@@ -506,7 +449,7 @@ Best guess ranking: The top 2 commands performed identically
 $ 
 ```
 
-## Explanations of statistical reports
+## Statistical reports
 
 The statistical reports provided by BestGuess are:
   * Explanation of rankings, `-E`
@@ -521,7 +464,7 @@ dependencies.)  Statistics are calculated by BestGuess for convenience, like the
 runtime graphs and box plots.  Having these features built-in facilitates
 experimentation by shortening the experiment-export-analyze cycle.
 
-### Ranking
+### Explanation of ranking calculation
 
 Re-running the box plot example above, we get different results, with `ls`
 coming out on top.  This is unsurprising for programs that take very little time
@@ -600,20 +543,21 @@ indistinguishable.  Several factors are at work here.
 First, there is a limit to how accurately any tool can measure CPU time, and it
 is related to the OS scheduling quantum and its process accounting.  (The
 quantum could be, e.g. 10ms, 20ms, 60ms, or larger.  Some OS configurations may
-set it under 10ms.)
+set it under 10ms.)  Under typical (non-i/o) conditions, the quantum likely acts
+as the granularity for CPU time measurements.
 
 Second, we did not examine what other processes were running during the
-experiment.  Perhaps some other activity interfered more with `bash` for some
-unknown reason.
+experiment.  Perhaps some other activity interfered more with `bash` than `ls`
+for some reason.
 
-Third, we had to run the experiment above more than 10 times to get this result,
-so we could illustrate this phenomenon.  Running many experiments, or increasing
-the number of runs in a single experiment, may make the above result much more
-unlikely.  But it is the nature of sampling that unlikely samples are
-occasionally encountered.
+Third, I had to run the experiment above more than 10 times to get this result,
+so that I could illustrate this phenomenon.  Running many experiments (or
+increasing the number of runs in a single experiment) may make seeming
+contradictions like this very unlikely.  But it is the nature of sampling that
+unlikely samples are occasionally encountered.
 
 
-## Distribution statistics
+## Distribution analysis
 
 Our experience suggests that most of the time, the distribution of total CPU
 time is _not normal_.  This may not be your experience, and BestGuess can
@@ -699,7 +643,7 @@ Best guess ranking:
 $
 ```
 
-### Tail statistics
+### Tail shape
 
 When investigating performance issues in a production system, we want to know
 whether long latencies occur.  We find out by examining the (right) tail of the
@@ -707,9 +651,10 @@ sample distribution.  The "tail statistics report" summarizes statistically what
 the (possibly) "long tail" of high run times looks like.
 
 BestGuess provides a (modest) description of the tail by showing the 95th and
-99th percentile figures in the context of the quartile figures: minimum (Q₀, 0th
-percentile), first quartile (Q₁, 25th percentile), median (Q₂, 50th percentile),
-third quartile (Q₃, 75th percentile), and maximum (Q₄, 100th percentile).
+99th percentile figures in the context of the quartile figures: minimum (Q₀, the
+0th percentile), first quartile (Q₁, the 25th percentile), median (Q₂, the 50th
+percentile), third quartile (Q₃, the 75th percentile), and maximum (Q₄, the
+100th percentile).
 
 You need at least 20 runs to get 95th and at least 100 runs to get 99th
 percentile numbers.
@@ -853,9 +798,8 @@ BestGuess does not support all of the options that Hyperfine does.  And
 BestGuess is currently tested only on Unix (macos) and Linux (several distros).
 
 If you use Hyperfine like we used to do, it's nearly a drop-in replacement.  We
-most often used the warmup, runs, shell, and CSV export options.  BestGuess can
-produce a Hyperfine-compatible CSV file containing summary statistics, as well
-as its own format.
+most often used the warmup, runs, shell, and CSV export options.  Also,
+BestGuess can produce a Hyperfine-compatible CSV file of summary statistics.
 
 The BestGuess `--hyperfine-csv <FILE>` option is used wherever you would use
 `--export-csv <FILE>` with Hyperfine to get essentially the same summary
@@ -864,11 +808,12 @@ that performance distributions are rarely normal.  (BestGuess will analyze the
 empirical distributions of total CPU time to indicate when this is the case.)
 Without a normal distribution, the mean is not a very useful measure of central
 tendency, and the standard deviation is not a good measure of spread.  These
-fields in the Hyperfine-compatible summary statistics file are replaced:
-  1. In the file produced by `--hyperfine-csv`, the `mean` column has been
-     replaced by `mode`.  The median and mode values of total CPU time are more
-     representative than mean for skewed and heavy-tailed distributions.
-  2. Instead of the standard deviation, the interquartile range is used.
+fields in the Hyperfine-compatible summary statistics file are substituted:
+
+  1. In the file produced by `--hyperfine-csv`, the _mean_ column has been
+     replaced by _mode_.  The header has been changed accordingly.
+  2. Instead of the standard deviation, the interquartile range is used.  The
+     header has been changed accordingly.
 
 These Hyperfine options are effectively the same in BestGuess:
   * `-w`, `--warmup`
@@ -896,26 +841,88 @@ Key changes from Hyperfine:
 	  this option is used, you must provide the entire shell command,
 	  e.g. `/bin/bash -c`.
   * Many options are _new_ because they support unique BestGuess features.  See
-    the [BestGuess options section](#bestguess-option-summary).
+    the [BestGuess options](#bestguess-option-summary) section.
+
+
+## About measurement quality
+
+There is no good definition of accuracy for benchmarking tools.  Runtimes vary
+for many reasons, ranging from low-level architectural effects (like the
+behavior of instruction caches and branch prediction) to the high level (and
+easily observed) makeup of other running processes.  A high system load and lots
+of i/o are both known to interfere with other programs' performance, extending
+their runtimes.
+
+Putting aside accuracy, it is not clear how to explain that different tools
+produce sometimes markedly different results for the same experiment run on the
+same machine under the same conditions.
+
+In the example below, BestGuess reports 2.7ms, while Hyperfine reports 9.3ms
+(the sum of user and system times).  Neither is using a shell; both send command
+output to `/dev/null`; and both are running 5 warmup runs.  It is not clear why
+the difference is so large.
+
+BestGuess uses times obtained via `wait4()`.  In other words, it has direct
+access to the process accounting done by the OS.  And BestGuess does no extra
+work after forking a new process but before executing the command.  Hyperfine,
+which uses a Rust process management crate, may do significant work in that gap
+between `fork` and `exec`.  That work that will accrue time to the measured
+command.
+
+```
+$ bestguess -M -w 5 -r 100 "/bin/ls -l"
+Use -o <FILE> or --output <FILE> to write raw data to a file.
+
+Command 1: /bin/ls -l
+                      Mode    ╭     Min   Median      Max   ╮
+   Total CPU time    2.72 ms  │    2.66     2.72     2.94   │
+       Wall clock    3.57 ms  ╰    3.53     3.61     4.13   ╯
+
+$ hyperfine --style basic -S "none" --output /dev/null -w 5 -r 100 "/bin/ls -l"
+Benchmark 1: /bin/ls -l
+  Time (mean ± σ):      11.6 ms ±   0.1 ms    [User: 6.0 ms, System: 3.3 ms]
+  Range (min … max):    11.1 ms …  12.1 ms    100 runs
+ 
+$ multitime -s 0 -n 100 /bin/ls -l >/dev/null
+===> multitime results
+1: /bin/ls -l
+            Mean        Std.Dev.    Min         Median      Max
+real        0.005       0.001       0.004       0.004       0.009 
+user        0.001       0.000       0.001       0.001       0.002 
+sys         0.002       0.000       0.002       0.002       0.004 
+$ 
+```
+
+The multitime utility reports a median of 0.003s (3ms) as the sum of user and
+system times for the same experiment.  Multitime uses `wait4()`, like BestGuess,
+and reports a comparable result.
+
+A rigorous comparison of these and other benchmarking tools is in order,
+accompanied by a deep dive into why they differ.  This example is _not_ that,
+though the results below are easy to replicate, and we have done so dozens of
+times.
 
 
 ## Bug reports
 
-Bug reports are welcome!  BestGuess is implemented in C because we need
-low-level control over the details of how processes are launched and measured.
-We use fork, exec, and wait carefully in order to obtain the best measurements
-we can.
+Bug reports are welcome!
 
-But with C, segfaults and errant memory accesses are always a possibility.  We
-have attempted to implement a controlled _panic_ when we can detect a violation
-of intended behavior.  If you see any kind of bug, including any output labeled
-"panic", please let us know.
+BestGuess is implemented in C, which we acknowledge makes good code more
+difficult to write.  But BestGuess needs low-level control over the details of
+how processes are launched and measured, in order to obtain the best
+measurements we can.
 
-Open an issue with instructions on how we can reproduce the bug.  
+But with C, segfaults and errant memory accesses are always a possibility.  When
+BestGuess can detect a violation of intended behavior, it terminates in a
+controlled _panic_ with an error message.
+
+If you see any kind of bug, including a panic message, please let us know by
+opening an issue with instructions on how we can reproduce the bug.
 
 **Note\:** `make debug` builds BestGuess in debug mode, enabling assertions as
-well as ASAN/UBSAN checks.  If you are curious about the root cause and want to
-supply a patch, a debug build can provide helpful information.
+well as ASAN/UBSAN checks.  If you are curious about the root cause of a bug and
+want to help us out, reproducing the issue using a debug build can provide
+helpful information.  And, patch submissions (pull requests) are welcome!
 
 
 ## Contributing
@@ -927,9 +934,7 @@ Twitter/X, though, as I'm no longer there.)
 
 ## Authors and acknowledgments
 
-It was me and I acted alone.  I did it because it needed to be done.  If it
-works for you, then you're welcome.  And if it's broken, that's on me (let me
-know).
+It was me and I acted alone.  I did it because it needed to be done.
 
 
 ## Philosphy
@@ -1013,13 +1018,14 @@ Run time distributions may be log-normal, as [Lemire
 suggests](https://lemire.me/blog/2023/04/06/are-your-memory-bound-benchmarking-timings-normally-distributed/).
 We are not seeing that, but it is worth investigating.
 
-Tratt and company, in [fascinating work](https://arxiv.org/abs/1602.00602),
+Tratt and company, in some [wonderful work](https://arxiv.org/abs/1602.00602),
 concludes that "widely studied microbenchmarks often fail to reach a steady
 state of peak performance".  Although BestGuess is not a tool for
-microbenchmarking, this work is relevant.  Perhaps some programs we benchmark at
-the command line also do not reach a steady state of high performance.  How do
-we know that "warmup runs" are necessary at all, and when they are, how many
-should we use?
+microbenchmarking, this work is relevant.  Perhaps some programs that we
+benchmark at the command line also do not reach a steady state of high
+performance.  How do we know that "warmup runs" are necessary at all, and when
+they are, how many should we use?  (Tratt wrote
+[multitime](https://tratt.net/laurie/src/multitime/), btw.)
 
 The same applies to the number of runs.  The number to use depends very much on
 the program you are benchmarking and what you want to learn from your
