@@ -121,7 +121,7 @@ ifeq ($(RELEASE_MODE),true)
     LTOFLAGS=-flto=auto
   endif
 else
-  # Release mode is false (debugging)
+  # Release mode is false (debugging, profiling)
   ASAN_FLAGS=-fsanitize=address,undefined -fno-sanitize-recover=all 
   COPT += -O0 -g
   ifeq ($(COMPILER),gcc) 
@@ -132,6 +132,8 @@ else
       endif
     endif
   endif
+  # Should -fno-omit-frame-pointer into CFLAGS.  DTRACE needs it.
+  ASAN_FLAGS+=-fno-omit-frame-pointer
 endif
 
 # -----------------------------------------------------------------------------

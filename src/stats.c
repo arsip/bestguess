@@ -610,17 +610,12 @@ void free_summaries(Summary **ss, int64_t n) {
 // Compute statistical summary of a sample (collection of observations)
 // -----------------------------------------------------------------------------
 
-//static Timer summarize_timer = UNINITIALIZED_TIMER;
-
 //
 // Summarize from usage[start] to usage[end-1]
 //
 Summary *summarize(Usage *usage, int64_t start, int64_t end) {
   if (!usage) return NULL;
   if ((start < 0) || (end > usage->next)) return NULL;
-
-//   init_timer(&summarize_timer, "summarize");
-//   start_timer(&summarize_timer);
 
   Summary *s = new_summary();
   s->cmd = strndup(get_string(usage, start, F_CMD), MAXCMDLEN);
@@ -640,9 +635,6 @@ Summary *summarize(Usage *usage, int64_t start, int64_t end) {
   measure(usage, start, end, F_ICSW, compare_icsw, &s->icsw);
   measure(usage, start, end, F_TCSW, compare_tcsw, &s->tcsw);
   measure(usage, start, end, F_WALL, compare_wall, &s->wall);
-
-//   stop_timer(&summarize_timer);
-//   print_timer(&summarize_timer);
 
   return s;
 }
@@ -742,21 +734,35 @@ Ranking *rank(Usage *usage) {
 // Inferential statistics
 // -----------------------------------------------------------------------------
 
-// On exit, ranks[i] is the rank of X[index[i]].  If the 'index' arg
-// is NULL, ranks[i] is the rank of X[i].
-static double *assign_ranks(int64_t *X, int64_t *index, int64_t N) {
+enum RankMethod {
+  RANK_SIGNED,
+  RANK_MAGNITUDE
+};
+
+#define ABS64(a) (((a)>=0)?(a):-(a))
+
+// On exit, ranks[i] is the rank of X[i].
+static double *assign_ranks(int64_t *X, int64_t N, enum RankMethod rm) {
   double *ranks = malloc(N * sizeof(double));
   if (!ranks) PANIC_OOM();
   ranks[0] = 1.0;
   int64_t ties = 0;
   for (int64_t i = 1; i < N; i++) {
-    if ((index && (X[index[i]] == X[index[i - 1]]))
-	|| (X[i] == X[i - 1])) {
-      ties++;
-      continue;
+    if (rm == RANK_SIGNED) {
+      if (X[i] == X[i - 1]) {
+	ties++;
+	continue;
+      }
+    } else {
+      assert(rm == RANK_MAGNITUDE);
+      if (ABS64(X[i]) == ABS64(X[i - 1])) {
+	ties++;
+	continue;
+      }
     }
     if (ties) {
-      // Found the end of a set of tie values
+      // Found the end of a set of tie values, so use the average of
+      // the ranks of all the tie values
       double avg = ((double) ties / 2.0) + i - ties;
       for (int64_t j = 0; j < (ties + 1); j++) 
 	ranks[i - j - 1] = avg;
@@ -783,6 +789,7 @@ static double *assign_ranks(int64_t *X, int64_t *index, int64_t N) {
   return ranks;
 }
 
+#if 0
 // This comparator works when 'data' is an index vector and also when
 // 'data' is NULL and there is no index.
 static int i64_lt(const void *a, const void *b, void *data) {
@@ -794,6 +801,17 @@ static int i64_lt(const void *a, const void *b, void *data) {
   int64_t Xb = X[*(const int64_t *)b];
   int64_t diff = Xa - Xb;
   return (diff > 0) ? 1 : ((diff < 0) ? -1 : 0);
+}
+#endif
+
+static int i64_lt(const void *a, const void *b, void *ignored) {
+  UNUSED(ignored);
+  return *(const int64_t *)a - *(const int64_t *)b;
+}
+
+static int i64_lt_abs(const void *a, const void *b, void *ignored) {
+  UNUSED(ignored);
+  return ABS64(*(const int64_t *)a) - ABS64(*(const int64_t *)b);
 }
 
 // IMPORTANT: A RankedCombinedSample may contain n1+n2 elements (size
@@ -821,9 +839,11 @@ rank_difference_magnitude(Usage *usage,
     PANIC("Invalid sample index ranges in usage structure: "
 	  "[%d, %d) and [%d, %d)", start1, end1, start2, end2);
 
+#if 0
   int64_t *X = malloc(N * sizeof(int64_t));
   if (!X) PANIC_OOM();
-  int *signs = malloc(N * sizeof(int));
+
+  char *signs = malloc(N * sizeof(char));
   if (!signs) PANIC_OOM();
 
   for (int64_t i = 0; i < n1; i++) 
@@ -855,6 +875,18 @@ rank_difference_magnitude(Usage *usage,
   free(X);
   free(signs);
   free(index);
+#else
+  int64_t *Y = malloc(N * sizeof(int64_t));
+  if (!Y) PANIC_OOM();
+  for (int64_t i = 0; i < n1; i++) 
+    for (int64_t j = 0; j < n2; j++) {
+      int64_t idx = i*n2+j;
+      Y[idx] = get_int64(usage, start1 + i, fc) - get_int64(usage, start2 + j, fc);
+    }
+  sort(Y, N, sizeof(int64_t), i64_lt_abs, NULL);
+  double *ranks = assign_ranks(Y, N, RANK_MAGNITUDE);
+#endif  
+
   return (RankedCombinedSample) {n1, n2, Y, ranks};
 }
 
@@ -884,7 +916,7 @@ rank_difference_signed(Usage *usage,
     }
 
   sort(X, N, sizeof(int64_t), i64_lt, NULL);
-  double *ranks = assign_ranks(X, NULL, N);
+  double *ranks = assign_ranks(X, N, RANK_SIGNED);
   return (RankedCombinedSample) {n1, n2, X, ranks};
 }
 
@@ -1092,17 +1124,12 @@ int64_t *sort_by_totaltime(Summary **summaries, int64_t start, int64_t end) {
   return index;
 }
 
-//static Timer compare_samples_timer = UNINITIALIZED_TIMER;
-
 // Returns NULL if there are insufficient observations in either
 // sample to calculate inferences.
 Inference *compare_samples(Usage *usage,
 			   double alpha,
 			   int64_t ref_start, int64_t ref_end,
 			   int64_t idx_start, int64_t idx_end) {
-
-//   init_timer(&compare_samples_timer, "compare_samples");
-//   start_timer(&compare_samples_timer);
 
   int64_t n1 = ref_end - ref_start;
   int64_t n2 = idx_end - idx_start;
@@ -1155,9 +1182,6 @@ Inference *compare_samples(Usage *usage,
   if (stat->p_super > config.super)
     SET(stat->indistinct, INF_HIGHSUPER);
     
-//   stop_timer(&compare_samples_timer);
-//   print_timer(&compare_samples_timer);
-
   free(RCSmag.X);
   free(RCSmag.rank);
   free(RCSsigned.X);

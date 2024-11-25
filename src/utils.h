@@ -12,6 +12,9 @@
 #include <time.h>
 #include <sys/resource.h>
 
+// To suppress compiler warnings about unused parameters
+#define UNUSED(x) (void)(x)
+
 // How many millisecs or microsecs in one second
 #define MILLISECS 1000
 #define MICROSECS 1000000
@@ -267,23 +270,5 @@ void panic_report(const char *prelude,
 		  const char *filename, int lineno,
 		  const char *fmt, ...);
 
-// -----------------------------------------------------------------------------
-// For (coarse, targeted) micro-benchmarking of BestGuess itself
-// -----------------------------------------------------------------------------
-
-typedef struct Timer {
-  const char *name;
-  int64_t count;		// Iteration count
-  clock_t start;		// Most recent start time
-  long double last;		// Most recent iteration duration
-  long double cumulative;	// Sum of all iterations
-} Timer;
-
-#define UNINITIALIZED_TIMER ((Timer) {NULL, 0, 0, 0.0, 0.0})
-void init_timer(Timer *t, const char *name);
-void start_timer(Timer *t);
-long double stop_timer(Timer *t);
-void print_timer(Timer *t); 
-void print_timer_totals(Timer *t);
 
 #endif

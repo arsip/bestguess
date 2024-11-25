@@ -39,12 +39,8 @@ extern const char *progname;
 // Maximum length of a single line in our own CSV file format
 #define MAXCSVLEN (MAXCMDLEN + 8192)
 
-// Maximum number of timed runs and warmup runs
-//
-// This is set low because our statistical ranking method is O(N^2)
-// for N runs, and (in its current unoptimized form) uses ~ 3.5GB of
-// memory during ranking when there are 10k observations.
-#define MAXRUNS 10000
+// Maximum number of runs (timed or warmup)
+#define MAXRUNS 25000
 
 // Change as desired
 #define PROGNAME_EXPERIMENT "bestguess"
