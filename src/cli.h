@@ -23,7 +23,9 @@ enum Options {
   OPT_FILE,			// Input file of commands
   OPT_BRIEF,
   OPT_GRAPH,
-  OPT_NOSTATS,
+  OPT_QUIET,
+  OPT_RANKING,
+  OPT_SUMMARY,
   OPT_MINISTATS,
   OPT_DISTSTATS,
   OPT_TAILSTATS,

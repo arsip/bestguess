@@ -18,32 +18,46 @@ source ./common.sh
 # TERMINAL output options
 # ------------------------------------------------------------------
 
-# Default report is summary
+# Default report is summary and ranking
 ok "$prog" /bin/bash
 contains "Command 1" "/bin/bash"
-has_stats
+has_summary
 no_ranking
 no_graph
 no_boxplot
 
-# Mini report
+# Mini report and ranking
 ok "$prog" -M /bin/bash
 contains "Command 1" "/bin/bash"
 has_mini_stats
-no_ranking
 no_graph
 no_boxplot
+no_ranking
 
-# No report and only one program, so nothing to compare it with
-ok "$prog" -N /bin/bash
+# No stats and only one program, so nothing to compare it with
+ok "$prog" -QR /bin/bash
 missing "Command 1" "/bin/bash"
 no_stats
 no_ranking
 no_graph
 no_boxplot
 
+# Summary stats but only one program, so nothing to compare it with
+ok "$prog" -QRS /bin/bash
+contains "No ranking"
+has_summary
+no_ranking
+no_graph
+no_boxplot
+
+# No output
+ok "$prog" -Q /bin/bash ls
+no_stats
+no_ranking
+no_boxplot
+
 # No report but comparison is printed
-ok "$prog" -N /bin/bash ls
+ok "$prog" -QR /bin/bash ls
 no_stats
 has_ranking
 no_statistical_ranking
@@ -52,62 +66,64 @@ no_boxplot
 # Graph with default report
 ok "$prog" -G /bin/bash
 contains "Command 1" "/bin/bash"
-has_stats
+has_summary
 has_graph
 no_boxplot
-no_ranking
 
-# Graph with no report
-ok "$prog" -N -G /bin/bash
+# Graph only
+ok "$prog" -QG /bin/bash
 no_stats
 has_graph
 no_boxplot
-no_ranking
+
+# Graph and ranking requested, but only one command
+ok "$prog" -QGR /bin/bash
+no_stats
+contains "No ranking"
+has_graph
+no_boxplot
 
 # Boxplot
 ok "$prog" -B /bin/bash
 contains "Command 1" "/bin/bash" "Total CPU time" "Wall" "Mode" "Median" 
-has_stats
+has_summary
 no_graph
 has_boxplot
-no_ranking
+contains "No ranking"
 
-# Boxplot with no report
-ok "$prog" -N -B /bin/bash
+# Boxplot with no reports
+ok "$prog" -Q -B /bin/bash
 no_stats
 has_boxplot
 no_graph
 no_ranking
+missing "No ranking"
 
 for warmups in $(seq 0 5); do
     for runs in $(seq 1 5); do
 	# Default report
 	ok "$prog" -w $warmups -r $runs /bin/bash
-	has_stats
+	has_summary
 	no_graph
 	no_boxplot
-	no_ranking
 
 	# Brief report
 	ok "$prog" -w $warmups -r $runs -M /bin/bash
 	has_mini_stats
 	no_graph
 	no_boxplot
-	no_ranking
 	
 	# Graph
-	ok "$prog" -w $warmups -r $runs -N -G /bin/bash
+	ok "$prog" -w $warmups -r $runs -Q -G /bin/bash
 	no_stats
 	has_graph
 	no_boxplot
-	no_ranking
 
 	# Boxplot
-	ok "$prog" -w $warmups -r $runs -N -B /bin/bash
+	ok "$prog" -w $warmups -r $runs -Q -B /bin/bash
 	no_stats
 	has_boxplot
 	no_graph
-	no_ranking
     done
 done
 

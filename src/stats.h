@@ -100,9 +100,9 @@ enum MeasureCodes {
 typedef struct Ranking {
   Usage *usage;	       // All the usage data, collected together
   Summary **summaries; // Array of pointers to summaries
-  int *index;	       // summary[index[0]] is fastest
-  int *usageidx;       // usage[usageidx[i],usageidx[i+1]] ==> summary[i]
-  int count;	       // Number of summaries, index, usageidx
+  int64_t *index;      // summary[index[0]] is fastest
+  int64_t *usageidx;   // usage[usageidx[i],usageidx[i+1]] ==> summary[i]
+  int64_t count;       // Number of summaries, index, usageidx
 } Ranking;
 
 // -----------------------------------------------------------------------------
@@ -120,14 +120,14 @@ typedef struct Ranking {
 
 Inference *compare_samples(Usage *usage,
 			   double alpha,
-			   int ref_start, int ref_end,
-			   int idx_start, int idx_end);
+			   int64_t ref_start, int64_t ref_end,
+			   int64_t idx_start, int64_t idx_end);
 
-int *sort_by_totaltime(Summary *summaries[], int start, int end);
+int64_t *sort_by_totaltime(Summary *summaries[], int64_t start, int64_t end);
 
-Summary *summarize(Usage *usage, int start, int end);
+Summary *summarize(Usage *usage, int64_t start, int64_t end);
 void     free_summary(Summary *s);
-void     free_summaries(Summary **ss, int n);
+void     free_summaries(Summary **ss, int64_t n);
 
 Ranking *rank(Usage *usage);
 void     free_ranking(Ranking *rank);

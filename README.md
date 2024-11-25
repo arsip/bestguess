@@ -538,13 +538,16 @@ $
 Notice that BestGuess reported in this experiment that `ls` ran faster than
 `bash` with statistical significance, while in the experiment shown in the
 [previous section](#cheap-box-plots-on-the-terminal), the two commands were
-indistinguishable.  Several factors are at work here.  
+indistinguishable.  Several factors are at work here.
 
 First, there is a limit to how accurately any tool can measure CPU time, and it
 is related to the OS scheduling quantum and its process accounting.  (The
 quantum could be, e.g. 10ms, 20ms, 60ms, or larger.  Some OS configurations may
 set it under 10ms.)  Under typical (non-i/o) conditions, the quantum likely acts
-as the granularity for CPU time measurements.
+as the granularity for CPU time measurements.  BestGuess has a default "effect
+size" threshold of 0.5ms.  If two commands differ by less, BestGuess considers
+their performance identical.  Probably the default should be larger, perhaps in
+the 1ms-2ms range.  You can set it yourself, e.g. `-x effect=2000` for 2ms.
 
 Second, we did not examine what other processes were running during the
 experiment.  Perhaps some other activity interfered more with `bash` than `ls`

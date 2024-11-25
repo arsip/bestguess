@@ -40,7 +40,11 @@ extern const char *progname;
 #define MAXCSVLEN (MAXCMDLEN + 8192)
 
 // Maximum number of timed runs and warmup runs
-#define MAXRUNS (1 << 20)
+//
+// This is set low because our statistical ranking method is O(N^2)
+// for N runs, and (in its current unoptimized form) uses ~ 3.5GB of
+// memory during ranking when there are 10k observations.
+#define MAXRUNS 10000
 
 // Change as desired
 #define PROGNAME_EXPERIMENT "bestguess"
@@ -76,7 +80,9 @@ typedef struct OptionValues {
   char  *hf_filename;
   char  *prep_command;
   bool   graph;
-  bool   nostats;
+  bool   quiet;
+  bool   ranking;
+  bool   summary;
   bool   ministats;
   bool   diststats;
   bool   tailstats;

@@ -741,7 +741,40 @@ void announce_command(const char *name, const char *cmd, int index) {
 }
 
 bool any_per_command_output(void) {
-  return (!option.nostats || option.ministats || option.graph ||
+  return (option.summary || option.ministats || option.graph ||
 	  option.diststats || option.tailstats);
 }
+
+// -----------------------------------------------------------------------------
+// For (coarse, targeted) micro-benchmarking of BestGuess itself
+// -----------------------------------------------------------------------------
+
+void init_timer(Timer *t, const char *name) {
+  t->name = name;
+}
+
+void start_timer(Timer *t) {
+  t->count++;
+  t->start = clock();
+}
+
+long double stop_timer(Timer *t) {
+  t->last = clock() - t->start;
+  t->cumulative += t->last;
+  return t->last;
+}
+
+void print_timer(Timer *t) {
+//   if (CLOCKS_PER_SEC != 1000 * 1000) {
+//     fprintf(stderr, "Warning: CLOCKS_PER_SEC is not 1,000,000\n");
+//   }
+  fprintf(stderr, "Timer %s: iteration %" PRId64 " took %.0Lf μs\n",
+	  t->name, t->count, t->last);
+}
+
+void print_timer_totals(Timer *t) {
+  fprintf(stderr, "Timer %s: %" PRId64 " iterations, avg %.0Lf μs/iter\n",
+	  t->name, t->count, t->cumulative * 1000.0 / (long double) t->count);
+}
+
 

@@ -779,7 +779,8 @@ static void print_ranking(Ranking *rank) {
   if (!rank) PANIC_NULL();
 
   if (rank->count < 2) {
-    printf("Only one command.  No ranking to show.\n");
+    if (option.ranking)
+      printf("Only one command benchmarked.  No ranking to show.\n");
     return;
   }
 
@@ -885,7 +886,7 @@ static void print_ranking(Ranking *rank) {
 
 void per_command_output(Summary *s, Usage *usage, int start, int end) {
   if (!s) PANIC_NULL();
-  if (!option.nostats || option.ministats) {
+  if (option.summary || option.ministats) {
     print_summary(s, option.ministats);
     printf("\n");
   }
@@ -955,6 +956,7 @@ void report(Ranking *ranking) {
   if (option.boxplot)
     print_boxplots(ranking->summaries, 0, ranking->count);
 
-  print_ranking(ranking);
+  if (option.ranking)
+    print_ranking(ranking);
 
 }

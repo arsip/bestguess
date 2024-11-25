@@ -33,11 +33,21 @@ function missing {
 
 # -----------------------------------------------------------------------------
 
-function has_stats {
+function has_summary {
     contains "Command 1"
-    contains "Mode"  "Min      Q₁    Median      Q₃       Max"
+    contains "Mode" "Min" "Q₁" "Median" "Q₃" "Max"
     contains "Total CPU time"  "User time"  "System time"
     contains "Context sw"  "Max RSS"  "Wall clock"
+}
+
+function no_summary {
+    missing "Context sw"  "Max RSS"
+}
+
+function no_stats {
+    missing "Min" "Q₁" "Median" "Q₃" "Max"
+    missing "Total CPU time"  "Wall clock"
+    missing "Context sw"  "Max RSS"  "Wall clock"
 }
 
 function has_mini_stats {
@@ -46,13 +56,6 @@ function has_mini_stats {
     missing  "Q₁"  "Q₃"
     contains "Total CPU time"  "Wall clock"
     missing  "User time"  "System time"  "Context sw"  "Max RSS"
-}
-
-function no_stats {
-    missing "Min   Median      Max"
-    missing  "Q₁"  "Q₃"
-    missing "Total CPU time"  "Wall clock"
-    missing  "Context sw"  "Max RSS"  "Wall clock"
 }
 
 function has_graph {
@@ -77,18 +80,18 @@ function has_statistical_ranking {
     missing "Lacking the"  "timed runs to statistically rank"
 }
 
-function has_ranking {
-    contains "Best guess ranking"
-    contains "Command ═══════════════════════════ Total time ═════ Slower by"
-}
-
 function no_statistical_ranking {
     contains "Lacking the"  "timed runs to statistically rank"
 }
 
+function has_ranking {
+    contains "Best guess ranking"
+    contains "Command ═════════════" "Total time ═════" "Slower by"
+}
+
 function no_ranking {
-    contains "No ranking"
-    missing "Command ═══════════════════════════ Total time ═════ Slower by"
+#    contains "No ranking"
+    missing "Command ═════════" "Total time ═════" " Slower by"
     missing "Lacking the"  "timed runs to statistically rank"
 }
 

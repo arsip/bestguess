@@ -167,7 +167,9 @@ void show_config_settings(void) {
   show_setting(CONFIG_SUPER);
 }
 
-#define HELP_NOSTATS "Do not report summary statistics for each command"
+#define HELP_QUIET "Do not generate or show reports"
+#define HELP_RANKING "Calculate and display statistical ranking of commands"
+#define HELP_SUMMARY "Show summary statistics for each command"
 #define HELP_MINISTATS "Show minimal summary statistics for each command"
 #define HELP_DISTSTATS "Report the analysis of each sample distribution"
 #define HELP_TAILSTATS "Report on the tail of each sample distribution"
@@ -182,7 +184,9 @@ void show_config_settings(void) {
 // TODO: Eliminate redundancy across the init_*_options() functions.
 
 static void init_action_options(void) {
-  optable_add(OPT_NOSTATS,    "N",  "no-stats",    0, HELP_NOSTATS);
+  optable_add(OPT_QUIET,      "Q",  "quiet",       0, HELP_QUIET);
+  optable_add(OPT_RANKING,    "R",  "ranking",     0, HELP_RANKING);
+  optable_add(OPT_SUMMARY,    "S",  "summary",     0, HELP_SUMMARY);
   optable_add(OPT_MINISTATS,  "M",  "mini-stats",  0, HELP_MINISTATS);
   optable_add(OPT_DISTSTATS,  "D",  "dist-stats",  0, HELP_DISTSTATS);
   optable_add(OPT_TAILSTATS,  "T",  "tail-stats",  0, HELP_TAILSTATS);
@@ -190,7 +194,7 @@ static void init_action_options(void) {
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",     0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain",     0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",      1, HELP_ACTION);
-  optable_add(OPT_CONFIG,     "x",   NULL,         1, config_help());
+  optable_add(OPT_CONFIG,     "c",   NULL,         1, config_help());
   optable_add(OPT_SHOWCONFIG, NULL, "config",      0, "Show configuration settings");
   optable_add(OPT_VERSION,    "v",  "version",     0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",        0, "Show help");
@@ -227,6 +231,7 @@ void process_common_options(int argc, char **argv) {
 	break;
       case OPT_EXPLAIN:
 	option.explain = true;
+	option.ranking = true;	// Can't explain ranking w/o showing it
 	break;
       case OPT_ACTION:
 	if (val && (strcmp(val, CLI_OPTION_EXPERIMENT) == 0)) {
@@ -252,13 +257,29 @@ void process_common_options(int argc, char **argv) {
 	check_option_value(val, n);
 	option.graph = true;
 	break;
-      case OPT_NOSTATS:
+      case OPT_QUIET:
 	check_option_value(val, n);
-	option.nostats = true;
+	option.quiet = true;
+	option.ranking = false;
+	option.summary = false;
+	option.ministats = false;
+	option.diststats = false;
+	option.tailstats = false;
+	option.explain = false;
+	break;
+      case OPT_RANKING:
+	check_option_value(val, n);
+	option.ranking = true;
+	break;
+      case OPT_SUMMARY:
+	check_option_value(val, n);
+	option.summary = true;
+	option.ministats = false; // Either/or
 	break;
       case OPT_MINISTATS:
 	check_option_value(val, n);
 	option.ministats = true;
+	option.summary = false;	  // Either/or
 	break;
       case OPT_DISTSTATS:
 	check_option_value(val, n);
@@ -308,7 +329,9 @@ static void init_exec_options(void) {
   optable_add(OPT_SHELL,      "s",  "shell",          1, HELP_SHELL);
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
-  optable_add(OPT_NOSTATS,    "N",  "no-stats",       0, HELP_NOSTATS);
+  optable_add(OPT_QUIET,      "Q",  "quiet",          0, HELP_QUIET);
+  optable_add(OPT_RANKING,    "R",  "ranking",        0, HELP_RANKING);
+  optable_add(OPT_SUMMARY,    "S",  "summary",        0, HELP_SUMMARY);
   optable_add(OPT_MINISTATS,  "M",  "mini-stats",     0, HELP_MINISTATS);
   optable_add(OPT_DISTSTATS,  "D",  "dist-stats",     0, HELP_DISTSTATS);
   optable_add(OPT_TAILSTATS,  "T",  "tail-stats",     0, HELP_TAILSTATS);
@@ -316,7 +339,7 @@ static void init_exec_options(void) {
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain",        0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
-  optable_add(OPT_CONFIG,     "x",   NULL,            1, config_help());
+  optable_add(OPT_CONFIG,     "c",   NULL,            1, config_help());
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
@@ -421,7 +444,9 @@ void process_exec_options(int argc, char **argv) {
 static void init_report_options(void) {
   optable_add(OPT_CSV,        NULL, "export-csv",     1, HELP_CSV);
   optable_add(OPT_HFCSV,      NULL, "hyperfine-csv",  1, HELP_HFCSV);
-  optable_add(OPT_NOSTATS,    "N",  "no-stats",       0, HELP_NOSTATS);
+  optable_add(OPT_QUIET,      "Q",  "quiet",          0, HELP_QUIET);
+  optable_add(OPT_RANKING,    "R",  "ranking",        0, HELP_RANKING);
+  optable_add(OPT_SUMMARY,    "S",  "summary",        0, HELP_SUMMARY);
   optable_add(OPT_MINISTATS,  "M",  "mini-stats",     0, HELP_MINISTATS);
   optable_add(OPT_DISTSTATS,  "D",  "dist-stats",     0, HELP_DISTSTATS);
   optable_add(OPT_TAILSTATS,  "T",  "tail-stats",     0, HELP_TAILSTATS);
@@ -429,7 +454,7 @@ static void init_report_options(void) {
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain",        0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
-  optable_add(OPT_CONFIG,     "x",   NULL,            1, config_help());
+  optable_add(OPT_CONFIG,     "c",   NULL,            1, config_help());
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())

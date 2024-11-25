@@ -26,7 +26,7 @@ outfile=$(mktemp -p /tmp)
 ok "$prog" --export-csv "$outfile" "$infile"
 contains "Command 1: ls -l" "Total CPU time    5.03 ms" 
 contains "Command 2: ps Aux" 
-has_stats
+has_summary
 no_graph
 no_boxplot
 no_dist_stats
@@ -50,8 +50,8 @@ has_ranking
 contains "Best guess ranking" "Slower by" "8.92x"
 ok diff "$outfile" "$expectfile"
 
-# Write summary stats (and get no stats on terminal)
-ok "$prog" -N --export-csv "$outfile" "$infile"
+# Write summary stats file (and get only ranking on terminal)
+ok "$prog" -QR --export-csv "$outfile" "$infile"
 missing "Command 1: ls -l" "Total CPU time    5.03 ms" 
 missing "Command 2: ps Aux" 
 no_stats
@@ -60,7 +60,6 @@ no_boxplot
 no_dist_stats
 no_tail_stats
 no_explanation
-has_ranking
 contains "Best guess ranking" "Slower by" "8.92x"
 ok diff "$outfile" "$expectfile"
 
@@ -76,7 +75,7 @@ outfile=$(mktemp -p /tmp)
 ok "$prog" --hyperfine-csv "$outfile" "$infile"
 contains "Command 1: ls -l" "Total CPU time    5.03 ms" 
 contains "Command 2: ps Aux" 
-has_stats
+has_summary
 no_graph
 no_boxplot
 no_dist_stats
@@ -87,7 +86,7 @@ contains "Best guess ranking" "Slower by" "8.92x"
 
 ok diff "$outfile" "$expectfile"
 
-# Write summary stats (and get brief report on terminal)
+# Write summary stats (and get mini report on terminal)
 ok "$prog" -M --hyperfine-csv "$outfile" "$infile"
 has_mini_stats
 contains "Command 1: ls -l" "Total CPU time    5.03 ms" 
@@ -101,11 +100,11 @@ has_ranking
 contains "Best guess ranking" "Slower by" "8.92x"
 ok diff "$outfile" "$expectfile"
 
-# Write summary stats (and get no report on terminal)
-ok "$prog" -N --hyperfine-csv "$outfile" "$infile"
+# Write summary stats (and get only ranking on terminal)
+ok "$prog" -QR --hyperfine-csv "$outfile" "$infile"
 missing "Command 1: ls -l" "Total CPU time    5.03 ms" 
 missing "Command 2: ps Aux" 
-no_stats
+no_summary
 no_graph
 no_boxplot
 no_dist_stats

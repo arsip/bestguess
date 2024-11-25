@@ -345,8 +345,8 @@ Ranking *run_all_commands(void) {
 
   // Best practice is to save the raw data (all the timing runs).
   // We provide a reminder if that data is not being saved.
-  if (!option.output_filename) {
-    printf("Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n\n",
+  if (!option.output_filename && !option.quiet) {
+    printf("⮕ Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
     fflush(stdout);
   }
@@ -375,7 +375,8 @@ Ranking *run_all_commands(void) {
   usage = new_usage_array(option.n_commands * option.runs);
 
   // FUTURE: We compute summaries twice.  Once in the loop below, as
-  // each command's executions finish, and then again during ranking.
+  // each command's executions finish, and then again later during
+  // ranking.  Do this once.
 
   for (int k = 0; k < option.n_commands; k++) {
     start = usage->next;

@@ -65,7 +65,7 @@ static double Phi(double x) {
 
 static double cPhi(double x) {
   int j = 0.5 * (fabs(x) + 1.0);
-  if (j > 9) return 0.0;
+  if (j >= 9) return 0.0;
   long double R[9] = { 1.25331413731550025L,
 		       0.421369229288054473L,
 		       0.236652382913560671L,
@@ -194,12 +194,12 @@ static double calculate_p(double AD) {
 // D'Agostino, R.B.; Stephens, M.A. (eds.). Goodness-of-Fit
 // Techniques. New York: Marcel Dekker. ISBN 0-8247-7487-6.
 //
-static double AD_from_Y(int n,		      // number of data points
+static double AD_from_Y(int64_t n,	      // number of data points
 			double *Y,	      // standardized ranked data
 			double (F)(double)) { // CDF function
   assert(Y && (n > 0));
   double S = 0;
-  for (int i = 1; i <= n; i++)
+  for (int64_t i = 1; i <= n; i++)
     S += (2*i-1) * log(F(Y[i-1])) + (2*(n-i)+1) * log(1.0-F(Y[i-1]));
   S = S/n;
   double A = -n - S;
@@ -215,7 +215,7 @@ static double AD_from_Y(int n,		      // number of data points
 // meaning of 'ADscore' can be properly interpreted.
 //
 static bool AD_normality(int64_t *X,    // ranked data points
-			 int n,         // number of data points
+			 int64_t n,	// number of data points
 			 double mean,
 			 double stddev,
 			 double *ADscore) {
@@ -228,7 +228,7 @@ static bool AD_normality(int64_t *X,    // ranked data points
   // Set zero value for 'extremeZ' as a sentinel
   double extremeZ = 0.0;
 
-  for (int i = 0; i < n; i++) {
+  for (int64_t i = 0; i < n; i++) {
     // Y is a vector of studentized residuals
     Y[i] = ((double) X[i] - mean) / stddev;
     if (Y[i] != Y[i]) {
@@ -258,14 +258,6 @@ static int64_t avg(int64_t a, int64_t b) {
   return (a + b) / 2;
 }
 
-// static int64_t median(int64_t *X, int n) {
-//   assert(X && (n > 0));
-//   int half = n / 2;
-//   if (n == (n/2) * 2)
-//     return avg(X[half - 1], X[half]);
-//   return X[half];
-// }
-
 #define VALUEAT(i) (X[i])
 #define WIDTH(i, j) (VALUEAT(j) - VALUEAT(i))
 
@@ -280,15 +272,15 @@ static int64_t avg(int64_t a, int64_t b) {
 //
 // Note that the data, X, must be sorted.
 //
-static int64_t estimate_mode(int64_t *X, int n) {
+static int64_t estimate_mode(int64_t *X, int64_t n) {
   assert(X && (n > 0));
   // n = size of sample being examined (number of observations)
   // h = size of "half sample" (floor of n/2)
   // idx = start index of samples being examined
   // limit = end index one beyond last sample being examined
   int64_t wmin = 0;
-  int idx = 0;
-  int limit, h;
+  int64_t idx = 0;
+  int64_t limit, h;
 
  tailcall:
   if (n == 1) {
@@ -306,7 +298,7 @@ static int64_t estimate_mode(int64_t *X, int n) {
   wmin = WIDTH(idx, idx+h);
   // Search for half sample with smallest width
   limit = idx+h;
-  for (int i = idx+1; i < limit; i++) {
+  for (int64_t i = idx+1; i < limit; i++) {
     // Break ties in favor of lower value
     if (WIDTH(i, i+h) < wmin) {
       wmin = WIDTH(i, i+h);
@@ -320,7 +312,7 @@ static int64_t estimate_mode(int64_t *X, int n) {
 // Returns -1 when there are insufficient observations for a 95th or
 // 99th percentile request.  For quartiles, we make the best estimate
 // we can with the data we have.
-static int64_t percentile(int pct, int64_t *X, int n) {
+static int64_t percentile(int pct, int64_t *X, int64_t n) {
   if (!X) PANIC_NULL();
   if (n < 1) PANIC("No data on which to calculate a percentile");
   switch (pct) {
@@ -350,45 +342,45 @@ static int64_t percentile(int pct, int64_t *X, int n) {
 }
 
 // Estimate the sample mean: μ = (1/n) Σ(Xi)
-static double estimate_mean(int64_t *X, int n) {
+static double estimate_mean(int64_t *X, int64_t n) {
   assert(X && (n > 0));
   double sum = 0;
-  for (int i = 0; i < n; i++)
+  for (int64_t i = 0; i < n; i++)
     sum += X[i];
   return sum / n;
 }
 
 // Estimate the sample variance: σ² = (1/(n-1)) Σ(Xi-μ)²
 // Return σ, the estimated standard deviation.
-static double estimate_stddev(int64_t *X, int n, double est_mean) {
+static double estimate_stddev(int64_t *X, int64_t n, double est_mean) {
   assert(X && (n > 0));
   double sum = 0;
-  for (int i = 0; i < n; i++)
+  for (int64_t i = 0; i < n; i++)
     sum += pow(X[i] - est_mean, 2);
   return sqrt(sum / (n - 1));
 }
 
-static int *make_index(Usage *usage, int start, int end, Comparator compare) {
+static int64_t *make_index(Usage *usage, int64_t start, int64_t end, Comparator compare) {
   assert(usage);
-  int runs = end - start;
+  int64_t runs = end - start;
   if (runs <= 0) PANIC("Invalid start/end");
-  int *index = malloc(runs * sizeof(int));
+  int64_t *index = malloc(runs * sizeof(int64_t));
   if (!index) PANIC_OOM();
-  for (int i = 0; i < runs; i++) index[i] = start + i;
-  sort(index, runs, sizeof(int), compare, usage);
+  for (int64_t i = 0; i < runs; i++) index[i] = start + i;
+  sort(index, runs, sizeof(int64_t), compare, usage);
   return index;
 }
 
 static int64_t *ranked_sample(Usage *usage,
-			      int start,
-			      int end,
+			      int64_t start,
+			      int64_t end,
 			      FieldCode fc,
 			      Comparator comparator) {
-    int *index = make_index(usage, start, end, comparator);
-    int runs = end - start;
+    int64_t *index = make_index(usage, start, end, comparator);
+    int64_t runs = end - start;
     int64_t *X = malloc(runs * sizeof(double));
     if (!X) PANIC_OOM();
-    for (int i = 0; i < runs; i++)
+    for (int64_t i = 0; i < runs; i++)
       X[i] = get_int64(usage, index[i], fc);
     free(index);
     return X;
@@ -421,11 +413,11 @@ static int64_t *ranked_sample(Usage *usage,
 //   < 0 ==> "flat peak, light tails"
 //   near zero, the distribution resembles a normal one
 static double kurtosis(int64_t *X,
-		       int n,
+		       int64_t n,
 		       double mean,
 		       double stddev) {
   double sum = 0.0;
-  for (int i = 0; i < n; i++)
+  for (int64_t i = 0; i < n; i++)
     sum += pow((X[i] - mean) / stddev, 4.0);
   return (sum / n) - 3.0;
 }
@@ -436,11 +428,11 @@ static double kurtosis(int64_t *X,
 //   0.5 < abs(skew) < 1.0 ==> moderately skewed
 //   abs(skew) > 1.0 ==> highly skewed
 static double skew(int64_t *X,
-		   int n,
+		   int64_t n,
 		   double mean,
 		   double stddev) {
   double sum = 0.0;
-  for (int i = 0; i < n; i++)
+  for (int64_t i = 0; i < n; i++)
     sum += pow((X[i] - mean) / stddev, 3.0);
   return sum * n / (n-1) / (n-2);
 }
@@ -471,17 +463,17 @@ static double Zcrit(double alpha) {
   return fabs(invPhi(alpha / 2.0));
 }
 
-static double skew_stddev(int n) {
+static double skew_stddev(int64_t n) {
   return sqrt(6.0 * n * (n-1) / ((n-2) * (n+1) * (n+3)));
 }
 
-static double skew_kurtosis_Zcrit(int n) {
+static double skew_kurtosis_Zcrit(int64_t n) {
   if (n > 100) return Zcrit(0.001);
   if (n > 50) return Zcrit(0.01);
   return Zcrit(0.05);
 }
 
-static bool nonnormal_skew(double skew, int n) {
+static bool nonnormal_skew(double skew, int64_t n) {
   static double skew_large_sample = 2.0;
   if (n > 300) return (fabs(skew) > skew_large_sample);
   double sdskew = skew_stddev(n);
@@ -489,7 +481,7 @@ static bool nonnormal_skew(double skew, int n) {
   return (Zabs > skew_kurtosis_Zcrit(n));
 }
 
-static bool nonnormal_kurtosis(double kurtosis, int n) {
+static bool nonnormal_kurtosis(double kurtosis, int64_t n) {
   if (n > 300) return (fabs(kurtosis) > 4.0); // 7.0 - 3.0
   double sdskew = skew_stddev(n);
   double sdkurtosis = sqrt(4.0 * (n*n - 1) * sdskew * sdskew / ((n-3)*(n+5)));
@@ -515,12 +507,12 @@ static bool lowvariance(double mean, double stddev) {
 // values are single int64_t fields storing microseconds.
 //
 static void measure(Usage *usage,
-		    int start,
-		    int end,
+		    int64_t start,
+		    int64_t end,
 		    FieldCode fc,
 		    Comparator compare,
 		    Measures *m) {
-  int runs = end - start;
+  int64_t runs = end - start;
   if (runs < 1) PANIC("No data to analyze");
   int64_t *X = ranked_sample(usage, start, end, fc, compare);
 
@@ -597,13 +589,13 @@ void free_summary(Summary *s) {
   free(s);
 }
 
-static Summary **new_summaries(int n) {
+static Summary **new_summaries(int64_t n) {
   return calloc(n, sizeof(Summary *));
 }
 
-void free_summaries(Summary **ss, int n) {
+void free_summaries(Summary **ss, int64_t n) {
   if (!ss) return;
-  for (int i = 0; i < n; i++) {
+  for (int64_t i = 0; i < n; i++) {
     Summary *s = ss[i];
     free(s->cmd);
     free(s->shell);
@@ -618,12 +610,17 @@ void free_summaries(Summary **ss, int n) {
 // Compute statistical summary of a sample (collection of observations)
 // -----------------------------------------------------------------------------
 
+//static Timer summarize_timer = UNINITIALIZED_TIMER;
+
 //
 // Summarize from usage[start] to usage[end-1]
 //
-Summary *summarize(Usage *usage, int start, int end) {
+Summary *summarize(Usage *usage, int64_t start, int64_t end) {
   if (!usage) return NULL;
   if ((start < 0) || (end > usage->next)) return NULL;
+
+//   init_timer(&summarize_timer, "summarize");
+//   start_timer(&summarize_timer);
 
   Summary *s = new_summary();
   s->cmd = strndup(get_string(usage, start, F_CMD), MAXCMDLEN);
@@ -632,7 +629,7 @@ Summary *summarize(Usage *usage, int start, int end) {
   s->name = tmp ? strndup(tmp, MAXCMDLEN) : NULL;
   s->batch = usage->data[start].batch;
   s->runs = end - start;
-  for (int i = start; i < end; i++) 
+  for (int64_t i = start; i < end; i++) 
     s->fail_count += (get_int64(usage, i, F_CODE) != 0);
 
   measure(usage, start, end, F_TOTAL, compare_totaltime, &s->total);
@@ -644,19 +641,22 @@ Summary *summarize(Usage *usage, int start, int end) {
   measure(usage, start, end, F_TCSW, compare_tcsw, &s->tcsw);
   measure(usage, start, end, F_WALL, compare_wall, &s->wall);
 
+//   stop_timer(&summarize_timer);
+//   print_timer(&summarize_timer);
+
   return s;
 }
 
-static Ranking *make_ranking(Usage *usage, int start, int end) {
+static Ranking *make_ranking(Usage *usage, int64_t start, int64_t end) {
   if (!usage) PANIC_NULL();
   if ((start < 0) || (end < 0) || (end <= start))
     PANIC("Start or end index is invalid (%d, %d)", start, end);
 
-  int maxsummaries = end - start;
+  int64_t maxsummaries = end - start;
   Ranking *rank = malloc(sizeof(Ranking));
   if (!rank) PANIC_OOM();
   rank->usage = usage;
-  rank->usageidx = malloc((maxsummaries + 1) * sizeof(int));
+  rank->usageidx = malloc((maxsummaries + 1) * sizeof(int64_t));
   if (!rank->usageidx) PANIC_OOM();
   //
   // Fill in the usageidx array:
@@ -665,12 +665,12 @@ static Ranking *make_ranking(Usage *usage, int start, int end) {
   //
   // Note that the end index k is exclusive.
   //
-  int count = 0;
+  int64_t count = 0;
   rank->usageidx[0] = 0;
-  int i = 0;
+  int64_t i = 0;
   while (i < end) {
     // Find usage index with a different batch number than the one at 'start'
-    int batch = usage->data[i].batch;
+    int64_t batch = usage->data[i].batch;
     for (i++; i < end; i++) 
       if (usage->data[i].batch != batch) break;
     rank->usageidx[count+1] = i;
@@ -706,32 +706,35 @@ Ranking *rank(Usage *usage) {
   Ranking *ranking = make_ranking(usage, 0, usage->next);
   if (ranking->count == 0) {
     free_ranking(ranking);
-    return NULL;		// No data
+    return NULL;
   }
 
-  int start = 0;
-  int end = ranking->count;
+  int64_t start = 0;
+  int64_t end = ranking->count;
 
   // Compute the comparative statistics between each sample and the
   // fastest one.
-  int bestidx = ranking->index[0];
+  int64_t bestidx = ranking->index[0];
 
   Summary **s = ranking->summaries;
 
-  // Need a minimum of INFERENCE_N_THRESHOLD observations
-  if (s[bestidx]->runs >= INFERENCE_N_THRESHOLD) {
-    // Compare each sample to the best performer
-    for (int k = start; k < end; k++) {
-      int i = ranking->index[k];
-      if (i == bestidx) continue;
-      s[i]->infer =
-	compare_samples(usage,
-			config.alpha,
-			ranking->usageidx[bestidx], ranking->usageidx[bestidx+1],
-			ranking->usageidx[i], ranking->usageidx[i+1]);
+  // If we are not printing the ranking, we don't compute it, because
+  // it's expensive, needing O(N^2) time and space.
+  if (option.ranking) {
+    // Need a minimum of INFERENCE_N_THRESHOLD observations
+    if (s[bestidx]->runs >= INFERENCE_N_THRESHOLD) {
+      // Compare each sample to the best performer
+      for (int64_t k = start; k < end; k++) {
+	int64_t i = ranking->index[k];
+	if (i == bestidx) continue;
+	s[i]->infer =
+	  compare_samples(usage,
+			  config.alpha,
+			  ranking->usageidx[bestidx], ranking->usageidx[bestidx+1],
+			  ranking->usageidx[i], ranking->usageidx[i+1]);
+      }
     }
   }
-
   return ranking;
 }
 
@@ -741,12 +744,12 @@ Ranking *rank(Usage *usage) {
 
 // On exit, ranks[i] is the rank of X[index[i]].  If the 'index' arg
 // is NULL, ranks[i] is the rank of X[i].
-static double *assign_ranks(int64_t *X, int *index, int N) {
+static double *assign_ranks(int64_t *X, int64_t *index, int64_t N) {
   double *ranks = malloc(N * sizeof(double));
   if (!ranks) PANIC_OOM();
   ranks[0] = 1.0;
-  int ties = 0;
-  for (int i = 1; i < N; i++) {
+  int64_t ties = 0;
+  for (int64_t i = 1; i < N; i++) {
     if ((index && (X[index[i]] == X[index[i - 1]]))
 	|| (X[i] == X[i - 1])) {
       ties++;
@@ -755,24 +758,24 @@ static double *assign_ranks(int64_t *X, int *index, int N) {
     if (ties) {
       // Found the end of a set of tie values
       double avg = ((double) ties / 2.0) + i - ties;
-      for (int j = 0; j < (ties + 1); j++) 
+      for (int64_t j = 0; j < (ties + 1); j++) 
 	ranks[i - j - 1] = avg;
       ties = 0;
     }
     ranks[i] = i + 1;
   }
   if (ties) {
-    double avg = ((double) ties / 2.0) + N - ties;
-    for (int j = 0; j < (ties + 1); j++) 
+    double avg = ((double) ties / 2.0) + (double) N - (double) ties;
+    for (int64_t j = 0; j < (ties + 1); j++) 
       ranks[N - j - 1] = avg;
   }
 
   if (DEBUG) {
     double totalrank = 0.0;
-    for (int k = 0; k < N; k++)
+    for (int64_t k = 0; k < N; k++)
       totalrank += ranks[k];
     printf("Total rank = %8.3f\n", totalrank);
-    double expected = N * (N + 1) / 2.0;
+    double expected = (double) N * (double) (N + 1) / 2.0;
     printf("Expected total rank = %8.3f\n", expected);
     if (expected != totalrank) PANIC("Rank total is incorrect");
     printf("Rank sum is correct at %f\n", totalrank);
@@ -787,27 +790,29 @@ static int i64_lt(const void *a, const void *b, void *data) {
     return *(const int64_t *)a - *(const int64_t *)b;
   }
   const int64_t *X = (const int64_t *) data;
-  int64_t Xa = X[*(const int *)a];
-  int64_t Xb = X[*(const int *)b];
-  return Xa - Xb;
+  int64_t Xa = X[*(const int64_t *)a];
+  int64_t Xb = X[*(const int64_t *)b];
+  int64_t diff = Xa - Xb;
+  return (diff > 0) ? 1 : ((diff < 0) ? -1 : 0);
 }
 
 // IMPORTANT: A RankedCombinedSample may contain n1+n2 elements (size
 // of 'X' and 'ranks') or n1*n2 elements.
 typedef struct RankedCombinedSample {
-  int      n1;		// Size of sample 1
-  int      n2;		// Size of sample 2
-  int64_t *X;		// Ranked (sorted) differences
-  double  *rank;	// Assigned ranks for X[]
+  int64_t      n1;		// Size of sample 1
+  int64_t      n2;		// Size of sample 2
+  int64_t *X;			// Ranked (sorted) differences
+  double  *rank;		// Assigned ranks for X[]
 } RankedCombinedSample;
 
-static RankedCombinedSample rank_difference_magnitude(Usage *usage,
-						      int start1, int end1,
-						      int start2, int end2,
-						      FieldCode fc) {
-  int n1 = end1 - start1;
-  int n2 = end2 - start2;
-  int N = n1 * n2;
+static RankedCombinedSample
+rank_difference_magnitude(Usage *usage,
+			  int64_t start1, int64_t end1,
+			  int64_t start2, int64_t end2,
+			  FieldCode fc) {
+  int64_t n1 = end1 - start1;
+  int64_t n2 = end2 - start2;
+  int64_t N = n1 * n2;
 
   if ((n1 <= 0) || (n2 <= 0))
     PANIC("Invalid sample sizes");
@@ -821,30 +826,30 @@ static RankedCombinedSample rank_difference_magnitude(Usage *usage,
   int *signs = malloc(N * sizeof(int));
   if (!signs) PANIC_OOM();
 
-  for (int i = 0; i < n1; i++) 
-    for (int j = 0; j < n2; j++) {
+  for (int64_t i = 0; i < n1; i++) 
+    for (int64_t j = 0; j < n2; j++) {
       int64_t diff = get_int64(usage, start1 + i, fc) - get_int64(usage, start2 + j, fc);
-      int idx = i*n2+j;
+      int64_t idx = i*n2+j;
       signs[idx] = (diff < 0) ? -1 : ((diff > 0) ? 1 : 0);
       diff *= signs[idx];
       X[idx] = diff;
     }
 
-  int *index = malloc(N * sizeof(int));
+  int64_t *index = malloc(N * sizeof(int64_t));
   if (!index) PANIC_OOM();
-  for (int i = 0; i < N; i++) index[i] = i;
-  sort(index, N, sizeof(int), i64_lt, X);
+  for (int64_t i = 0; i < N; i++) index[i] = i;
+  sort(index, N, sizeof(int64_t), i64_lt, X);
 
   double *ranks = assign_ranks(X, index, N);
 
   // Restore signs
-  for (int k = 0; k < N; k++)
+  for (int64_t k = 0; k < N; k++)
     X[k] *= signs[k];
   
   // Eliminate index by using it to reorder X
   int64_t *Y = malloc(N * sizeof(int64_t));
   if (!Y) PANIC_OOM();
-  for (int k = 0; k < N; k++)
+  for (int64_t k = 0; k < N; k++)
     Y[k] = X[index[k]];
 
   free(X);
@@ -853,13 +858,14 @@ static RankedCombinedSample rank_difference_magnitude(Usage *usage,
   return (RankedCombinedSample) {n1, n2, Y, ranks};
 }
 
-static RankedCombinedSample rank_difference_signed(Usage *usage,
-						   int start1, int end1,
-						   int start2, int end2,
-						   FieldCode fc) {
-  int n1 = end1 - start1;
-  int n2 = end2 - start2;
-  int N = n1 * n2;
+static RankedCombinedSample
+rank_difference_signed(Usage *usage,
+		       int64_t start1, int64_t end1,
+		       int64_t start2, int64_t end2,
+		       FieldCode fc) {
+  int64_t n1 = end1 - start1;
+  int64_t n2 = end2 - start2;
+  int64_t N = n1 * n2;
 
   if ((n1 <= 0) || (n2 <= 0))
     PANIC("Invalid sample sizes");
@@ -870,10 +876,10 @@ static RankedCombinedSample rank_difference_signed(Usage *usage,
   int64_t *X = malloc(N * sizeof(int64_t));
   if (!X) PANIC_OOM();
 
-  for (int i = 0; i < n1; i++) 
-    for (int j = 0; j < n2; j++) {
+  for (int64_t i = 0; i < n1; i++) 
+    for (int64_t j = 0; j < n2; j++) {
       int64_t diff = get_int64(usage, start1 + i, fc) - get_int64(usage, start2 + j, fc);
-      int idx = i*n2+j;
+      int64_t idx = i*n2+j;
       X[idx] = diff;
     }
 
@@ -885,27 +891,27 @@ static RankedCombinedSample rank_difference_signed(Usage *usage,
 // RCS must rank the set of n1 * n2 sample DIFFERENCES by their
 // MAGNITUDE.  
 static double mann_whitney_w(RankedCombinedSample RCS) {
-  int N = RCS.n1 * RCS.n2;
-  int count_zero = 0;
-  int count_pos = 0;
-  for (int i = 0; i < N; i++) {
+  int64_t N = RCS.n1 * RCS.n2;
+  int64_t count_zero = 0;
+  int64_t count_pos = 0;
+  for (int64_t i = 0; i < N; i++) {
     if (RCS.X[i] == 0) count_zero++;
     else if (RCS.X[i] > 0) count_pos++;
   }
   double W = count_pos;
   W += 0.5 * (double) count_zero;
-  W += 0.5 * (double) (RCS.n1 * (RCS.n1 + 1));
+  W += 0.5 * (double) RCS.n1 * (double) (RCS.n1 + 1);
   return W;
 }
 
 static double tie_correction(RankedCombinedSample RCS) {
-  int N = RCS.n1 + RCS.n2;
+  int64_t N = RCS.n1 + RCS.n2;
   // tc is the number of ranks that have ties
   // counts[i] = number of ties for the ith tied rank
-  double t3term, correction = 0.0;
+  double correction = 0.0;
   bool counting = false;
-  int count = 0;
-  for (int k = 0; k < N; k++) {
+  int64_t count = 0;
+  for (int64_t k = 0; k < N; k++) {
     if (k > 0) {
       if (RCS.rank[k] == RCS.rank[k-1]) {
 	if (counting) {
@@ -916,8 +922,7 @@ static double tie_correction(RankedCombinedSample RCS) {
 	}
       } else if (counting) {
 	counting = false;
-	t3term = (double) (count * count * count - count);
-	correction +=  t3term;
+	correction += pow((double) count, 3) - (double) count;
 	count = 0;
       }
     }
@@ -932,8 +937,8 @@ static double tie_correction(RankedCombinedSample RCS) {
 // https://support.minitab.com/en-us/minitab/help-and-how-to/statistics/nonparametrics/how-to/mann-whitney-test/methods-and-formulas/methods-and-formulas/
 //
 static double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjustedp) {
-  int n1 = RCS.n1;
-  int n2 = RCS.n2;
+  int64_t n1 = RCS.n1;
+  int64_t n2 = RCS.n2;
   double n1_times_sum = (int64_t) n1 * (int64_t) (n1 + n2 + 1);
   double K = fmin(W, n1_times_sum - W);
   // Mean and std dev for W assumes W is normally distributed, which
@@ -953,9 +958,11 @@ static double mann_whitney_p(RankedCombinedSample RCS, double W, double *adjuste
   if (p < 0.0) p = 0.0;
   if (p > 1.0) p = 1.0;
   if (adjustedp) {
-    double f1 = (double) (n1*n2) / (double) ((n1+n2)*(n1+n2-1));
-    double addend1 = pow((double) (n1+n2), 3.0) / 12.0;
-    double addend2 = tie_correction(RCS) / ((n1+n2)*(n1+n2-1));
+    double n1n2 = (double) n1 * (double) n2;
+    double n1_plus_n2 = (double) n1 + (double) n2;
+    double f1 = n1n2 / (n1_plus_n2 * (n1_plus_n2 - 1.0));
+    double addend1 = pow(n1_plus_n2, 3.0) / 12.0;
+    double addend2 = tie_correction(RCS) / (n1_plus_n2 * (n1_plus_n2 - 1.0));
     double stddev_adjusted = sqrt(f1) * sqrt(addend1 - addend2);
     double adjustedZ = (mean_distanceK - cc) / stddev_adjusted;
     *adjustedp = 2 * cPhi(adjustedZ);
@@ -995,9 +1002,9 @@ static double median_diff_ci(RankedCombinedSample RCS,
   double low = (N / 2.0) - Zcrit * sqrt(N * (n1 + n2 + 1) / 12.0);
   low = floor(low);
   double high = floor(N - low + 1);
-  int lowidx = -1, highidx = -1;
-  for (int k = 0; k < N; k++) {
-    int rank = RCS.rank[k];
+  int64_t lowidx = -1, highidx = -1;
+  for (int64_t k = 0; k < N; k++) {
+    int64_t rank = RCS.rank[k];
     if ((lowidx == -1) && (rank > low)) lowidx = k;
     if (rank < high) highidx = k;
   }
@@ -1013,19 +1020,19 @@ static double median_diff_ci(RankedCombinedSample RCS,
 }
 
 static double ranked_diff_Ahat(RankedCombinedSample RCS) {
-  double n1 = RCS.n1;
-  double n2 = RCS.n2;
-  int N = RCS.n1 * RCS.n2;
-  int count_zero = 0;
-  int count_pos = 0;
-  for (int k = 0; k < N; k++) {
+  double n1_dbl = RCS.n1;
+  double n2_dbl = RCS.n2;
+  int64_t N = RCS.n1 * RCS.n2;
+  int64_t count_zero = 0;
+  int64_t count_pos = 0;
+  for (int64_t k = 0; k < N; k++) {
     //printf("[%2d] rank = %.1f, X = %lld\n", k, RCS.rank[k], RCS.X[k]);
     if (RCS.X[k] == 0) count_zero++;
     else if (RCS.X[k] > 0) count_pos++;
   }
   double sum = (double) count_pos + 0.5 * (double) count_zero;
-  double R1 = (n1 * (n1+1) / 2.0) + sum;
-  double Ahat = (R1/n1 - (n1+1)/2.0) / n2;
+  double R1 = (n1_dbl * (n1_dbl + 1) / 2.0) + sum;
+  double Ahat = (R1/n1_dbl - (n1_dbl+1)/2.0) / n2_dbl;
   return Ahat;
 }
 
@@ -1048,9 +1055,9 @@ static double ranked_diff_Ahat(RankedCombinedSample RCS) {
 // having a breakdown point of 0.50."
 //
 static double median_diff_estimate(RankedCombinedSample RCS) {
-  int N = RCS.n1 * RCS.n2;
+  int64_t N = RCS.n1 * RCS.n2;
   if (N < 1) PANIC("Invalid ranked combined sample");
-  int h = N / 2;
+  int64_t h = N / 2;
   if (2 * h == N) 
     return (RCS.X[h-1] + RCS.X[h]) / 2.0;
   return RCS.X[h];
@@ -1064,8 +1071,8 @@ static int compare_median_total_time(const void *idx_ptr1,
 				     const void *idx_ptr2,
 				     void *context) {
   Summary **s = context;
-  const int idx1 = *((const int *)idx_ptr1);
-  const int idx2 = *((const int *)idx_ptr2);
+  const int64_t idx1 = *((const int64_t *)idx_ptr1);
+  const int64_t idx2 = *((const int64_t *)idx_ptr2);
   int64_t val1 = s[idx1]->total.median;
   int64_t val2 = s[idx2]->total.median;
   if (val1 > val2) return 1;
@@ -1074,25 +1081,31 @@ static int compare_median_total_time(const void *idx_ptr1,
 }
 
 // Caller must free the returned array
-int *sort_by_totaltime(Summary **summaries, int start, int end) {
+int64_t *sort_by_totaltime(Summary **summaries, int64_t start, int64_t end) {
   if (!summaries || !*summaries) PANIC_NULL();
-  int n = end - start;
+  int64_t n = end - start;
   if (n < 1) return NULL;
-  int *index = malloc(n * sizeof(int));
+  int64_t *index = malloc(n * sizeof(int64_t));
   if (!index) PANIC_OOM();
-  for (int i = 0; i < (end - start); i++) index[i] = i+start;
-  sort(index, n, sizeof(int), compare_median_total_time, summaries);
+  for (int64_t i = 0; i < (end - start); i++) index[i] = i+start;
+  sort(index, n, sizeof(int64_t), compare_median_total_time, summaries);
   return index;
 }
+
+//static Timer compare_samples_timer = UNINITIALIZED_TIMER;
 
 // Returns NULL if there are insufficient observations in either
 // sample to calculate inferences.
 Inference *compare_samples(Usage *usage,
 			   double alpha,
-			   int ref_start, int ref_end,
-			   int idx_start, int idx_end) {
-  int n1 = ref_end - ref_start;
-  int n2 = idx_end - idx_start;
+			   int64_t ref_start, int64_t ref_end,
+			   int64_t idx_start, int64_t idx_end) {
+
+//   init_timer(&compare_samples_timer, "compare_samples");
+//   start_timer(&compare_samples_timer);
+
+  int64_t n1 = ref_end - ref_start;
+  int64_t n2 = idx_end - idx_start;
   if ((n1 < INFERENCE_N_THRESHOLD)
       || (n2 < INFERENCE_N_THRESHOLD)) return NULL;
   
@@ -1142,6 +1155,9 @@ Inference *compare_samples(Usage *usage,
   if (stat->p_super > config.super)
     SET(stat->indistinct, INF_HIGHSUPER);
     
+//   stop_timer(&compare_samples_timer);
+//   print_timer(&compare_samples_timer);
+
   free(RCSmag.X);
   free(RCSmag.rank);
   free(RCSsigned.X);
