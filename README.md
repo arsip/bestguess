@@ -170,7 +170,7 @@ The accompanying program `bestreport` can read the raw data file (or many of
 them) and reproduce any and all of the summary statistics and graphs:
 
 ``` 
-$ bestreport -NB /tmp/data.csv
+$ bestreport -QRB /tmp/data.csv
    5        10        16        21        27        32        37        43      
    ├─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼─────────┼──────
         ┌─┬┐
@@ -226,7 +226,7 @@ For each of the measures above, there is a column for:
   * maximum (Q4)
 
 ```
-$ bestguess --export-csv /tmp/summary.csv -N -r=20 "ls -l" "ps Aux"
+$ bestguess --export-csv /tmp/summary.csv -NR -r=20 "ls -l" "ps Aux"
 Use -o <FILE> or --output <FILE> to write raw data to a file.
 
 Best guess ranking:
@@ -396,12 +396,6 @@ Command 2: ls
 │▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
 │▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭▭
 
-Best guess ranking: The top 2 commands performed identically
-
-  ══════ Command ═══════════════════════════ Total time ═════ Slower by ════════
-  ✻   2: ls                                     2.48 ms 
-  ✻   1: /bin/bash                              3.15 ms    0.67 ms   1.27x 
-  ══════════════════════════════════════════════════════════════════════════════
 $ 
 ```
 
@@ -422,7 +416,7 @@ considerably.  The BestGuess ranking analysis concludes that these two commands
 performed statistically identically.
 
 ```
-$ bestguess -NB -r 100 /bin/bash ls
+$ bestguess -NRB -r 100 /bin/bash ls
 Use -o <FILE> or --output <FILE> to write raw data to a file.
 
  2.0       2.1       2.3       2.4       2.5       2.7       2.8       2.9      
@@ -489,7 +483,7 @@ see why, in this experiment, these two commands performed differently:
      overlap only to a limited degree.
 
 ```
-$ bestguess -N -BE -r 100 /bin/bash ls
+$ bestguess -N -BRE -r 100 /bin/bash ls
 Use -o <FILE> or --output <FILE> to write raw data to a file.
 
  2.0       2.9       3.8       4.8       5.7       6.6       7.5       8.4 
@@ -663,7 +657,7 @@ You need at least 20 runs to get 95th and at least 100 runs to get 99th
 percentile numbers.
 
 ```
-$ bestreport -NT test/raw100.csv
+$ bestreport -NRT test/raw100.csv
 Command 1: ls -l
   ╭────────────────────────────────────────────────────────────────────────────╮
   │                      Total CPU Time Distribution Tail                      │
@@ -736,8 +730,10 @@ include utilities like `/usr/bin/env` (which requires `-S` not `-c`).
 ### Report options
 
 Commonly used options include:
+  * `-S`, `--summary` (show summary stats; more than mini-stats; shown by default)
+  * `-R`, `--ranking` (show statistical ranking; shown by default)
   * `-M`, `--mini-stats` (show only wall clock and total CPU time stats)
-  * `-N`, `--no-stats` (show no summary stats; only the ranking is reported)
+  * `-Q`, `--quiet` (show only reports requested via other flags)
   * `-G`, `--graph` (show graph of one command's total CPU time)
   * `-B`, `--boxplot` (show rough box plots of total CPU time on terminal)
   * `-E`, `--explain` (explain the ranking by showing inferential statistics)

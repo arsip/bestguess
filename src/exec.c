@@ -346,7 +346,7 @@ Ranking *run_all_commands(void) {
   // Best practice is to save the raw data (all the timing runs).
   // We provide a reminder if that data is not being saved.
   if (!option.output_filename && !option.quiet) {
-    printf("⮕ Use -%s <FILE> or --%s <FILE> to write raw data to a file.\n\n",
+    printf("⇨ Use -%s <FILE> or --%s <FILE> to write raw data to a file. ⇦\n\n",
 	   optable_shortname(OPT_OUTPUT), optable_longname(OPT_OUTPUT));
     fflush(stdout);
   }

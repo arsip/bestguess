@@ -230,7 +230,7 @@ static const char *ADscore_description(Measures *m) {
 		 m->p_normal, config.alpha);
       return tmp;
     } else {
-      ASPRINTF(&tmp, "p = %5.3f (non-signif., α = %4.2f) Cannot rule out normal",
+      ASPRINTF(&tmp, "p = %5.3f (non-signif., α = %4.2f)",
 	       m->p_normal, config.alpha);
       return tmp;
     }

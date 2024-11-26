@@ -167,8 +167,8 @@ void show_config_settings(void) {
   show_setting(CONFIG_SUPER);
 }
 
-#define HELP_QUIET "Do not generate or show reports"
-#define HELP_RANKING "Calculate and display statistical ranking of commands"
+#define HELP_QUIET "Show only the output requested using other flags"
+#define HELP_RANKING "Calculate and show statistical ranking of commands"
 #define HELP_SUMMARY "Show summary statistics for each command"
 #define HELP_MINISTATS "Show minimal summary statistics for each command"
 #define HELP_DISTSTATS "Report the analysis of each sample distribution"
@@ -177,9 +177,8 @@ void show_config_settings(void) {
 #define HELP_GRAPH "Show graph of total time for each command execution"
 #define HELP_BOXPLOT "Show box plot of timing data comparing all commands"
 #define HELP_ACTION							\
-  "In rare circumstances, the Bestguess executables\n"			\
-  "are installed under custom names.  In that case, the\n"		\
-  "<ACTION> option is required.  See the manual for more." 
+  "If the BestGuess executables are installed under custom\n"		\
+  "names, an <ACTION> option is required.  See the manual." 
 
 // TODO: Eliminate redundancy across the init_*_options() functions.
 
@@ -194,8 +193,8 @@ static void init_action_options(void) {
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",     0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain",     0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",      1, HELP_ACTION);
-  optable_add(OPT_CONFIG,     "c",   NULL,         1, config_help());
-  optable_add(OPT_SHOWCONFIG, NULL, "config",      0, "Show configuration settings");
+  optable_add(OPT_SHOWCONFIG, "C",  NULL,          0, "Show configuration settings");
+  optable_add(OPT_CONFIG,     "c",  "config",      1, config_help());
   optable_add(OPT_VERSION,    "v",  "version",     0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",        0, "Show help");
   if (optable_error())
@@ -339,7 +338,6 @@ static void init_exec_options(void) {
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain",        0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
-  optable_add(OPT_CONFIG,     "c",   NULL,            1, config_help());
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
@@ -454,7 +452,6 @@ static void init_report_options(void) {
   optable_add(OPT_BOXPLOT,    "B",  "boxplot",        0, HELP_BOXPLOT);
   optable_add(OPT_EXPLAIN,    "E",  "explain",        0, HELP_EXPLAIN);
   optable_add(OPT_ACTION,     "A",  "action",         1, HELP_ACTION);
-  optable_add(OPT_CONFIG,     "c",   NULL,            1, config_help());
   optable_add(OPT_VERSION,    "v",  "version",        0, "Show version");
   optable_add(OPT_HELP,       "h",  "help",           0, "Show help");
   if (optable_error())
